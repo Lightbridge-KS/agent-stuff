@@ -1,0 +1,19 @@
+# Skill install targets — ONE block per agent. Add an agent = add a block here;
+# no Python change. `bin/install.py` reads this file and generates a `--<name>`
+# shortcut for each entry. `skills` is the directory the agent reads skills from
+# (leading `~` is expanded). A target is considered "present" on a machine when
+# the parent of its skills dir exists, which is what `--all` uses to stay safe.
+
+[claude]
+skills = "~/.claude/skills"
+
+[codex]
+skills = "~/.codex/skills"
+
+[pi]
+skills = "~/.pi/agent/skills"
+
+# Shared cross-agent convention — several agents read here. Installing once can
+# serve more than one tool. Included in `--all` when ~/.agents exists.
+[agents]
+skills = "~/.agents/skills"

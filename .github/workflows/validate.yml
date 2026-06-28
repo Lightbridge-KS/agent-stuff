@@ -1,0 +1,25 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Validate skills, manifests, scripts, and hooks
+        run: uv run bin/validate.py
+      - name: Run installer tests
+        run: uv run tests/test_install.py
+      - name: Run hook tests
+        run: uv run tests/test_hooks.py
+      - name: Syntax-check all Python (bin, scripts, hooks, tests)
+        run: |
+          uv run python -m py_compile \
+            bin/install.py bin/validate.py \
+            scripts/*/*.py hooks/*/*.py tests/*.py

@@ -1,0 +1,12 @@
+# Temp Dir
+_temp/
+# macOS
+*.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Scratchpad
+_playground/
+_temp/
