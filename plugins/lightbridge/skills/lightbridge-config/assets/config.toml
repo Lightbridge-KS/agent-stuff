@@ -1,0 +1,10 @@
+# .lightbridge/config.toml — personal workflow config (Lightbridge-KS).
+# Per-repo, committed. Opt-in by SECTION presence: a feature is on iff its [section]
+# exists. Delete sections you don't use; set enabled = false to disable without deleting.
+# Full spec: the lightbridge-config skill (references/catalog.md).
+
+[docs-index]
+# Inject this repo's docs map at Claude Code SessionStart (agent-stuff docs-index-inject hook).
+enabled = true                     # optional; default true
+dir = "docs"                       # docs directory, relative to repo root
+exclude = ["archive", "research"]  # subdir names to skip

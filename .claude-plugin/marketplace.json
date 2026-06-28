@@ -22,6 +22,14 @@
       "description": "Medical-imaging tooling references: DICOM via DCMTK, the Orthanc REST API, and 3D Slicer.",
       "category": "domain-expertise",
       "tags": ["dicom", "dcmtk", "orthanc", "slicer"]
+    },
+    {
+      "name": "lightbridge",
+      "displayName": "Lightbridge",
+      "source": "./plugins/lightbridge",
+      "description": "Personal workflow conventions — bootstrap and manage the .lightbridge/ per-repo config namespace.",
+      "category": "productivity",
+      "tags": ["config", "workflow", "lightbridge"]
     }
   ]
 }

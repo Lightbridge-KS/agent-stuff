@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "lightbridge",
+  "description": "Personal workflow conventions — bootstrap and manage the .lightbridge/ per-repo config namespace.",
+  "author": {
+    "name": "Kittipos S.",
+    "url": "https://github.com/Lightbridge-KS"
+  },
+  "homepage": "https://github.com/Lightbridge-KS/agent-stuff",
+  "repository": "https://github.com/Lightbridge-KS/agent-stuff",
+  "license": "MIT",
+  "keywords": ["config", "workflow", "lightbridge"]
+}
