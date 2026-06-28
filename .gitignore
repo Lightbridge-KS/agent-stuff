@@ -1,5 +1,7 @@
 # Temp Dir
 _temp/
+# VS Code
+*.vscode/
 # macOS
 *.DS_Store
 
