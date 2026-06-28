@@ -1,0 +1,6 @@
+# Agent-neutral hook descriptor. `bin/install.py --hooks` renders this into each
+# agent's native registration block (Claude settings.json, Codex hooks.json / config.toml).
+event = "SessionStart"
+command = "hook.py"                       # relative to this folder; installer resolves to absolute
+statusMessage = "Injecting docs index"   # optional; Codex shows it, Claude ignores it
+# matcher = "startup|resume"             # optional; omitted = fire on every source

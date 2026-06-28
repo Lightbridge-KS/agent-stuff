@@ -78,8 +78,10 @@ Standalone CLIs an agent runs inside the project it's working in. Each is a self
 
 ## Hooks
 
-Claude Code event hooks, each with a `settings.json` snippet to register it. Print the
-snippets with paths resolved (the installer never edits settings):
+`SessionStart` event hooks for **Claude Code and Codex**. Each is described by an
+agent-neutral [`hook.toml`](hooks/docs-index-inject/hook.toml); the installer renders it into
+every agent's registration form (Claude `settings.json`, Codex `hooks.json` / `config.toml`)
+with paths resolved. It only prints — it never edits settings:
 
 ```sh
 uv run bin/install.py --hooks
@@ -89,7 +91,8 @@ uv run bin/install.py --hooks
   injects the project's docs index into context automatically, pairing with `docs-index`.
   **Registered once** (user settings) but **opt-in per repo**: it only fires where a
   `[docs-index]` section is declared in `.lightbridge/config.toml`, so repos with no docs —
-  or a website `docs/` — are untouched.
+  or a website `docs/` — are untouched. (Codex additionally requires trusting the hook via
+  `/hooks`.)
 
 ## Develop
 

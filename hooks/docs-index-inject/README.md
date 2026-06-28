@@ -1,8 +1,12 @@
 # docs-index-inject
 
-A Claude Code **`SessionStart`** hook that injects a project's docs index into the agent's
-context automatically — so it knows which docs exist, and *when* to read them, before
-writing any code. No manual "run docs-index first" step.
+A **`SessionStart`** hook for **Claude Code and Codex** that injects a project's docs index
+into the agent's context automatically — so it knows which docs exist, and *when* to read
+them, before writing any code. No manual "run docs-index first" step.
+
+The hook logic is agent-neutral: it reads `cwd` on stdin and emits the shared
+`hookSpecificOutput.additionalContext` envelope that both agents consume. Only the
+*registration* differs per agent (see below); `bin/install.py --hooks` renders both.
 
 It is **opt-in per repository**: registered once in your user settings, it only fires in
 repos whose `.lightbridge/config.toml` declares a `[docs-index]` section. Repos with no
@@ -30,15 +34,20 @@ It fails open and quiet on any error (missing/malformed config, missing source).
 
 ## 1. Enable once (per machine)
 
-The hook is a self-contained `uv` script — no install step beyond `uv` itself. Register it
-**once** in user-level `~/.claude/settings.json`. Print the ready-to-paste snippet (paths
-already resolved for your checkout):
+The hook is a self-contained `uv` script — no install step beyond `uv` itself. The canonical,
+agent-neutral descriptor is [`hook.toml`](hook.toml); the installer renders it into each
+agent's native registration form with the path resolved for your checkout:
 
 ```sh
 uv run bin/install.py --hooks
 ```
 
-It prints a block like this — merge it into `~/.claude/settings.json`:
+> The installer only **prints** these blocks; it never edits your settings. Wiring a hook
+> stays a deliberate, one-time choice.
+
+### Claude Code
+
+Merge the printed `SessionStart` block into user-level `~/.claude/settings.json`:
 
 ```jsonc
 {
@@ -51,8 +60,24 @@ It prints a block like this — merge it into `~/.claude/settings.json`:
 }
 ```
 
-> The installer **prints** the snippet; it never edits your settings. Wiring a hook stays a
-> deliberate, one-time choice.
+### Codex
+
+Codex reads hooks from **either** `~/.codex/hooks.json` **or** an inline `[hooks]` table in
+`~/.codex/config.toml` — register in **exactly one** (Codex warns if both exist in one layer).
+The `--hooks` output prints both forms; paste one:
+
+```jsonc
+// ~/.codex/hooks.json
+{ "hooks": { "SessionStart": [ { "hooks": [ { "type": "command",
+  "command": "/abs/path/to/agent-stuff/hooks/docs-index-inject/hook.py",
+  "statusMessage": "Injecting docs index" } ] } ] } }
+```
+
+Then run **`/hooks`** in Codex to review and **trust** the hook — non-managed command hooks
+don't run until trusted. Trust is recorded against the hook's *current hash*, so Codex
+re-prompts for review whenever `hook.py` changes; re-trust after edits (or pass
+`--dangerously-bypass-hook-trust` while iterating). The hook only consumes `cwd`, so it does
+not depend on the session starting at a git root.
 
 ## 2. Opt in (per repo)
 

@@ -32,6 +32,7 @@ the canonical source if a target happens to resolve to it.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import sys
@@ -42,7 +43,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PLUGINS_ROOT = REPO_ROOT / "plugins"
 HOOKS_ROOT = REPO_ROOT / "hooks"
 TARGETS_FILE = Path(__file__).resolve().parent / "targets.toml"
-SNIPPET_PLACEHOLDER = "ABSOLUTE/PATH/TO/agent-stuff"
 
 
 def load_targets() -> dict[str, Path]:
@@ -60,26 +60,76 @@ def load_targets() -> dict[str, Path]:
     return targets
 
 
-def print_hook_snippets() -> int:
-    """Print each hook's settings.json snippet with the absolute path filled in.
+def render_hook(descriptor: dict, command: str, agent: str) -> dict:
+    """Build one agent's registration object from a hook.toml descriptor.
 
-    Never edits settings — wiring a hook stays a deliberate, one-time choice.
+    Both Claude Code and Codex share the SessionStart wire format
+    `{hooks: {<event>: [{[matcher], hooks: [{type: command, command, ...}]}]}}`.
+    The only per-agent difference is which optional keys are emitted: Codex shows
+    `statusMessage`; Claude ignores it, so we omit it there to keep the block clean.
     """
-    snippets = sorted(HOOKS_ROOT.glob("*/hook.json.snippet"))
-    if not snippets:
+    handler: dict = {"type": "command", "command": command}
+    if agent == "codex" and isinstance(descriptor.get("statusMessage"), str):
+        handler["statusMessage"] = descriptor["statusMessage"]
+
+    group: dict = {}
+    if isinstance(descriptor.get("matcher"), str):
+        group["matcher"] = descriptor["matcher"]
+    group["hooks"] = [handler]
+
+    return {"hooks": {descriptor["event"]: [group]}}
+
+
+def render_codex_toml(descriptor: dict, command: str) -> str:
+    """Hand-emit the inline `config.toml` form of a hook (one event, one handler)."""
+    event = descriptor["event"]
+    lines = [f"[[hooks.{event}]]"]
+    if isinstance(descriptor.get("matcher"), str):
+        lines.append(f"matcher = {json.dumps(descriptor['matcher'])}")
+    lines += [
+        "",
+        f"[[hooks.{event}.hooks]]",
+        'type = "command"',
+        f"command = {json.dumps(command)}",
+    ]
+    if isinstance(descriptor.get("statusMessage"), str):
+        lines.append(f"statusMessage = {json.dumps(descriptor['statusMessage'])}")
+    return "\n".join(lines)
+
+
+def print_hook_snippets() -> int:
+    """Render each hook's registration block for every hook-capable agent.
+
+    The canonical source is `hooks/<name>/hook.toml`; this renders it into Claude
+    Code and Codex forms with the command path resolved for this checkout. It only
+    PRINTS — wiring a hook stays a deliberate, one-time choice the user makes.
+    """
+    descriptors = sorted(HOOKS_ROOT.glob("*/hook.toml"))
+    if not descriptors:
         print("No hooks found under hooks/.", file=sys.stderr)
         return 1
+
     print(
-        "# Merge a block below into ~/.claude/settings.json (user-level, once) "
-        "or a repo's\n# .claude/settings.json. Paths are resolved for this checkout.\n"
+        "# Hook registration blocks, paths resolved for this checkout. Nothing below is\n"
+        "# written for you. Register each hook ONCE at user level (or per-repo).\n"
+        "#\n"
+        "# Codex: pick EXACTLY ONE of its two forms (hooks.json OR config.toml) — Codex\n"
+        "# warns if both exist in one layer. Then run `/hooks` in Codex to review & trust\n"
+        "# it; trust is keyed to the hook's hash, so re-trust after you edit hook.py\n"
+        "# (or pass --dangerously-bypass-hook-trust while iterating).\n"
     )
-    for snippet in snippets:
-        hook_name = snippet.parent.name
-        body = snippet.read_text(encoding="utf-8").replace(
-            SNIPPET_PLACEHOLDER, str(REPO_ROOT)
-        )
-        print(f"# --- {hook_name} ---")
-        print(body.rstrip())
+    for path in descriptors:
+        hook_name = path.parent.name
+        descriptor = tomllib.loads(path.read_text(encoding="utf-8"))
+        command = str(path.parent / descriptor["command"])
+
+        print(f"# ===== {hook_name} =====\n")
+        print("# --- Claude Code → merge into ~/.claude/settings.json ---")
+        print(json.dumps(render_hook(descriptor, command, "claude"), indent=2))
+        print("\n# --- Codex → write to ~/.codex/hooks.json ---")
+        print(json.dumps(render_hook(descriptor, command, "codex"), indent=2))
+        print("\n# --- Codex → OR merge into ~/.codex/config.toml (do not do both) ---")
+        print(render_codex_toml(descriptor, command))
         print()
     return 0
 
@@ -199,7 +249,7 @@ def parse_args(argv: list[str], registry: dict[str, Path]) -> argparse.Namespace
     )
     parser.add_argument(
         "--hooks", action="store_true",
-        help="Print hook settings.json snippets (with paths filled in), then exit.",
+        help="Print hook registration blocks for Claude & Codex (paths resolved), then exit.",
     )
     return parser.parse_args(argv)
 

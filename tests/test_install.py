@@ -14,6 +14,7 @@ the agent flags at temp directories so nothing touches the real home dir.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -38,6 +39,25 @@ def make_repo(base: Path, targets_toml: str = DEFAULT_TARGETS) -> Path:
     (repo / "bin" / "targets.toml").write_text(targets_toml)
     (skill_dir / "SKILL.md").write_text(SKILL_MD)
     return repo
+
+
+def make_hook(repo: Path, name: str = "sample-hook") -> Path:
+    """Add a hooks/<name>/ with a hook.toml descriptor and its command file."""
+    hook_dir = repo / "hooks" / name
+    hook_dir.mkdir(parents=True)
+    (hook_dir / "hook.py").write_text("#!/usr/bin/env python3\n")
+    (hook_dir / "hook.toml").write_text(
+        'event = "SessionStart"\n'
+        'command = "hook.py"\n'
+        'statusMessage = "Injecting docs index"\n'
+    )
+    return hook_dir
+
+
+def section(text: str, start_marker: str, end_marker: str) -> str:
+    """Return the slice of `text` between two markers (exclusive)."""
+    body = text.split(start_marker, 1)[1]
+    return body.split(end_marker, 1)[0]
 
 
 def run_install(repo: Path, *args: str) -> subprocess.CompletedProcess:
@@ -122,6 +142,48 @@ class InstallTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((present / "sample" / "SKILL.md").exists())
             self.assertFalse(absent.exists())
+
+    def test_hooks_render_emits_claude_and_codex(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            repo = make_repo(Path(dir_))
+            hook_dir = make_hook(repo)
+
+            result = run_install(repo, "--hooks")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            out = result.stdout
+            # The command path is resolved for this checkout's hook folder.
+            self.assertIn(str((hook_dir / "hook.py").resolve()), out)
+            self.assertIn("SessionStart", out)
+            # All three destinations are surfaced.
+            self.assertIn("~/.claude/settings.json", out)
+            self.assertIn("~/.codex/hooks.json", out)
+            self.assertIn("~/.codex/config.toml", out)
+            # The "pick one Codex form" + trust guidance is present.
+            self.assertIn("EXACTLY ONE", out)
+            self.assertIn("/hooks", out)
+
+    def test_hooks_render_blocks_are_valid(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            repo = make_repo(Path(dir_))
+            # install.py resolves REPO_ROOT, so compare against the realpath.
+            command = str((make_hook(repo) / "hook.py").resolve())
+
+            out = run_install(repo, "--hooks").stdout
+
+            claude = json.loads(
+                section(out, "~/.claude/settings.json ---\n", "\n# ---")
+            )
+            codex = json.loads(
+                section(out, "~/.codex/hooks.json ---\n", "\n# ---")
+            )
+            for block in (claude, codex):
+                handler = block["hooks"]["SessionStart"][0]["hooks"][0]
+                self.assertEqual(handler["type"], "command")
+                self.assertEqual(handler["command"], command)
+            # Codex shows statusMessage; the Claude block omits it.
+            self.assertNotIn("statusMessage", claude["hooks"]["SessionStart"][0]["hooks"][0])
+            self.assertIn("statusMessage", codex["hooks"]["SessionStart"][0]["hooks"][0])
 
     def test_target_rejects_agent_combo(self):
         with tempfile.TemporaryDirectory() as dir_:

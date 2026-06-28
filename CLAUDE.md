@@ -13,7 +13,7 @@ The filesystem is the index — there is no separate registry to keep in sync:
 
 - a folder under `plugins/<domain>/skills/` is a **skill** if it contains `SKILL.md`;
 - a folder under `scripts/` is a **tool** (carries a `README.md`);
-- a folder under `hooks/` is a **hook** (carries a `README.md` + `hook.json.snippet`).
+- a folder under `hooks/` is a **hook** (carries a `README.md` + `hook.toml`).
 
 ## Layout
 
@@ -82,9 +82,12 @@ under scripts/ for repeatable logic.>
 
 ## Hooks contract (`hooks/<hook>/`)
 
-- A Claude Code event hook plus the `settings.json` block to register it. Every hook folder
-  has a `README.md` **and** a `hook.json.snippet`.
-- The installer/README **prints** the snippet; nothing silently edits user settings.
+- A `SessionStart`-style event hook (Claude Code + Codex) plus an agent-neutral `hook.toml`
+  descriptor. Every hook folder has a `README.md` **and** a `hook.toml` (`event`, `command`,
+  optional `matcher`/`statusMessage`).
+- `bin/install.py --hooks` **renders** `hook.toml` into each agent's registration block
+  (Claude `settings.json`, Codex `hooks.json` / `config.toml`) and only prints them — nothing
+  silently edits user settings.
 - Keep the hook thin: reuse the paired `scripts/` tool as the source of truth rather than
   duplicating logic. Fail open and quiet when there is nothing to contribute.
 

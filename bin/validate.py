@@ -14,7 +14,7 @@ On top of that, this validator checks:
   * every `plugins[].source` resolves to a dir with `.claude-plugin/plugin.json`,
   * each `plugin.json` is valid JSON whose `name` matches its marketplace entry,
   * every `scripts/<tool>/` has a `README.md`,
-  * every `hooks/<hook>/` has a `README.md` and a `hook.json.snippet`.
+  * every `hooks/<hook>/` has a `README.md` and a well-formed `hook.toml`.
 
 This is the machine-checkable half of the contract; human rules live in CLAUDE.md.
 
@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import sys
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -152,6 +153,33 @@ def validate_content_dir(root: Path, required: list[str]) -> list[str]:
     return errors
 
 
+def validate_hook_toml(hook_dir: Path) -> list[str]:
+    """Validate one hook's `hook.toml` descriptor (the agent-neutral registration source)."""
+    rel = (hook_dir / "hook.toml").relative_to(REPO_ROOT)
+    descriptor_path = hook_dir / "hook.toml"
+    if not descriptor_path.is_file():
+        return []  # presence is enforced by validate_content_dir; nothing to parse here
+
+    try:
+        data = tomllib.loads(descriptor_path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as exc:
+        return [f"{rel}: invalid TOML: {exc}"]
+
+    errors: list[str] = []
+    if not non_empty_str(data.get("event")):
+        errors.append(f"{rel}: missing event")
+    if not non_empty_str(data.get("command")):
+        errors.append(f"{rel}: missing command")
+    elif not (hook_dir / data["command"]).is_file():
+        errors.append(f"{rel}: command '{data['command']}' is not a file in {hook_dir.name}/")
+
+    for key in ("matcher", "statusMessage"):
+        if key in data and not isinstance(data[key], str):
+            errors.append(f"{rel}: {key} must be a string")
+
+    return errors
+
+
 def main() -> int:
     skill_files = sorted(PLUGINS_ROOT.glob("*/skills/*/SKILL.md"))
     if not skill_files:
@@ -161,7 +189,11 @@ def main() -> int:
     errors = [err for path in skill_files for err in validate_skill(path)]
     errors += validate_manifests()
     errors += validate_content_dir(SCRIPTS_ROOT, ["README.md"])
-    errors += validate_content_dir(HOOKS_ROOT, ["README.md", "hook.json.snippet"])
+    errors += validate_content_dir(HOOKS_ROOT, ["README.md", "hook.toml"])
+    if HOOKS_ROOT.is_dir():
+        for hook_dir in sorted(HOOKS_ROOT.iterdir()):
+            if hook_dir.is_dir() and not hook_dir.name.startswith((".", "_")):
+                errors += validate_hook_toml(hook_dir)
 
     if errors:
         print("\n".join(errors), file=sys.stderr)

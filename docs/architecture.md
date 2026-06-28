@@ -38,7 +38,8 @@ content (the product)                     machinery (ships + checks content)
 ─────────────────────                     ─────────────────────────────────
 plugins/  →  skills, each domain a plugin  bin/    →  installer, validator,
 scripts/  →  standalone agent CLIs                    + targets.toml (agent registry)
-hooks/    →  Claude Code event hooks       tests/  →  installer + hook test suite
+hooks/    →  SessionStart hooks (Claude     tests/  →  installer + hook test suite
+             Code + Codex)
 ```
 
 The split is the same idea the old repo had (`plugins/` vs `scripts/`), widened: there
@@ -51,7 +52,7 @@ Discovery is `glob("plugins/*/skills/*/SKILL.md")` — the filesystem is the ind
 registry, no manifest to keep in sync (beyond the marketplace listing of domains).
 The same "filesystem is the index" rule holds for the other two types: a folder under
 `scripts/` is a tool, a folder under `hooks/` is a hook; each carries a `README.md`
-(hooks also carry a `hook.json.snippet`), enforced by the validator.
+(hooks also carry a `hook.toml`), enforced by the validator.
 
 ## Scripts and hooks
 
@@ -60,15 +61,16 @@ The same "filesystem is the index" rule holds for the other two types: a folder 
   `docs-list.ts`: it reads a project's `docs/` frontmatter and prints a compact
   "read-before-coding" map. Each tool is self-contained (PEP 723 `uv run --script`) with a
   `README.md`.
-- **`hooks/<hook>/`** — a Claude Code event hook plus the `settings.json` snippet to wire
-  it. `docs-index-inject` is a `SessionStart` hook that runs the `docs-index` logic and
-  injects the map as `additionalContext` — the deterministic tool stays the core, the hook
-  is thin wiring. Hooks reuse their paired script rather than duplicating logic.
-  It is **registered once** (user-level settings) but **opt-in per repository**: it only
-  fires where a `[docs-index]` section is declared in `.lightbridge/config.toml` (a personal,
-  tool-agnostic config namespace), so a single global registration is safe across repos with
-  no docs or a website `docs/`. `uv run bin/install.py --hooks` prints the snippet with paths
-  resolved; it never edits settings.
+- **`hooks/<hook>/`** — a `SessionStart` event hook (Claude Code **and** Codex, which share
+  the same wire format) described by an agent-neutral `hook.toml`. `docs-index-inject` runs
+  the `docs-index` logic and injects the map as `additionalContext` — the deterministic tool
+  stays the core, the hook is thin wiring that reuses its paired script. It is **registered
+  once** (user-level settings) but **opt-in per repository**: it only fires where a
+  `[docs-index]` section is declared in `.lightbridge/config.toml` (a personal, tool-agnostic
+  config namespace), so a single global registration is safe across repos with no docs or a
+  website `docs/`. `uv run bin/install.py --hooks` *renders* `hook.toml` into each agent's
+  registration block (Claude `settings.json`; Codex `hooks.json` / inline `config.toml`, which
+  also needs a one-time `/hooks` trust) with paths resolved — it only prints, never edits.
 
 ## Domain = plugin
 
