@@ -65,9 +65,10 @@ The same "filesystem is the index" rule holds for the other two types: a folder 
   injects the map as `additionalContext` — the deterministic tool stays the core, the hook
   is thin wiring. Hooks reuse their paired script rather than duplicating logic.
   It is **registered once** (user-level settings) but **opt-in per repository**: it only
-  fires where a `.docs-index.toml` marker is committed, so a single global registration is
-  safe across repos with no docs or a website `docs/`. `uv run bin/install.py --hooks`
-  prints the snippet with paths resolved; it never edits settings.
+  fires where a `[docs-index]` section is declared in `.lightbridge/config.toml` (a personal,
+  tool-agnostic config namespace), so a single global registration is safe across repos with
+  no docs or a website `docs/`. `uv run bin/install.py --hooks` prints the snippet with paths
+  resolved; it never edits settings.
 
 ## Domain = plugin
 

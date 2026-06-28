@@ -1,0 +1,10 @@
+# .lightbridge/config.toml — personal workflow config (Lightbridge-KS).
+# Per-project, committed. Namespaced by section; a feature is opted in when its
+# section is present.
+
+[docs-index]
+# Opts this repo into the docs-index SessionStart hook (hooks/docs-index-inject).
+# Presence of this section is the opt-in switch.
+enabled = true                     # optional; default true. Set false to disable.
+dir = "docs"                       # docs directory, relative to repo root
+exclude = ["archive", "research"]  # subdir names to skip

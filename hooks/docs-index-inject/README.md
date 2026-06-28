@@ -5,9 +5,9 @@ context automatically — so it knows which docs exist, and *when* to read them,
 writing any code. No manual "run docs-index first" step.
 
 It is **opt-in per repository**: registered once in your user settings, it only fires in
-repos that commit a `.docs-index.toml` marker. Repos with no docs — or a `docs/` used for a
-website (Docusaurus/mkdocs/Quarto) — get nothing. That makes one global registration safe
-across every project.
+repos whose `.lightbridge/config.toml` declares a `[docs-index]` section. Repos with no
+docs — or a `docs/` used for a website (Docusaurus/mkdocs/Quarto) — get nothing. That makes
+one global registration safe across every project.
 
 It pairs with [`scripts/docs-index`](../../scripts/docs-index): the script is the
 deterministic core (the agent can also run it by hand), the hook is the thin wiring.
@@ -16,17 +16,17 @@ deterministic core (the agent can also run it by hand), the hook is the thin wir
 
 ```
 SessionStart → cwd
-  walk up for .docs-index.toml   no marker?  → exit 0, silent   (repo not opted in)
-  marker found                   → read dir/exclude
-  <repo>/<dir> missing?          → exit 0, silent
+  walk up for .lightbridge/config.toml   none?                → exit 0, silent (not opted in)
+  read [docs-index] section              no section / enabled=false → exit 0, silent
+  <repo>/<dir> missing?                  → exit 0, silent
   build index (explicit summary/read_when only — no description fallback)
-  nothing annotated?             → exit 0, silent
+  nothing annotated?                     → exit 0, silent
   else → emit additionalContext with the docs map
 ```
 
 Unlike the CLI, the hook does **not** fall back to the `description` key, so website
 frontmatter (which commonly has `description`) is never surfaced even in an opted-in repo.
-It fails open and quiet on any error (missing/malformed marker, missing source).
+It fails open and quiet on any error (missing/malformed config, missing source).
 
 ## 1. Enable once (per machine)
 
@@ -56,29 +56,29 @@ It prints a block like this — merge it into `~/.claude/settings.json`:
 
 ## 2. Opt in (per repo)
 
-In each repo where you want the index injected, commit a marker at the repo root:
-
-```sh
-touch .docs-index.toml          # presence = opt in, with defaults
-```
-
-All keys are optional; an empty file uses defaults:
+In each repo where you want the index injected, add a `[docs-index]` section to a committed
+`.lightbridge/config.toml` at the repo root:
 
 ```toml
-# .docs-index.toml
-dir = "docs"                       # docs directory, relative to repo root
-exclude = ["archive", "research"]  # subdir names to skip
+# .lightbridge/config.toml
+[docs-index]              # presence of this section = opt in
+enabled = true            # optional; default true. Set false to disable without deleting.
+dir = "docs"              # docs directory, relative to repo root
+exclude = ["archive", "research"]
 ```
 
 If a repo's `docs/` is a website, point `dir` at your agent-facing docs instead
-(e.g. `dir = "agent-docs"`), or simply don't add the marker.
+(e.g. `dir = "agent-docs"`), or simply omit the `[docs-index]` section.
+
+`.lightbridge/` is a personal, tool-agnostic config namespace; the hook only reads its
+`[docs-index]` section and ignores everything else.
 
 ## Verify
 
 ```sh
-# from a repo that has .docs-index.toml + annotated docs:
+# from a repo whose .lightbridge/config.toml has [docs-index] + annotated docs:
 echo '{"cwd":"'"$PWD"'","hook_event_name":"SessionStart"}' | uv run hook.py
 ```
 
 You should see a JSON object with `hookSpecificOutput.additionalContext` containing the
-index. A repo without the marker prints nothing and exits 0.
+index. A repo without the `[docs-index]` section prints nothing and exits 0.

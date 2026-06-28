@@ -1,6 +1,0 @@
-# Opt this repo into the docs-index SessionStart hook (hooks/docs-index-inject).
-# The presence of this file is the opt-in switch. Every key below is optional;
-# an empty file means defaults.
-
-dir = "docs"                       # docs directory, relative to repo root
-exclude = ["archive", "research"]  # subdir names to skip

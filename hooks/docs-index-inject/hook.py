@@ -6,23 +6,27 @@
 """Claude Code SessionStart hook: inject a repo's docs index into context — opt-in.
 
 This hook is registered ONCE (user-level `~/.claude/settings.json`) but only fires
-in repos that explicitly opt in by committing a `.docs-index.toml` marker at their
-root. Repos without the marker — no docs at all, or a `docs/` used for a website —
-get nothing. That makes a single global registration safe across every project.
+in repos that explicitly opt in via a `[docs-index]` section in a committed
+`.lightbridge/config.toml`. Repos without that section — no docs at all, or a
+`docs/` used for a website — get nothing. A single global registration is therefore
+safe across every project.
 
 When a repo opts in, the hook runs the `docs-index` logic against the configured
 docs dir and returns the map as `additionalContext`, so the agent knows which docs
 exist — and when to read them — before writing any code.
 
-Marker file (`.docs-index.toml`, all keys optional; an empty file means defaults):
+`.lightbridge/config.toml` (all keys optional except the section's presence):
 
-    dir = "docs"                       # docs directory, relative to repo root
-    exclude = ["archive", "research"]  # subdir names to skip
+    [docs-index]              # presence of this section = opt in
+    enabled = true            # optional; default true. Set false to disable.
+    dir = "docs"              # docs directory, relative to repo root
+    exclude = ["archive", "research"]
 
 To stay DRY this reuses `scripts/docs-index/docs_index.py` as the single source of
 truth. Unlike the CLI, it requires an explicit `summary` / `read_when` (no fallback
 to `description`) so website frontmatter is never surfaced. It degrades silently:
-no marker, no docs, a malformed marker, or no annotated docs → emits nothing, exit 0.
+no config, no `[docs-index]` section, `enabled = false`, no docs, malformed config,
+or no annotated docs → emits nothing, exit 0.
 
 Input  (stdin JSON, from Claude Code): { "cwd": "...", "hook_event_name": "SessionStart", ... }
 Output (stdout JSON): { "hookSpecificOutput": { "additionalContext": "..." } }  or nothing.
@@ -37,16 +41,16 @@ import sys
 import tomllib
 from pathlib import Path
 
-MARKER = ".docs-index.toml"
+CONFIG_REL = Path(".lightbridge") / "config.toml"
 DOCS_INDEX = (
     Path(__file__).resolve().parents[2] / "scripts" / "docs-index" / "docs_index.py"
 )
 
 
-def find_marker(start: Path) -> Path | None:
-    """Walk up from `start` looking for the opt-in marker; None if not opted in."""
+def find_config(start: Path) -> Path | None:
+    """Walk up from `start` for a `.lightbridge/config.toml`; None if not found."""
     for directory in (start, *start.parents):
-        candidate = directory / MARKER
+        candidate = directory / CONFIG_REL
         if candidate.is_file():
             return candidate
     return None
@@ -69,26 +73,30 @@ def main() -> int:
         payload = {}
 
     start = Path(payload.get("cwd") or os.getcwd())
-    marker = find_marker(start)
-    if marker is None:
-        return 0  # repo has not opted in
+    config_path = find_config(start)
+    if config_path is None:
+        return 0  # repo has no .lightbridge/config.toml
 
     try:
-        config = tomllib.loads(marker.read_text(encoding="utf-8"))
+        config = tomllib.loads(config_path.read_text(encoding="utf-8"))
     except (tomllib.TOMLDecodeError, OSError):
-        return 0  # malformed marker — fail open, no noise
+        return 0  # malformed config — fail open, no noise
+
+    section = config.get("docs-index")
+    if not isinstance(section, dict) or section.get("enabled", True) is False:
+        return 0  # not opted in (no section) or explicitly disabled
 
     module = load_docs_index()
     if module is None:
         return 0  # docs-index source not found — fail open
 
-    repo_root = marker.parent
-    docs_rel = config.get("dir", "docs")
+    repo_root = config_path.parent.parent  # the dir containing .lightbridge/
+    docs_rel = section.get("dir", "docs")
     docs_dir = repo_root / docs_rel
     if not docs_dir.is_dir():
-        return 0  # marker points at a missing dir — stay quiet
+        return 0  # configured docs dir missing — stay quiet
 
-    excludes = config.get("exclude")
+    excludes = section.get("exclude")
     if not isinstance(excludes, list):
         excludes = list(module.DEFAULT_EXCLUDES)
     excludes = {str(item) for item in excludes}
