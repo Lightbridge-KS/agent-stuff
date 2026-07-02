@@ -30,6 +30,14 @@
       "description": "Personal workflow conventions — bootstrap and manage the .lightbridge/ per-repo config namespace.",
       "category": "productivity",
       "tags": ["config", "workflow", "lightbridge"]
+    },
+    {
+      "name": "productivity",
+      "displayName": "Productivity",
+      "source": "./plugins/productivity",
+      "description": "Agent-workflow and meta skills: grilling sessions, conversation handoffs, and skill authoring.",
+      "category": "productivity",
+      "tags": ["grilling", "handoff", "skills"]
     }
   ]
 }

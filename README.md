@@ -63,6 +63,7 @@ Add a new agent there and its `--<name>` flag appears automatically; no code cha
 /plugin install coding@lightbridge-skills
 /plugin install radiology@lightbridge-skills
 /plugin install lightbridge@lightbridge-skills
+/plugin install productivity@lightbridge-skills
 ```
 
 `/plugin marketplace update lightbridge-skills` refreshes the catalog later.
