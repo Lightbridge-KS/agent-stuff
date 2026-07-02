@@ -26,6 +26,8 @@ SessionStart → cwd
   build index (explicit summary/read_when only — no description fallback)
   nothing annotated?                     → exit 0, silent
   else → emit additionalContext with the docs map
+         (docs without a summary are dropped from the listing but counted
+          in a footer line, so the map never silently reads as complete)
 ```
 
 Unlike the CLI, the hook does **not** fall back to the `description` key, so website

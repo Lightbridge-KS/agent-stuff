@@ -107,7 +107,8 @@ def main() -> int:
     if not documented:
         return 0  # nothing annotated — stay quiet
 
-    context = module.render_human(documented, Path(docs_rel))
+    omitted = len(entries) - len(documented)
+    context = module.render_human(documented, Path(docs_rel), omitted=omitted)
     print(
         json.dumps(
             {

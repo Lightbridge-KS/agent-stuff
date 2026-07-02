@@ -41,9 +41,9 @@ import yaml
 
 DEFAULT_EXCLUDES = ("archive", "research")
 REMINDER = (
-    "Keep docs current as behavior changes. When your task matches a "
-    '"Read when" hint above, read that doc before coding — and add coverage '
-    "when it is missing."
+    'When your task matches a "Read when" hint above, read that doc before '
+    "coding. Keep docs current: update the doc when behavior changes, and "
+    "create one when it is missing."
 )
 
 
@@ -133,7 +133,10 @@ def build_index(
     return entries
 
 
-def render_human(entries: list[dict], docs_dir: Path) -> str:
+def render_human(entries: list[dict], docs_dir: Path, omitted: int = 0) -> str:
+    """Render the index. `omitted` > 0 adds a footer counting docs that exist
+    but were dropped from the listing (hook path drops unannotated docs), so
+    the map never silently reads as complete when it isn't."""
     if not entries:
         return f"No markdown docs found under {docs_dir}."
     lines = [f"Docs index ({docs_dir}):"]
@@ -145,6 +148,12 @@ def render_human(entries: list[dict], docs_dir: Path) -> str:
         else:
             reason = f" [{e['error']}]" if e["error"] else ""
             lines.append(f"  {e['path']}{reason}")
+    if omitted > 0:
+        noun = "doc" if omitted == 1 else "docs"
+        lines.append(
+            f"  (+ {omitted} {noun} without a summary, not listed — "
+            f"run docs-index --dir {docs_dir} to see them)"
+        )
     lines.append("")
     lines.append(REMINDER)
     return "\n".join(lines)
