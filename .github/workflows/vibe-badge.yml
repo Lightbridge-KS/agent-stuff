@@ -16,4 +16,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # full history — the action reads git blame to attribute lines
-      - uses: ai-ecoverse/vibe-coded-badge-action@main
+      # Pinned to a commit SHA (no upstream release tags exist). Review upstream and
+      # bump the SHA to update. main @ 2026-07-04.
+      - uses: ai-ecoverse/vibe-coded-badge-action@c6875e7a00b5fa208aef24a2e083ccbe13fa870d
