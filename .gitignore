@@ -12,3 +12,6 @@ __pycache__/
 # Scratchpad
 _playground/
 _temp/
+
+# Build output (packaged skill archives)
+dist/

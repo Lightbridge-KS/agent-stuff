@@ -18,8 +18,10 @@ jobs:
         run: uv run tests/test_install.py
       - name: Run hook tests
         run: uv run tests/test_hooks.py
+      - name: Run packager tests
+        run: uv run tests/test_package.py
       - name: Syntax-check all Python (bin, scripts, hooks, tests)
         run: |
           uv run python -m py_compile \
-            bin/install.py bin/validate.py \
+            bin/install.py bin/validate.py bin/package.py \
             scripts/*/*.py hooks/*/*.py tests/*.py

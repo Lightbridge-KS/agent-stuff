@@ -111,8 +111,19 @@ Python, executed via [`uv`](https://docs.astral.sh/uv/) (self-contained scripts 
 - `uv run bin/install.py --list` — list skills and detected agents.
 - `uv run bin/install.py --all` — install all skills into every agent present on the machine.
 - `uv run bin/install.py --claude --codex --pi` — install into specific agents.
+- `uv run bin/package.py --list` — list packageable skills.
+- `uv run bin/package.py` — package every skill into `dist/` (one archive per skill).
+- `uv run bin/package.py <skill>` / `--domain <domain>` — package one skill or one domain.
 - `uv run tests/test_install.py` — installer guard + multi-agent tests.
 - `uv run tests/test_hooks.py` — hook opt-in gating tests.
+- `uv run tests/test_package.py` — packager layout + reproducibility tests.
 
 Agent install targets live in `bin/targets.toml` — add an agent there (one block), no code
-change.
+change. A top-level `justfile` wraps the common recipes (`just validate`, `just package`,
+`just install`, `just test`, `just clean`).
+
+**Packaging for claude.ai.** The web app takes one skill at a time as a `.zip` (or `.skill`).
+`bin/package.py` emits one self-contained, byte-reproducible archive per skill into `dist/`
+(gitignored) — a single top-level folder named after the skill. Add `--skill` for a
+byte-identical `.skill`, `--versioned` to name by frontmatter `version`, `--dry-run` to
+preview. `just package` validates first.

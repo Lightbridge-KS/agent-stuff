@@ -2,8 +2,9 @@
 summary: Why agent-stuff is structured the way it is — content (skills/scripts/hooks) vs machinery, the distribution model, and the contracts each content type follows.
 read_when:
   - adding or changing a skill, script, or hook
-  - modifying the installer, validator, or the targets.toml agent registry
+  - modifying the installer, validator, packager, or the targets.toml agent registry
   - understanding the repo layout or distribution model
+  - packaging a skill as a .zip/.skill for upload to claude.ai
 ---
 
 # Architecture: agent-stuff
@@ -145,6 +146,29 @@ anywhere). Adding an agent is one TOML block, no Python change.
 The `agents` entry is the emerging `~/.agents/skills` convention several tools read — one
 install there can serve more than one agent. A skill is a plain `SKILL.md`, so placement is
 format-agnostic: as each agent's skill support matures, the files are already where it looks.
+
+### Packaging for upload (`bin/package.py`)
+
+The claude.ai web app is a fourth consumer, but it takes a skill as an **uploaded file**,
+not an installed folder — and one skill at a time. `bin/package.py` discovers skills with
+the same `plugins/*/skills/*/SKILL.md` glob and zips one self-contained archive per skill
+into `dist/` (gitignored build output), keyed by the skill's bare name:
+
+```
+dist/dcmtk.zip
+└── dcmtk/                # single top-level folder == skill name
+    ├── SKILL.md
+    └── references/...
+```
+
+- Archives are **byte-reproducible** — entries are sorted and stamped with a fixed 1980 ZIP
+  epoch, so re-running yields identical bytes (clean diffs, cacheable CI).
+- A **`.skill`** file is byte-identical to the `.zip` (`--skill`); `--versioned` names
+  archives by frontmatter `version`. `--domain <domain>` packages one plugin domain.
+- All-in-one bundling is intentionally omitted — the upload dialog takes a single skill.
+
+`just package` validates before packaging, so a broken frontmatter contract fails fast
+rather than shipping.
 
 ## Why Python / uv
 
