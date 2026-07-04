@@ -1,0 +1,19 @@
+name: Update Vibe Coded Badge
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  update-badge:
+    runs-on: ubuntu-latest
+    # The action commits the badge with "[skip vibe-badge]" — skip re-runs on that commit.
+    if: "!contains(github.event.head_commit.message, '[skip vibe-badge]')"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history — the action reads git blame to attribute lines
+      - uses: ai-ecoverse/vibe-coded-badge-action@main
