@@ -70,6 +70,8 @@ def make_session(
     notes: dict[str, str] | None = None,
     ledger: str | None = None,
     report: str | None = None,
+    report_qmd: str | None = None,
+    bib: str | None = None,
     verification: str | None = None,
 ) -> Path:
     session = base / "session"
@@ -86,6 +88,10 @@ def make_session(
         (session / "sources.yaml").write_text(ledger)
     if report is not None:
         (session / "report.md").write_text(report)
+    if report_qmd is not None:
+        (session / "report.qmd").write_text(report_qmd)
+    if bib is not None:
+        (session / "references.bib").write_text(bib)
     if verification is not None:
         (session / "verification.md").write_text(verification)
     return session
@@ -362,7 +368,136 @@ class CheckCitationsTest(unittest.TestCase):
             session = make_session(Path(dir_), ledger=GOOD_LEDGER)
             result = run_kit("check-citations", str(session))
             self.assertEqual(result.returncode, 1)
-            self.assertIn("FAIL presence: report.md missing", result.stdout)
+            self.assertIn("FAIL presence: no report.md or report.qmd", result.stdout)
+
+
+GOOD_BIB = textwrap.dedent(
+    """\
+    @misc{S1,
+      title = {One},
+      url = {https://a.org/1}
+    }
+
+    @misc{S2,
+      title = {Two},
+      url = {https://b.org/2}
+    }
+    """
+)
+
+
+class CheckCitationsQmdTest(unittest.TestCase):
+    def test_gate_qmd_pass(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            session = make_session(
+                Path(dir_),
+                ledger=GOOD_LEDGER,
+                report_qmd="Claim one [@S1]. Both agree [@S1; @S2].\n",
+                bib=GOOD_BIB,
+            )
+            result = run_kit("check-citations", str(session))
+            self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_gate_qmd_unresolved_citation(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            session = make_session(
+                Path(dir_),
+                ledger=GOOD_LEDGER,
+                report_qmd="Cites [@S1] [@S2] and bogus @S99.\n",
+                bib=GOOD_BIB,
+            )
+            result = run_kit("check-citations", str(session))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("FAIL resolve: [S99] cited in report.qmd", result.stdout)
+
+    def test_gate_qmd_requires_bib(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            session = make_session(
+                Path(dir_),
+                ledger=GOOD_LEDGER,
+                report_qmd="Cites [@S1] and [@S2].\n",
+            )
+            result = run_kit("check-citations", str(session))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("FAIL presence: references.bib missing", result.stdout)
+
+    def test_gate_qmd_bib_out_of_sync(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            stale_bib = "@misc{S1,\n  title = {One}\n}\n\n@misc{S9,\n  title = {Gone}\n}\n"
+            session = make_session(
+                Path(dir_),
+                ledger=GOOD_LEDGER,
+                report_qmd="Cites [@S1] and [@S2].\n",
+                bib=stale_bib,
+            )
+            result = run_kit("check-citations", str(session))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("FAIL bib: S2 in sources.yaml but not references.bib", result.stdout)
+            self.assertIn("FAIL bib: S9 in references.bib but not sources.yaml", result.stdout)
+
+    def test_gate_both_reports_orphan_is_union(self):
+        # S2 cited only in the qmd — not an orphan, since orphan = uncited everywhere.
+        with tempfile.TemporaryDirectory() as dir_:
+            session = make_session(
+                Path(dir_),
+                ledger=GOOD_LEDGER,
+                report="Only cites [S1].\n",
+                report_qmd="Cites [@S1] and [@S2].\n",
+                bib=GOOD_BIB,
+            )
+            result = run_kit("check-citations", str(session))
+            self.assertEqual(result.returncode, 0, result.stdout)
+
+
+class ToBibtexTest(unittest.TestCase):
+    def test_bibtex_happy(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            session = make_session(
+                Path(dir_),
+                ledger=textwrap.dedent(
+                    """\
+                    - id: S1
+                      url: https://a.org/paper
+                      title: "Results & findings"
+                      type: paper
+                      accessed: 2026-07-05
+                      doi: 10.1000/xyz
+                      pmid: 12345
+                      fragment_ids: [S01-1]
+                    - id: S2
+                      url: https://b.org/2
+                      title: Two
+                      type: docs
+                      accessed: 2026-07-05
+                      fragment_ids: [S01-2]
+                    """
+                ),
+            )
+            result = run_kit("to-bibtex", str(session))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("wrote references.bib (2 entries)", result.stdout)
+            bib = (session / "references.bib").read_text()
+            self.assertIn("@article{S1,", bib)
+            self.assertIn("@misc{S2,", bib)
+            self.assertIn("Results \\& findings", bib)
+            self.assertIn("doi = {10.1000/xyz}", bib)
+            self.assertIn("PMID: 12345", bib)
+            self.assertIn("urldate = {2026-07-05}", bib)
+
+    def test_bibtex_deterministic(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            session = make_session(Path(dir_), ledger=GOOD_LEDGER)
+            run_kit("to-bibtex", str(session))
+            first = (session / "references.bib").read_text()
+            run_kit("to-bibtex", str(session))
+            self.assertEqual(first, (session / "references.bib").read_text())
+
+    def test_bibtex_missing_ledger(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            session = make_session(Path(dir_))
+            result = run_kit("to-bibtex", str(session))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("no sources.yaml", result.stdout)
 
 
 class StatusTest(unittest.TestCase):

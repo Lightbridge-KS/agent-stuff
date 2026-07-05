@@ -9,8 +9,10 @@ Operates on a research session directory (see the skill's SKILL.md for the layou
 
     merge-sources <session>    sources/*.yaml fragments -> sources.yaml ledger
                                (dedup by DOI/PMID/URL, stable global S-ids)
-    check-citations <session>  report.md <-> sources.yaml <-> notes/ <-> verification.md
-                               consistency gate; phase: done requires exit 0
+    check-citations <session>  report.md/report.qmd <-> sources.yaml <-> notes/ <->
+                               verification.md (+ references.bib for .qmd) consistency
+                               gate; phase: done requires exit 0
+    to-bibtex <session>        sources.yaml -> references.bib (ledger ids as BibTeX keys)
     status <session>           token-economical phase/progress digest
 
 Exit codes: 0 = pass, 1 = fail (offenders listed on stdout, one per line).
@@ -37,6 +39,9 @@ VERDICT_RE = re.compile(
 # [S1] or [S1, S4] in the report; also catches fragment-style [S03-1] so it
 # surfaces as an unresolved citation instead of passing silently.
 CITE_GROUP_RE = re.compile(r"\[(S\d+(?:-\d+)?(?:\s*,\s*S\d+(?:-\d+)?)*)\]")
+# Quarto citations in report.qmd: [@S1], [@S1; @S4], or narrative @S1.
+QMD_CITE_RE = re.compile(r"@(S\d+)\b")
+BIB_KEY_RE = re.compile(r"^@\w+\{(S\d+),", re.MULTILINE)
 
 LEDGER_FIELDS = ("url", "title", "type", "accessed", "doi", "pmid")
 
@@ -174,10 +179,10 @@ def cmd_merge_sources(session: Path) -> int:
 
 def cmd_check_citations(session: Path) -> int:
     fails: list[str] = []
-    report_path = session / "report.md"
+    reports = [p for p in (session / "report.md", session / "report.qmd") if p.is_file()]
     ledger_path = session / "sources.yaml"
-    if not report_path.is_file():
-        fails.append("FAIL presence: report.md missing")
+    if not reports:
+        fails.append("FAIL presence: no report.md or report.qmd in session")
     if not ledger_path.is_file():
         fails.append("FAIL presence: sources.yaml missing")
     if fails:
@@ -186,22 +191,40 @@ def cmd_check_citations(session: Path) -> int:
 
     ledger = yaml.safe_load(ledger_path.read_text()) or []
     ledger_ids = [str(entry.get("id")) for entry in ledger]
-    report = report_path.read_text()
 
-    cited: list[str] = []
-    for match in CITE_GROUP_RE.finditer(report):
-        cited.extend(re.split(r"\s*,\s*", match.group(1)))
+    cited_all: set[str] = set()
+    for report_path in reports:
+        report = report_path.read_text()
+        cited: list[str] = []
+        for match in CITE_GROUP_RE.finditer(report):
+            cited.extend(re.split(r"\s*,\s*", match.group(1)))
+        if report_path.suffix == ".qmd":
+            cited.extend(QMD_CITE_RE.findall(report))
+        cited_all |= set(cited)
 
-    for token in sorted(set(cited) - set(ledger_ids)):
-        fails.append(f"FAIL resolve: [{token}] cited in report.md but not in sources.yaml")
+        for token in sorted(set(cited) - set(ledger_ids)):
+            fails.append(
+                f"FAIL resolve: [{token}] cited in {report_path.name} but not in sources.yaml"
+            )
+        if "[uncertain" in report:
+            fails.append(f"FAIL leak: '[uncertain' marker present in {report_path.name}")
+        for uid in sorted(set(U_ID_RE.findall(report))):
+            fails.append(f"FAIL leak: {uid} present in {report_path.name}")
+
     for ledger_id in ledger_ids:
-        if ledger_id not in cited:
-            fails.append(f"FAIL orphan: {ledger_id} in sources.yaml but never cited in report.md")
+        if ledger_id not in cited_all:
+            fails.append(f"FAIL orphan: {ledger_id} in sources.yaml but never cited in any report")
 
-    if "[uncertain" in report:
-        fails.append("FAIL leak: '[uncertain' marker present in report.md")
-    for uid in sorted(set(U_ID_RE.findall(report))):
-        fails.append(f"FAIL leak: {uid} present in report.md")
+    if any(p.suffix == ".qmd" for p in reports):
+        bib_path = session / "references.bib"
+        if not bib_path.is_file():
+            fails.append("FAIL presence: references.bib missing (required with report.qmd)")
+        else:
+            bib_keys = set(BIB_KEY_RE.findall(bib_path.read_text()))
+            for missing in sorted(set(ledger_ids) - bib_keys):
+                fails.append(f"FAIL bib: {missing} in sources.yaml but not references.bib (re-run to-bibtex)")
+            for extra in sorted(bib_keys - set(ledger_ids)):
+                fails.append(f"FAIL bib: {extra} in references.bib but not sources.yaml (re-run to-bibtex)")
 
     markers: set[str] = set()
     notes_dir = session / "notes"
@@ -222,6 +245,48 @@ def cmd_check_citations(session: Path) -> int:
         print("\n".join(fails))
         return 1
     print(f"citations OK: {len(ledger_ids)} sources, {len(markers)} uncertain claims all verified")
+    return 0
+
+
+# -------------------------------------------------------------------- to-bibtex
+
+
+def bib_escape(text: str) -> str:
+    """Escape BibTeX-special characters in a field value."""
+    text = str(text).replace("\\", "").replace("{", "").replace("}", "")
+    for char in "&%#_$":
+        text = text.replace(char, "\\" + char)
+    return text
+
+
+def cmd_to_bibtex(session: Path) -> int:
+    ledger_path = session / "sources.yaml"
+    if not ledger_path.is_file():
+        print(f"error: no sources.yaml in {session}")
+        return 1
+    ledger = yaml.safe_load(ledger_path.read_text()) or []
+
+    blocks = []
+    for entry in sorted(ledger, key=lambda e: int(str(e["id"])[1:])):
+        entry_type = "article" if entry.get("type") == "paper" else "misc"
+        fields = [("title", bib_escape(entry.get("title", "")))]
+        if entry.get("url"):
+            fields.append(("url", str(entry["url"])))
+        if entry.get("doi"):
+            fields.append(("doi", str(entry["doi"])))
+        accessed = str(entry.get("accessed", ""))
+        if accessed:
+            fields.append(("year", accessed[:4]))
+            fields.append(("urldate", accessed))
+        note_bits = [str(entry.get("type", "misc"))]
+        if entry.get("pmid"):
+            note_bits.append(f"PMID: {entry['pmid']}")
+        fields.append(("note", bib_escape("; ".join(note_bits))))
+        body = ",\n".join(f"  {key} = {{{value}}}" for key, value in fields)
+        blocks.append("@" + entry_type + "{" + str(entry["id"]) + ",\n" + body + "\n}")
+
+    (session / "references.bib").write_text("\n\n".join(blocks) + ("\n" if blocks else ""))
+    print(f"wrote references.bib ({len(blocks)} entries)")
     return 0
 
 
@@ -282,7 +347,8 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     for name, help_ in (
         ("merge-sources", "merge sources/*.yaml fragments into sources.yaml"),
-        ("check-citations", "gate report.md against the source ledger and verification"),
+        ("check-citations", "gate report.md/report.qmd against the ledger and verification"),
+        ("to-bibtex", "generate references.bib from sources.yaml (Quarto output)"),
         ("status", "print a short phase/progress digest"),
     ):
         cmd = sub.add_parser(name, help=help_)
@@ -300,6 +366,7 @@ def main(argv: list[str] | None = None) -> int:
     return {
         "merge-sources": cmd_merge_sources,
         "check-citations": cmd_check_citations,
+        "to-bibtex": cmd_to_bibtex,
         "status": cmd_status,
     }[args.command](session)
 

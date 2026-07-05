@@ -13,8 +13,11 @@ read_when:
 # Design: the `research` skill
 
 *Status: design settled 2026-07-05; v1 implemented same day (narrative shape + Markdown
-output — Quarto/BibTeX, matrix mode, and the remaining modules deferred). Skill:
-`plugins/research/skills/research/`. E2E fixture: `~/my_config/_tests/deep-research-test/`.*
+output). Quarto output added 2026-07-06 after the first E2E: `to-bibtex` generates
+`references.bib` from the ledger, `report.qmd` cites `[@Sn]` keys, HTML (self-contained)
+is the default render with docx/pdf opt-in. Matrix mode and the remaining modules stay
+deferred. Skill: `plugins/research/skills/research/`. E2E fixture:
+`~/my_config/_tests/deep-research-test/`.*
 
 ## 1. Problem & positioning
 

@@ -46,7 +46,8 @@ conventions. Adding a section? See [`extending.md`](extending.md).
 - **Keys:**
   - `enabled` — bool, default `true`.
   - `dir` — string, default `"docs/research"`. Parent dir for session folders.
-  - `output` — string, default `"markdown"`. (`"quarto"` reserved for a future version.)
+  - `output` — string, default `"markdown"`. `"quarto"` → `report.qmd` + generated
+    `references.bib` (`@key` citations), rendered to self-contained HTML by default.
   - `backends` — list of strings, default: probed at plan time. Preference order, e.g.
     `["pubmed-mcp", "websearch"]`.
   - `searcher_model` — string, default `"sonnet"`. Model tier for searcher subagents;

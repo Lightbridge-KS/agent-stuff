@@ -1,7 +1,10 @@
-# Report style — how to write `report.md`
+# Report style — how to write the report
 
 Read at REPORTING time. The report is the session's product: a standalone document for a
-reader who never saw the notes.
+reader who never saw the notes. Everything here applies to both output formats; for
+`output: quarto`, the Quarto-specific mechanics (`.bib` bibliography, `[@S1]` citation
+syntax, YAML header, rendering) are in [`quarto-output.md`](quarto-output.md) and
+override the citation-syntax and Sources-section rules below.
 
 ## Skeleton
 

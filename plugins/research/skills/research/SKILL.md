@@ -2,7 +2,7 @@
 name: research
 description: Stateful deep-research sessions — conversational scoping into an editable plan.md, then autonomous multi-wave searcher fan-out producing a cited, adversarially verified report, with resumable file state under docs/research/. Use when the user says /research, "start a research session", asks to resume or check on a research session, or needs pluggable backends (PubMed MCP) or research state that survives interrupts. NOT for quick one-shot fact-checked answers — use the built-in deep-research skill for those.
 metadata:
-  version: "2026-07-05"
+  version: "2026-07-06"
 ---
 
 # Research — stateful deep-research sessions
@@ -20,7 +20,8 @@ Session directory layout:
 ├── sources/NN.yaml    # per-searcher ledger fragments (write-isolated)
 ├── sources.yaml       # merged ledger (script-generated — never hand-assemble)
 ├── verification.md    # verdicts on load-bearing / uncertain claims
-└── report.md          # final cited report
+├── report.md          # final cited report (output: markdown)
+└── report.qmd + references.bib   # output: quarto (.bib script-generated)
 ```
 
 ## Session directory resolution
@@ -83,7 +84,7 @@ shape: narrative            # v1: always narrative
 topic: "<topic>"
 created: YYYY-MM-DD
 language: en                # report language (en | th)
-output: markdown            # v1: always markdown (quarto reserved)
+output: markdown            # markdown | quarto (asked at scoping; see references/quarto-output.md)
 backends: [websearch, webfetch, pubmed-mcp]   # probed + confirmed
 modules: [general-web, academic-papers]
 execution:
@@ -213,14 +214,20 @@ Cited sources:
 ## Phase: REPORTING
 
 1. Read `notes/`, `sources.yaml`, `verification.md`, and
-   [`references/report-style.md`](references/report-style.md).
-2. Write `report.md`. Cite **global** ids `[S1]`/`[S1, S4]` — translate each note's
-   `[S{nn}-k]` via the ledger's `fragment_ids`. Never copy `[uncertain]` markers or U-ids
-   into the report.
-3. Apply verdicts: `confirmed` → assert with cite · `unsupported` → hedge or drop ·
-   `contradicted` → drop, or surface the contradiction explicitly.
-4. Prune ledger entries no longer cited by the report (delete the entry from
-   `sources.yaml`).
+   [`references/report-style.md`](references/report-style.md); for `output: quarto` also
+   read [`references/quarto-output.md`](references/quarto-output.md).
+2. Apply verdicts: `confirmed` → assert with cite · `unsupported` → hedge or drop ·
+   `contradicted` → drop, or surface the contradiction explicitly. Never copy
+   `[uncertain]` markers or U-ids into the report. Translate each note's `[S{nn}-k]` to
+   **global** ledger ids via `fragment_ids`.
+3. Prune ledger entries the report will not cite (delete from `sources.yaml`).
+4. Write the report:
+   - `output: markdown` → `report.md`, citing `[S1]`/`[S1, S4]`.
+   - `output: quarto` → run
+     `uv run <skill_dir>/scripts/research_kit.py to-bibtex <session_dir>`, then write
+     `report.qmd` citing `[@S1]`/`[@S1; @S4]` with `bibliography: references.bib`
+     (HTML format by default; docx/pdf opt-in — see quarto-output.md), then
+     `quarto render report.qmd`.
 5. **Gate (hard constraint):** run
    `uv run <skill_dir>/scripts/research_kit.py check-citations <session_dir>`.
    `phase: done` may be written **only after it exits 0**. On exit 1, fix the listed
@@ -235,7 +242,8 @@ install location.
 | Subcommand | Purpose | Exit |
 |---|---|---|
 | `merge-sources <session>` | fragments → `sources.yaml`, dedup by DOI/PMID/URL, stable ids | 0 ok / 1 malformed fragment |
-| `check-citations <session>` | report ↔ ledger ↔ notes ↔ verification consistency gate | 0 pass / 1 fail (offenders listed) |
+| `check-citations <session>` | report(s) ↔ ledger ↔ notes ↔ verification (+ `.bib` for qmd) gate | 0 pass / 1 fail (offenders listed) |
+| `to-bibtex <session>` | `sources.yaml` → `references.bib` (quarto output; ids as keys) | 0 / 1 no ledger |
 | `status <session>` | 5-line phase/progress digest — run on every resume | 0 / 1 no plan |
 
 ## Hard constraints (recap)
