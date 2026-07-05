@@ -28,6 +28,9 @@ execution state; update it when work lands (with the commit SHA).
 - [x] **Quarto output** — `to-bibtex` subcommand, qmd-aware citation gate
   (`references.bib` required + synced), `quarto-output.md` reference (`[@Sn]` cites,
   self-contained HTML default, docx/pdf opt-in), 8 more tests (25 total) — `8e57fc7`
+- [x] **verifier_model knob** — explicit `execution.verifier_model` (default `sonnet`,
+  `"inherit"` to match the session model); verifiers previously inherited the session
+  model by accident — `b6ed3a7`
 
 ## Now / Next
 
@@ -76,6 +79,11 @@ execution state; update it when work lands (with the commit SHA).
 
 ## Open questions
 
-- Should `searcher_model` accept per-wave overrides (e.g. cheap sweep waves, stronger
-  reflect-derived waves), or is one tier per session enough? Revisit after more real
-  sessions.
+- ~~Per-wave `searcher_model` overrides?~~ Resolved 2026-07-06: one tier per session for
+  each role — `searcher_model` + `verifier_model` (both default `sonnet`), orchestrator
+  work (scoping, reflect, verification.md, report writing) stays on the session model.
+  Revisit per-wave overrides only if a real session shows sonnet searchers missing
+  things; `verifier_model: inherit` is the per-session escape hatch for judgment-heavy
+  verification.
+- Should `verifier_model` (like `searcher_model`) also be a `.lightbridge [research]`
+  key? Deferred until a repo actually wants a per-project verifier tier.
