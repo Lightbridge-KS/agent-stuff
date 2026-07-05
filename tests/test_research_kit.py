@@ -40,6 +40,7 @@ PLAN_MD = textwrap.dedent(
       wave_size: 4
       max_waves: 3
       searcher_model: sonnet
+      verifier_model: sonnet
     progress:
       waves_done: 1
       sub_questions_done: ["01"]

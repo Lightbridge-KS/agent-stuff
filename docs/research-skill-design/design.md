@@ -158,6 +158,7 @@ execution:
   wave_size: 4              # searchers per wave (rate-limit guard)
   max_waves: 3              # reflection loop budget
   searcher_model: sonnet    # searcher tier; "inherit" to match the session model
+  verifier_model: sonnet    # verifier tier; "inherit" to match the session model
 progress:                   # orchestrator updates after every wave — the resume cursor
   waves_done: 1
   sub_questions_done: [01, 02, 03]

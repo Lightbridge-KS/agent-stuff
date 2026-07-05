@@ -91,6 +91,7 @@ execution:
   wave_size: 4              # searchers per wave (rate-limit guard)
   max_waves: 3              # reflection-loop budget
   searcher_model: sonnet    # searcher tier; "inherit" to match the session model
+  verifier_model: sonnet    # verifier tier; "inherit" to match the session model
 progress:
   waves_done: 0
   sub_questions_done: []    # e.g. ["01", "02"]
@@ -178,8 +179,10 @@ Scope:
 Claims to verify: every `U`-id across `notes/`, plus 3–8 load-bearing claims you select
 (claims the report's conclusions would rest on), ids `C-1`, `C-2`, ...
 
-Spawn verifier subagents (≤ `wave_size` in parallel) with the frozen template below. The
-**orchestrator** writes `verification.md` from the receipts — one row per claim:
+Spawn verifier subagents (≤ `wave_size` in parallel) with the frozen template below,
+passing `execution.verifier_model` as the subagent's model (`inherit` → omit, matching
+the session model). The **orchestrator** writes `verification.md` from the receipts —
+one row per claim:
 
 ```
 - [U03-1] contradicted — source claims X for v2 only; note asserted it generally
