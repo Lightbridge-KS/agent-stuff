@@ -14,7 +14,12 @@ uv run docs_index.py                     # human index of ./docs
 uv run docs_index.py --dir documentation # a different docs dir
 uv run docs_index.py --json              # machine-readable
 uv run docs_index.py --exclude archive,research,vendor
+uv run docs_index.py --include CONTEXT.md,CONTEXT-MAP.md  # extra root-level files
 ```
+
+`--include` names files **outside** `--dir` (relative to the current directory) to index
+too — typically root-level docs like `CONTEXT.md` / `CONTEXT-MAP.md`. They render in a
+separate `Domain context (repo root)` group; missing files are skipped.
 
 Run it from the repo root (it reads `./docs` by default). Installed onto `PATH` via
 `bin/install.py` it's just `docs-index`.

@@ -31,6 +31,10 @@ HOOK = REPO_ROOT / "hooks" / "docs-index-inject" / "hook.py"
 ANNOTATED = "---\nsummary: The cache layer.\nread_when:\n  - touching cache\n---\n# Cache\n"
 # Website-style frontmatter: only `description` — must NOT be surfaced by the hook.
 WEBSITE = "---\ntitle: Home\ndescription: Landing page.\n---\n# Home\n"
+# A root-level CONTEXT.md the hook should surface via the `include` default.
+CONTEXT = (
+    "---\nsummary: The domain glossary.\nread_when:\n  - naming a domain term\n---\n# Context\n"
+)
 
 # Common .lightbridge/config.toml bodies.
 OPTED_IN = "[docs-index]\n"  # section present, all defaults
@@ -53,12 +57,16 @@ def make_project(
     config: str | None,
     docs: dict[str, str],
     docs_dir: str = "docs",
+    root_files: dict[str, str] | None = None,
 ) -> Path:
-    """Build a project dir with optional .lightbridge/config.toml and a docs dir."""
+    """Build a project dir with optional .lightbridge/config.toml, a docs dir, and
+    optional repo-root files (e.g. CONTEXT.md) for the `include` path."""
     proj = base / "proj"
     (proj / docs_dir).mkdir(parents=True)
     for name, content in docs.items():
         (proj / docs_dir / name).write_text(content)
+    for name, content in (root_files or {}).items():
+        (proj / name).write_text(content)
     if config is not None:
         lb = proj / ".lightbridge"
         lb.mkdir()
@@ -149,6 +157,71 @@ class HookTest(unittest.TestCase):
                 Path(d), config="[unclosed\n", docs={"cache.md": ANNOTATED}
             )
             self.assert_silent(run_hook(proj))
+
+    def test_context_file_surfaced_by_default(self):
+        # Root CONTEXT.md appears in its own group, alongside the docs index.
+        with tempfile.TemporaryDirectory() as d:
+            proj = make_project(
+                Path(d),
+                config=OPTED_IN,
+                docs={"cache.md": ANNOTATED},
+                root_files={"CONTEXT.md": CONTEXT},
+            )
+            ctx = self.context_of(run_hook(proj))
+            self.assertIn("Domain context (repo root)", ctx)
+            self.assertIn("CONTEXT.md", ctx)
+            self.assertIn("Read when: naming a domain term", ctx)
+
+    def test_context_injects_without_docs(self):
+        # No annotated docs, but a root CONTEXT.md is enough to inject.
+        with tempfile.TemporaryDirectory() as d:
+            proj = make_project(
+                Path(d),
+                config=OPTED_IN,
+                docs={},
+                root_files={"CONTEXT.md": CONTEXT},
+            )
+            ctx = self.context_of(run_hook(proj))
+            self.assertIn("CONTEXT.md", ctx)
+            self.assertNotIn("Docs index", ctx)  # no docs group when the dir is empty
+
+    def test_context_without_summary_not_surfaced(self):
+        # A CONTEXT.md carrying only `description` must not be surfaced.
+        with tempfile.TemporaryDirectory() as d:
+            proj = make_project(
+                Path(d),
+                config=OPTED_IN,
+                docs={"cache.md": ANNOTATED},
+                root_files={"CONTEXT.md": WEBSITE},
+            )
+            ctx = self.context_of(run_hook(proj))
+            self.assertIn("cache.md", ctx)
+            self.assertNotIn("CONTEXT.md", ctx)
+
+    def test_include_empty_suppresses_context(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = make_project(
+                Path(d),
+                config="[docs-index]\ninclude = []\n",
+                docs={"cache.md": ANNOTATED},
+                root_files={"CONTEXT.md": CONTEXT},
+            )
+            ctx = self.context_of(run_hook(proj))
+            self.assertIn("cache.md", ctx)
+            self.assertNotIn("CONTEXT.md", ctx)
+
+    def test_custom_include_path(self):
+        # An explicit include list honors its paths and ignores the defaults.
+        with tempfile.TemporaryDirectory() as d:
+            proj = make_project(
+                Path(d),
+                config='[docs-index]\ninclude = ["GLOSSARY.md"]\n',
+                docs={"cache.md": ANNOTATED},
+                root_files={"GLOSSARY.md": CONTEXT, "CONTEXT.md": CONTEXT},
+            )
+            ctx = self.context_of(run_hook(proj))
+            self.assertIn("GLOSSARY.md", ctx)
+            self.assertNotIn("CONTEXT.md", ctx)
 
 
 if __name__ == "__main__":

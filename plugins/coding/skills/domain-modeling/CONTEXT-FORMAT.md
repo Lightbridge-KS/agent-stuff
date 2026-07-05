@@ -3,6 +3,13 @@
 ## Structure
 
 ```md
+---
+summary: Ubiquitous language — the domain glossary for this repo.
+read_when:
+  - introducing, renaming, or disambiguating a domain term
+  - naming a type, class, module, or function after a domain concept
+---
+
 # {Context Name}
 
 {One or two sentence description of what this context is and why it exists.}
@@ -28,6 +35,7 @@ _Avoid_: Client, buyer, account
 - **Keep definitions tight.** One or two sentences max. Define what it IS, not what it does.
 - **Only include terms specific to this project's context.** General programming concepts (timeouts, error types, utility patterns) don't belong even if the project uses them extensively. Before adding a term, ask: is this a concept unique to this context, or a general programming concept? Only the former belongs.
 - **Group terms under subheadings** when natural clusters emerge. If all terms belong to a single cohesive area, a flat list is fine.
+- **Keep the YAML frontmatter.** The `summary` / `read_when` header is index metadata, not glossary content — it lets the `docs-index` hook surface this file in the "read before coding" map. It doesn't violate the "glossary and nothing else" rule; the body still holds only terms.
 
 ## Single vs multi-context repos
 
@@ -36,6 +44,13 @@ _Avoid_: Client, buyer, account
 **Multiple contexts:** A `CONTEXT-MAP.md` at the repo root lists the contexts, where they live, and how they relate to each other:
 
 ```md
+---
+summary: Context map — the bounded contexts in this repo, where each lives, and how they relate.
+read_when:
+  - working across more than one bounded context
+  - deciding which context a change belongs to
+---
+
 # Context Map
 
 ## Contexts

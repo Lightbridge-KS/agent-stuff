@@ -21,12 +21,16 @@ exist — and when to read them — before writing any code.
     enabled = true            # optional; default true. Set false to disable.
     dir = "docs"              # docs directory, relative to repo root
     exclude = ["archive", "research"]
+    include = ["CONTEXT.md", "CONTEXT-MAP.md"]  # extra root-level files outside `dir`
 
 To stay DRY this reuses `scripts/docs-index/docs_index.py` as the single source of
 truth. Unlike the CLI, it requires an explicit `summary` / `read_when` (no fallback
-to `description`) so website frontmatter is never surfaced. It degrades silently:
-no config, no `[docs-index]` section, `enabled = false`, no docs, malformed config,
-or no annotated docs → emits nothing, exit 0.
+to `description`) so website frontmatter is never surfaced. Besides the docs `dir` it
+also indexes the `include` files (default `CONTEXT.md` / `CONTEXT-MAP.md`), rendered as
+a separate "Domain context (repo root)" group; missing ones are skipped, so a repo with
+CONTEXT files but no docs dir still gets a map. It degrades silently: no config, no
+`[docs-index]` section, `enabled = false`, nothing annotated, or malformed config →
+emits nothing, exit 0.
 
 Input  (stdin JSON, from Claude Code): { "cwd": "...", "hook_event_name": "SessionStart", ... }
 Output (stdout JSON): { "hookSpecificOutput": { "additionalContext": "..." } }  or nothing.
@@ -93,8 +97,6 @@ def main() -> int:
     repo_root = config_path.parent.parent  # the dir containing .lightbridge/
     docs_rel = section.get("dir", "docs")
     docs_dir = repo_root / docs_rel
-    if not docs_dir.is_dir():
-        return 0  # configured docs dir missing — stay quiet
 
     excludes = section.get("exclude")
     if not isinstance(excludes, list):
@@ -102,13 +104,27 @@ def main() -> int:
     excludes = {str(item) for item in excludes}
 
     # Hook path: require explicit summary/read_when (no description fallback).
-    entries = module.build_index(docs_dir, excludes, fallback_description=False)
-    documented = [e for e in entries if e["summary"]]
-    if not documented:
+    documented: list[dict] = []
+    omitted = 0
+    if docs_dir.is_dir():
+        entries = module.build_index(docs_dir, excludes, fallback_description=False)
+        documented = [e for e in entries if e["summary"]]
+        omitted = len(entries) - len(documented)
+
+    # Extra root-level files outside the docs dir (default: CONTEXT.md / CONTEXT-MAP.md).
+    include = section.get("include")
+    if not isinstance(include, list):
+        include = ["CONTEXT.md", "CONTEXT-MAP.md"]
+    include = [str(item) for item in include]
+    extra = module.index_files(repo_root, include, fallback_description=False)
+    extra_documented = [e for e in extra if e["summary"]]
+
+    if not documented and not extra_documented:
         return 0  # nothing annotated — stay quiet
 
-    omitted = len(entries) - len(documented)
-    context = module.render_human(documented, Path(docs_rel), omitted=omitted)
+    context = module.render_human(
+        documented, Path(docs_rel), omitted=omitted, extra=extra_documented or None
+    )
     print(
         json.dumps(
             {

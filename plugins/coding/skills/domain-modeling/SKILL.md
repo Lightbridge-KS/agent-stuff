@@ -41,6 +41,8 @@ If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The ma
 
 Create files lazily — only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed.
 
+`CONTEXT.md` and `CONTEXT-MAP.md` carry a `summary` / `read_when` YAML frontmatter (see [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)) so the `docs-index` hook surfaces them in the agent's "read before coding" map. Always write the frontmatter when you create these files.
+
 ## During the session
 
 ### Challenge against the glossary
