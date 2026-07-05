@@ -39,7 +39,7 @@ PLAN_MD = textwrap.dedent(
     execution:
       wave_size: 4
       max_waves: 3
-      searcher_model: inherit
+      searcher_model: sonnet
     progress:
       waves_done: 1
       sub_questions_done: ["01"]

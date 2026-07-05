@@ -88,7 +88,7 @@ modules: [general-web, academic-papers]
 execution:
   wave_size: 4              # searchers per wave (rate-limit guard)
   max_waves: 3              # reflection-loop budget
-  searcher_model: inherit   # or a cheaper tier for wide sweeps
+  searcher_model: sonnet    # searcher tier; "inherit" to match the session model
 progress:
   waves_done: 0
   sub_questions_done: []    # e.g. ["01", "02"]
@@ -116,7 +116,9 @@ research", "go ahead", "looks good") flip `phase` to `executing` **only while
 1. Read `plan.md`. Undone = sub-questions not in `progress.sub_questions_done` **and**
    without an existing `notes/NN-*.md` (never re-research an existing note).
 2. Take up to `execution.wave_size` undone sub-questions. Spawn one **searcher subagent
-   per sub-question, in parallel**, with the frozen template below.
+   per sub-question, in parallel**, with the frozen template below. Pass
+   `execution.searcher_model` as the subagent's model (`inherit` → omit, matching the
+   session model).
 3. Collect receipts. A searcher whose two files don't exist on disk → mark failed, retry
    once in the next wave (then record the gap in the plan body and move on).
 4. Run `uv run <skill_dir>/scripts/research_kit.py merge-sources <session_dir>`
