@@ -49,6 +49,8 @@ conventions. Adding a section? See [`extending.md`](extending.md).
   - `output` — string, default `"markdown"`. (`"quarto"` reserved for a future version.)
   - `backends` — list of strings, default: probed at plan time. Preference order, e.g.
     `["pubmed-mcp", "websearch"]`.
+  - `searcher_model` — string, default `"sonnet"`. Model tier for searcher subagents;
+    `"inherit"` matches the session model. Seeds `execution.searcher_model` in `plan.md`.
   - `corpus` — list of strings, default `[]`. Local corpus dirs (reserved for the future
     local-corpus module).
 - **Notes:** section present → near-zero-question planning; paths may be `~`-relative.

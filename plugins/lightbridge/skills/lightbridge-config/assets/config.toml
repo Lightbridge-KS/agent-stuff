@@ -16,4 +16,5 @@ include = ["CONTEXT.md", "CONTEXT-MAP.md"]  # extra root-level files (default); 
 # dir = "docs/research"              # parent dir for session folders
 # output = "markdown"                # markdown | quarto (quarto reserved)
 # backends = ["websearch"]           # preference order; probed at plan time when omitted
+# searcher_model = "sonnet"          # searcher tier; "inherit" to match the session model
 # corpus = []                        # local corpus dirs (reserved)

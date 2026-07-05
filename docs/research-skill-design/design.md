@@ -274,6 +274,7 @@ Optional per-repo defaults via the `lightbridge-config` mechanism (D6):
 dir = "docs/research"              # session parent dir
 output = "quarto"                  # default output format
 backends = ["pubmed-mcp", "websearch"]   # preference order
+searcher_model = "sonnet"          # searcher tier; "inherit" to match the session model
 corpus = ["~/papers/rad-ai"]       # local corpora offered to the planner
 ```
 
