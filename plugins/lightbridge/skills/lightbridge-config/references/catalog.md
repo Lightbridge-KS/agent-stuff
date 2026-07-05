@@ -26,7 +26,12 @@ conventions. Adding a section? See [`extending.md`](extending.md).
   - `enabled` — bool, default `true`.
   - `dir` — string, default `"docs"`. Docs directory, relative to repo root.
   - `exclude` — list of strings, default `["archive", "research"]`. Subdir names to skip.
+  - `include` — list of strings, default `["CONTEXT.md", "CONTEXT-MAP.md"]`. Extra files
+    **outside** `dir` (relative to repo root) to index too — surfaced as a separate
+    "Domain context (repo root)" group. Missing files are skipped; `[]` suppresses them.
 - **Notes:** the hook requires explicit `summary` / `read_when` frontmatter (no `description`
-  fallback), so website docs (Docusaurus/mkdocs/Quarto) are never surfaced.
+  fallback), so website docs (Docusaurus/mkdocs/Quarto) are never surfaced. The `include`
+  default targets the `domain-modeling` skill's `CONTEXT.md` / `CONTEXT-MAP.md`, so they
+  appear with no extra config once they carry that frontmatter.
 
 <!-- New sections are appended here via the extending.md recipe. -->

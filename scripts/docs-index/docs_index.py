@@ -26,6 +26,7 @@ frontmatter is understood too.
     docs-index --dir documentation  # a different docs dir
     docs-index --json               # machine-readable (for hooks/tooling)
     docs-index --exclude archive,research,vendor
+    docs-index --include CONTEXT.md,CONTEXT-MAP.md  # extra root-level files
 
 Exit codes: 0 on success (even if some docs lack a summary); 2 when --dir is missing.
 """
@@ -133,27 +134,70 @@ def build_index(
     return entries
 
 
-def render_human(entries: list[dict], docs_dir: Path, omitted: int = 0) -> str:
+def index_files(
+    root: Path, rel_paths: list[str], fallback_description: bool = True
+) -> list[dict]:
+    """Index an explicit list of files (relative to `root`), in the given order.
+
+    For root-level docs that live *outside* the docs dir — e.g. `CONTEXT.md` /
+    `CONTEXT-MAP.md`. Missing files are silently skipped, so a default list can name
+    conventional files without forcing every repo to have them. Each entry's `path`
+    is the relative path as given.
+    """
+    entries: list[dict] = []
+    for rel in rel_paths:
+        full = root / rel
+        if not full.is_file():
+            continue
+        record = extract(full, fallback_description=fallback_description)
+        record["path"] = rel
+        entries.append(record)
+    return entries
+
+
+def _entry_lines(entry: dict) -> list[str]:
+    """Render one index entry: `path — summary` plus a `Read when:` line, or the
+    bare path with an error tag when it carries no summary."""
+    if entry["summary"]:
+        lines = [f"  {entry['path']} — {entry['summary']}"]
+        if entry["read_when"]:
+            lines.append(f"    Read when: {'; '.join(entry['read_when'])}")
+        return lines
+    reason = f" [{entry['error']}]" if entry["error"] else ""
+    return [f"  {entry['path']}{reason}"]
+
+
+def render_human(
+    entries: list[dict],
+    docs_dir: Path,
+    omitted: int = 0,
+    extra: list[dict] | None = None,
+    extra_label: str = "Domain context (repo root)",
+) -> str:
     """Render the index. `omitted` > 0 adds a footer counting docs that exist
     but were dropped from the listing (hook path drops unannotated docs), so
-    the map never silently reads as complete when it isn't."""
-    if not entries:
+    the map never silently reads as complete when it isn't. `extra` is a second
+    group of root-level files (indexed via `index_files`), rendered under
+    `extra_label` — used to surface `CONTEXT.md` / `CONTEXT-MAP.md`."""
+    if not entries and not extra:
         return f"No markdown docs found under {docs_dir}."
-    lines = [f"Docs index ({docs_dir}):"]
-    for e in entries:
-        if e["summary"]:
-            lines.append(f"  {e['path']} — {e['summary']}")
-            if e["read_when"]:
-                lines.append(f"    Read when: {'; '.join(e['read_when'])}")
-        else:
-            reason = f" [{e['error']}]" if e["error"] else ""
-            lines.append(f"  {e['path']}{reason}")
-    if omitted > 0:
-        noun = "doc" if omitted == 1 else "docs"
-        lines.append(
-            f"  (+ {omitted} {noun} without a summary, not listed — "
-            f"run docs-index --dir {docs_dir} to see them)"
-        )
+    lines: list[str] = []
+    if entries:
+        lines.append(f"Docs index ({docs_dir}):")
+        for e in entries:
+            lines.extend(_entry_lines(e))
+        if omitted > 0:
+            noun = "doc" if omitted == 1 else "docs"
+            lines.append(
+                f"  (+ {omitted} {noun} without a summary, not listed — "
+                f"run docs-index --dir {docs_dir} to see them)"
+            )
+    if extra:
+        if lines:
+            lines.append("")
+        lines.append(f"{extra_label}:")
+        for e in extra:
+            lines.extend(_entry_lines(e))
     lines.append("")
     lines.append(REMINDER)
     return "\n".join(lines)
@@ -171,6 +215,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--exclude",
         default=",".join(DEFAULT_EXCLUDES),
         help=f"Comma-separated dir names to skip (default: {','.join(DEFAULT_EXCLUDES)}).",
+    )
+    parser.add_argument(
+        "--include",
+        default="",
+        help="Comma-separated file paths (relative to CWD) to index in addition to "
+        "--dir, e.g. CONTEXT.md,CONTEXT-MAP.md. Missing files are skipped.",
     )
     parser.add_argument(
         "--json", action="store_true", help="Emit JSON instead of human text."
@@ -192,10 +242,18 @@ def main(argv: list[str]) -> int:
     excludes = {part.strip() for part in args.exclude.split(",") if part.strip()}
     entries = build_index(docs_dir, excludes)
 
+    include = [part.strip() for part in args.include.split(",") if part.strip()]
+    extra = index_files(Path("."), include)
+
     if args.json:
-        print(json.dumps({"dir": docs_dir.as_posix(), "docs": entries}, indent=2))
+        print(
+            json.dumps(
+                {"dir": docs_dir.as_posix(), "docs": entries, "include": extra},
+                indent=2,
+            )
+        )
     else:
-        print(render_human(entries, docs_dir))
+        print(render_human(entries, docs_dir, extra=extra or None))
     return 0
 
 

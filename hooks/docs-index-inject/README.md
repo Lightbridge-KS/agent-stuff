@@ -22,17 +22,20 @@ deterministic core (the agent can also run it by hand), the hook is the thin wir
 SessionStart → cwd
   walk up for .lightbridge/config.toml   none?                → exit 0, silent (not opted in)
   read [docs-index] section              no section / enabled=false → exit 0, silent
-  <repo>/<dir> missing?                  → exit 0, silent
-  build index (explicit summary/read_when only — no description fallback)
-  nothing annotated?                     → exit 0, silent
-  else → emit additionalContext with the docs map
+  build index of <repo>/<dir>            (skipped if the dir is missing)
+    (explicit summary/read_when only — no description fallback)
+  index the `include` files at repo root (default CONTEXT.md / CONTEXT-MAP.md; missing skipped)
+  nothing annotated at all?              → exit 0, silent
+  else → emit additionalContext with the docs map + a "Domain context (repo root)" group
          (docs without a summary are dropped from the listing but counted
           in a footer line, so the map never silently reads as complete)
 ```
 
 Unlike the CLI, the hook does **not** fall back to the `description` key, so website
 frontmatter (which commonly has `description`) is never surfaced even in an opted-in repo.
-It fails open and quiet on any error (missing/malformed config, missing source).
+Because the `include` files live outside `dir`, a repo with a `CONTEXT.md` but no docs dir
+still gets a map. It fails open and quiet on any error (missing/malformed config, missing
+source).
 
 ## 1. Enable once (per machine)
 
@@ -92,7 +95,12 @@ In each repo where you want the index injected, add a `[docs-index]` section to 
 enabled = true            # optional; default true. Set false to disable without deleting.
 dir = "docs"              # docs directory, relative to repo root
 exclude = ["archive", "research"]
+include = ["CONTEXT.md", "CONTEXT-MAP.md"]  # extra root-level files (this is the default)
 ```
+
+`include` lists files **outside** `dir` (relative to the repo root) to index too. It
+defaults to `["CONTEXT.md", "CONTEXT-MAP.md"]` — the domain-modeling glossary and context
+map — so they surface with no extra config when present. Set `include = []` to suppress them.
 
 If a repo's `docs/` is a website, point `dir` at your agent-facing docs instead
 (e.g. `dir = "agent-docs"`), or simply omit the `[docs-index]` section.

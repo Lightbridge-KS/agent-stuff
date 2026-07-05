@@ -8,3 +8,4 @@
 enabled = true                     # optional; default true
 dir = "docs"                       # docs directory, relative to repo root
 exclude = ["archive", "research"]  # subdir names to skip
+include = ["CONTEXT.md", "CONTEXT-MAP.md"]  # extra root-level files (default); [] to suppress
