@@ -9,3 +9,11 @@ enabled = true                     # optional; default true
 dir = "docs"                       # docs directory, relative to repo root
 exclude = ["archive", "research"]  # subdir names to skip
 include = ["CONTEXT.md", "CONTEXT-MAP.md"]  # extra root-level files (default); [] to suppress
+
+# [research]
+# # Per-repo defaults for the research skill (agent-stuff plugins/research) — deep-research sessions.
+# enabled = true                     # optional; default true
+# dir = "docs/research"              # parent dir for session folders
+# output = "markdown"                # markdown | quarto (quarto reserved)
+# backends = ["websearch"]           # preference order; probed at plan time when omitted
+# corpus = []                        # local corpus dirs (reserved)

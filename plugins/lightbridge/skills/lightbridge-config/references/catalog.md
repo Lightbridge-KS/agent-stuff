@@ -34,4 +34,23 @@ conventions. Adding a section? See [`extending.md`](extending.md).
   default targets the `domain-modeling` skill's `CONTEXT.md` / `CONTEXT-MAP.md`, so they
   appear with no extra config once they carry that frontmatter.
 
+### `[research]`
+
+- **Purpose:** per-repo defaults for the `research` skill (deep-research sessions) — where
+  sessions live, preferred backends, output format, and local corpora offered to the
+  planner.
+- **Reader:** `agent-stuff` → `plugins/research/skills/research/SKILL.md` reads this
+  section at plan time; when absent, the skill's capability probe + scoping questions
+  cover everything.
+- **Opt-in:** presence of `[research]`; `enabled = false` to disable.
+- **Keys:**
+  - `enabled` — bool, default `true`.
+  - `dir` — string, default `"docs/research"`. Parent dir for session folders.
+  - `output` — string, default `"markdown"`. (`"quarto"` reserved for a future version.)
+  - `backends` — list of strings, default: probed at plan time. Preference order, e.g.
+    `["pubmed-mcp", "websearch"]`.
+  - `corpus` — list of strings, default `[]`. Local corpus dirs (reserved for the future
+    local-corpus module).
+- **Notes:** section present → near-zero-question planning; paths may be `~`-relative.
+
 <!-- New sections are appended here via the extending.md recipe. -->

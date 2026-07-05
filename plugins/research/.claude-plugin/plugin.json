@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "research",
+  "description": "Deep-research harness — conversational planning, autonomous multi-wave execution, resumable file state, cited reports.",
+  "author": {
+    "name": "Kittipos S.",
+    "url": "https://github.com/Lightbridge-KS"
+  },
+  "homepage": "https://github.com/Lightbridge-KS/agent-stuff",
+  "repository": "https://github.com/Lightbridge-KS/agent-stuff",
+  "license": "MIT",
+  "keywords": ["research", "deep-research", "citations", "pubmed"]
+}

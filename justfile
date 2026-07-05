@@ -26,6 +26,7 @@ test:
     uv run tests/test_install.py
     uv run tests/test_hooks.py
     uv run tests/test_package.py
+    uv run tests/test_research_kit.py
 
 # Remove build artifacts
 clean:

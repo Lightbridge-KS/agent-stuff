@@ -38,6 +38,14 @@
       "description": "Agent-workflow and meta skills: grilling sessions, conversation handoffs, and skill authoring.",
       "category": "productivity",
       "tags": ["grilling", "handoff", "skills"]
+    },
+    {
+      "name": "research",
+      "displayName": "Research",
+      "source": "./plugins/research",
+      "description": "Deep-research harness: plan conversationally, execute autonomously into a cited report with resumable file state and pluggable backends.",
+      "category": "productivity",
+      "tags": ["research", "deep-research", "citations", "pubmed"]
     }
   ]
 }
