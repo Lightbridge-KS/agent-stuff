@@ -52,6 +52,8 @@ conventions. Adding a section? See [`extending.md`](extending.md).
     `["pubmed-mcp", "websearch"]`.
   - `searcher_model` — string, default `"sonnet"`. Model tier for searcher subagents;
     `"inherit"` matches the session model. Seeds `execution.searcher_model` in `plan.md`.
+  - `verifier_model` — string, default `"sonnet"`. Model tier for verifier subagents;
+    `"inherit"` matches the session model. Seeds `execution.verifier_model` in `plan.md`.
   - `corpus` — list of strings, default `[]`. Local corpus dirs (reserved for the future
     local-corpus module).
 - **Notes:** section present → near-zero-question planning; paths may be `~`-relative.

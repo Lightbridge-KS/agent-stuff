@@ -17,4 +17,5 @@ include = ["CONTEXT.md", "CONTEXT-MAP.md"]  # extra root-level files (default); 
 # output = "markdown"                # markdown | quarto (.bib + @key cites, HTML render)
 # backends = ["websearch"]           # preference order; probed at plan time when omitted
 # searcher_model = "sonnet"          # searcher tier; "inherit" to match the session model
+# verifier_model = "sonnet"          # verifier tier; "inherit" to match the session model
 # corpus = []                        # local corpus dirs (reserved)

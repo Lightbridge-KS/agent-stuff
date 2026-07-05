@@ -63,8 +63,8 @@ Conversational, not machinery. Before any searching:
    - Built-ins: are WebSearch / WebFetch available (load via ToolSearch if deferred)?
    - MCP: ToolSearch for search/retrieval tools (e.g. `pubmed search articles`).
    - `.lightbridge/config.toml` `[research]`: `backends` preference order;
-     `searcher_model` seeds `execution.searcher_model` in the plan (`corpus` is reserved
-     for a future local-corpus module — acknowledge but don't use).
+     `searcher_model` / `verifier_model` seed the matching `execution` keys in the plan
+     (`corpus` is reserved for a future local-corpus module — acknowledge but don't use).
    - Map backends → modules: web search/fetch → [`modules/general-web.md`](modules/general-web.md);
      PubMed MCP → [`modules/academic-papers.md`](modules/academic-papers.md).
    - A missing capability degrades **visibly**: record what's absent in the plan body so
