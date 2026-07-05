@@ -17,7 +17,8 @@ output). Quarto output added 2026-07-06 after the first E2E: `to-bibtex` generat
 `references.bib` from the ledger, `report.qmd` cites `[@Sn]` keys, HTML (self-contained)
 is the default render with docx/pdf opt-in. Matrix mode and the remaining modules stay
 deferred. Skill: `plugins/research/skills/research/`. E2E fixture:
-`~/my_config/_tests/deep-research-test/`.*
+`~/my_config/_tests/deep-research-test/`. Execution state lives in the progress tracker:
+[`progress/research-skill.md`](progress/research-skill.md).*
 
 ## 1. Problem & positioning
 
