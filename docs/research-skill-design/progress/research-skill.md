@@ -30,7 +30,7 @@ execution state; update it when work lands (with the commit SHA).
   self-contained HTML default, docx/pdf opt-in), 8 more tests (25 total) — `8e57fc7`
 - [x] **verifier_model knob** — explicit `execution.verifier_model` (default `sonnet`,
   `"inherit"` to match the session model); verifiers previously inherited the session
-  model by accident — `b6ed3a7`
+  model by accident — `b6ed3a7`; surfaced as a `.lightbridge [research]` key — `ba634bc`
 
 ## Now / Next
 
@@ -85,5 +85,7 @@ execution state; update it when work lands (with the commit SHA).
   Revisit per-wave overrides only if a real session shows sonnet searchers missing
   things; `verifier_model: inherit` is the per-session escape hatch for judgment-heavy
   verification.
-- Should `verifier_model` (like `searcher_model`) also be a `.lightbridge [research]`
-  key? Deferred until a repo actually wants a per-project verifier tier.
+- ~~Should `verifier_model` also be a `.lightbridge [research]` key?~~ Resolved
+  2026-07-06: yes, added (`ba634bc`) — the two model knobs are symmetric everywhere:
+  lightbridge key → seeds `execution.*` at plan time → plan.md is authoritative for the
+  session.
