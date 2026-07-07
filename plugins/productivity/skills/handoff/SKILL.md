@@ -17,6 +17,7 @@ Redact any sensitive information, such as API keys, passwords, or personally ide
 
 If the user passed arguments, treat them as a description of what the next session will focus on and tailor the doc accordingly.
 
+After writing the document, report its absolute path to the user.
 ---
 
 _Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT)._
