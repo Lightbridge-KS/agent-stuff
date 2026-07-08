@@ -1,6 +1,6 @@
 ---
 name: commit-push-pr
-description: "Git workflow: commit, push, and create/update a draft PR. If a PR exists for the current branch, update its body. Trigger: 'commit push pr', 'ship it', 'send a PR', or /commit-push-pr."
+description: "Git workflow: commit, push, and create/update a draft PR. If a PR exists for the current branch, update its body. Trigger: 'commit push pr' or /commit-push-pr."
 metadata:
   version: "2026-07-09"
 ---
