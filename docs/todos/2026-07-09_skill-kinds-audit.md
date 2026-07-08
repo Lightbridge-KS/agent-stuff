@@ -17,7 +17,7 @@
 | Reference | Retrieval: freshness risk (version pins? rot rate?) + should it become a retrieval pointer instead of cached facts? Also note **stability class** — how fast the underlying tool churns. | `cache ok` / `add freshness guard` / `convert to retrieval` |
 
 **3. Cross-cutting findings:**
-- Overlap/redundancy — known suspects: three grill variants (`grilling`, `grill-me`, `grill-with-docs`) → consolidation candidates. Note: `grill-with-docs` is a one-line composition of `grilling` + `domain-modeling`, so the real question is only `grilling` vs `grill-me`.
+- Overlap/redundancy — no known suspects remain; the grill cluster is resolved (see below).
 - Misfiled value (concept wrapper around a contract, etc.).
 - Router quality of each `description` vs the repo SKILL.md contract ("short trigger phrase, not documentation").
 
@@ -25,6 +25,8 @@
 
 - **Clean Architecture cluster:** legacy orphans (`hybrid-architecture-expert` ×2, `python-clean-architect`, `dotnet-clean-architect`, `clean-architecture-expert` agent) deprecated → replaced by one concept-kind skill `plugins/coding/skills/clean-architecture/` (commit `1f0bbea`). Audit it as a fresh skill only.
 - **Domain-modeling cluster:** orphans `domain-model` (pre-split monolith of `grilling` + `domain-modeling`) and `ubiquitous-language` (competing `UBIQUITOUS_LANGUAGE.md` contract vs canonical `CONTEXT.md`) archived; successors already canonical. Deliberate omissions in current `CONTEXT-FORMAT.md` (relationships/cardinality, example dialogue, flagged-ambiguities section) were confirmed as intentional slimming — don't re-add without user say-so.
+- **Grill cluster:** `grill-me` deleted — pure alias of `grilling` (one-line wrapper, failed the deletion test; user confirmed no muscle-memory need). `grilling` (concept) and `grill-with-docs` (composition of `grilling` + `domain-modeling`) both keep.
+- **`commit-push-pr`:** audited and rewritten 2026-07-09 (contract-kind, 53 → 29 lines; competence deleted, main-branch and dry-gates joints pinned). Audit as a fresh skill only.
 - Legacy copies archived in `my_config/_archive/agent-skills/plugins/coding/skills/`; three broken `ramaai-*` symlinks deleted. All four agent dirs (`~/.claude`, `~/.codex`, `~/.pi`, `~/.agents`) verified symmetric — every skill a live symlink into agent-stuff.
 
 ## Method
