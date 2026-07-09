@@ -2,7 +2,7 @@
 name: dcmtk
 description: "Reference for the DCMTK (OFFIS DICOM Toolkit) command-line tools — the canonical CLI for working with DICOM files and DIMSE network services. Use when converting, dumping, anonymizing, or validating DICOM files, or running DIMSE services (C-ECHO/STORE/FIND/MOVE/GET), worklists, or structured reports from the terminal."
 metadata:
-  version: "2026-06-12"
+  version: "2026-07-09"
 ---
 
 # DCMTK Command-Line Reference
@@ -16,6 +16,10 @@ The catch: the tool set is large (~70 binaries across 12 modules) and the
 flag conventions (`-x` vs `+x` are *different flags*) are surprising. This
 skill exists so an AI agent can pick the right tool, write a correct
 invocation on the first try, and avoid the classic DCMTK potholes.
+
+> **Freshness:** facts verified against **DCMTK 3.7.x** (as of 2026-07). On a
+> newer major/minor release, spot-check flags against the tool's man page or
+> `--help` before relying on them.
 
 ## Mental model
 

@@ -1,8 +1,8 @@
 ---
 name: orthanc-api
-description: "Reference for driving an Orthanc DICOM server through its REST API. Use this skill whenever a task involves Orthanc — uploading, browsing, searching, downloading, anonymizing, or modifying DICOM resources (patients/studies/series/instances) on a local or remote Orthanc; performing DICOM network operations through Orthanc such as C-ECHO, C-STORE, C-MOVE, C-GET, or Query/Retrieve (C-FIND) against remote modalities/PACS; configuring Orthanc peers or modalities; tracking changes; decoding instances to PNG/NumPy for AI pipelines; or running asynchronous Orthanc jobs. Trigger this even when the user only mentions an Orthanc URL (e.g. localhost:8042), 'the Orthanc REST API', or building a script/tool/pipeline that talks to Orthanc, even if no specific endpoint is named."
+description: "Reference for driving an Orthanc DICOM server via its REST API — upload/search/download/anonymize DICOM resources, DICOM networking through Orthanc (C-ECHO/STORE/FIND/MOVE/GET), peers/modalities, changes, jobs, PNG/NumPy decoding. Use whenever a task involves Orthanc, even if only an Orthanc URL (e.g. localhost:8042) is mentioned."
 metadata:
-  version: "2026-06-12"
+  version: "2026-07-09"
 ---
 
 # Orthanc REST API Reference

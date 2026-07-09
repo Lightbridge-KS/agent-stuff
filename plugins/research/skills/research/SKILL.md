@@ -1,6 +1,6 @@
 ---
 name: research
-description: Stateful deep-research sessions — conversational scoping into an editable plan.md, then autonomous multi-wave searcher fan-out producing a cited, adversarially verified report, with resumable file state under docs/research/. Use when the user says /research, "start a research session", asks to resume or check on a research session, or needs pluggable backends (PubMed MCP) or research state that survives interrupts. NOT for quick one-shot fact-checked answers — use the built-in deep-research skill for those.
+description: Stateful deep-research sessions with resumable file state under docs/research/. Use when the user says /research, "start a research session", or asks to resume or check on one; also when research needs pluggable backends (PubMed MCP) or state that survives interrupts. NOT for quick one-shot fact-checked answers — use the built-in deep-research skill for those.
 metadata:
   version: "2026-07-09"
 ---

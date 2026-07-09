@@ -61,7 +61,7 @@ Settled 2026-07-05 with the user; these are binding on the implementation.
 | # | Decision | Choice | Rejected alternatives |
 |---|---|---|---|
 | D1 | Autonomy after plan approval | **Fully autonomous + resumable.** No human gates during execution; interrupt-safety via the state contract, not via approval prompts. | Per-wave gates (Weizhena); plan-time gating knob |
-| D2 | Research shape | **Both, plan decides.** Planner classifies the question: open-ended → *narrative*; landscape/comparison → *matrix* (items × fields). One skill, two execution templates. | Narrative-only; matrix-only |
+| D2 | Research shape | **Both, plan decides** *(matrix deferred — v1 ships narrative-only; see roadmap §12)*. Planner classifies the question: open-ended → *narrative*; landscape/comparison → *matrix* (items × fields). One skill, two execution templates. | Narrative-only; matrix-only |
 | D3 | Execution engine | **Agent-tool fan-out.** The orchestrator (main loop, driven by SKILL.md) spawns parallel research subagents. Portable in spirit; state via files. | Workflow tool (Claude-Code-only, less inspectable); hybrid |
 | D4 | Skill surface | **One phase-aware skill.** `/research` is the only entrypoint; it reads on-disk state to resume at the right phase. | 2–3 skill family; Weizhena-style 5+ |
 | D5 | Verification rigor | **Verify wave + citation gate.** Adversarial refutation of load-bearing claims before writing, plus a deterministic script checking report ↔ source-ledger consistency. | Citation gate only; prompt discipline only |
@@ -112,6 +112,12 @@ wave: everything landed is on disk, and re-invoking `/research` resumes.
 
 ## 4. The state contract (the load-bearing design)
 
+> **Schema ownership.** Field-level schemas (frontmatter keys, ledger shape, citation
+> syntax, subcommand exit codes) are owned by the implementation — `SKILL.md` and
+> `scripts/research_kit.py` are canonical. The snippets in this section are illustrative
+> and may lag; when they disagree, the implementation wins. This doc owns rationale and
+> decisions, not schemas.
+
 Skills phases rendezvous through files, never through conversation memory. Everything below
 is hand-editable between phases; the orchestrator re-reads, never caches.
 
@@ -148,7 +154,7 @@ shape: narrative            # narrative | matrix
 topic: "Local deep-research stack on a Mac"
 created: 2026-07-05
 language: en                # report language (en default; th on request)
-output: markdown            # markdown | quarto | quarto-book
+output: markdown            # markdown | quarto
 backends:                   # probed + confirmed at plan time (§6)
   - websearch
   - webfetch
@@ -161,7 +167,7 @@ execution:
   verifier_model: sonnet    # verifier tier; "inherit" to match the session model
 progress:                   # orchestrator updates after every wave — the resume cursor
   waves_done: 1
-  sub_questions_done: [01, 02, 03]
+  sub_questions_done: ["01", "02", "03"]   # quoted — unquoted ids become YAML ints
 ---
 
 # Research plan: Local deep-research stack on a Mac
@@ -190,8 +196,8 @@ never hand-authored. Each entry:
   title: "RhinoInsight: …"
   type: paper           # paper | docs | repo | article | dataset | local
   accessed: 2026-07-05
-  pmid: null            # or DOI/PMID when the backend provides one
-  supports: [note-03]   # which notes cite it
+  pmid: null            # doi/pmid when the backend provides one
+  fragment_ids: [S03-1] # the per-note fragment ids merged into this entry
 ```
 
 Parallel searchers **never write the merged ledger** — each writes its own
@@ -239,7 +245,7 @@ contract:
 |---|---|
 | Input | `{sub_question}`, `{scope_digest}`, `{module_paths}`, `{note_path}`, `{sources_fragment_path}`, `{date}` |
 | First act | Read the assigned strategy module(s) before any search |
-| Output | Write `notes/NN.md` (findings, inline `[S-local-n]` cites, `[uncertain]` marks) + `sources/NN.yaml`; return only the receipt |
+| Output | Write `notes/NN.md` (findings, inline fragment cites `[S{nn}-k]`, `[uncertain]` marks) + `sources/NN.yaml`; return only the receipt |
 | Tools | Read-only + search/fetch; never edits repo files outside the session dir |
 | Done | Both files exist and the receipt is returned — the orchestrator, not the searcher, judges coverage |
 

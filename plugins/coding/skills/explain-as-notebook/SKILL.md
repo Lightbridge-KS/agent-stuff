@@ -1,12 +1,10 @@
 ---
 name: explain-as-notebook
 description: >-
-  Decompose a piece of an existing codebase — a function, method, class, or
-  module — into a runnable notebook that explains it top-down: a call-graph map,
-  then each piece defined and executed on concrete mock inputs with its real
-  output shown inline. Turns code you didn't write (or have forgotten) into an
-  interactive, line-by-line walkthrough. Use this skill only when the user
-  explicitly invokes it by name (`explain-as-notebook`) or near-match mentioning.
+  Decompose a function, method, class, or module of an existing codebase into a
+  runnable notebook that explains it top-down — each piece executed on concrete
+  inputs with real output shown inline. Use only when the user explicitly
+  invokes it by name (`explain-as-notebook`) or near-match mentioning.
 metadata:
   version: "2026-07-09"
 ---
