@@ -55,9 +55,3 @@ machinery; the gate rejects leaks.
 - `language: en` — English throughout.
 - `language: th` — Thai prose; keep technical terms, tool names, and citations in English
   (no transliteration of established technical vocabulary). Section headings in Thai.
-
-## Tone
-
-- Lead with answers, not process. No "I searched for..." narration.
-- Numbers over adjectives; name trade-offs explicitly.
-- Contradictory evidence is a finding, not an embarrassment — report it.

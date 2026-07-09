@@ -47,6 +47,8 @@ agent-summarize incident.log | tool reply msg_01k... --stdin
 ## Stable exit-code taxonomy
 
 Highest-leverage idea: agents branch on *categories of failure* without scraping English.
+The table below is **one example assignment** — any documented, stable mapping works; the
+pin is the category idea, not these numbers.
 
 | Code | Meaning | Code | Meaning |
 |------|---------|------|---------|

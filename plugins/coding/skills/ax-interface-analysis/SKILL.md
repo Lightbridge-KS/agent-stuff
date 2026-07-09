@@ -7,7 +7,7 @@ description: >-
   Use this skill only when the user explicitly invokes it by name
   (`ax-interface-analysis`) or near-match mentioning.
 metadata:
-  version: "2026-06-18"
+  version: "2026-07-09"
 ---
 
 # AX Interface Analysis
@@ -97,9 +97,7 @@ Build a faithful map of what an agent touches. If a sibling `_docs/*_ux_design.m
    (`discover → call → read result → next call → verify`), noting every round-trip and every
    token-heavy return.
 
-Useful when a shell is available: `rg "@click.command|argparse|add_argument|sys.exit\("`,
-`rg "@app.route|@router|FastAPI|express"`, `rg "Tool\(|inputSchema|server.tool"`, and reading
-the actual `--help`. The goal is a map of the agent-facing surface, not a line-by-line audit.
+The goal is a map of the agent-facing surface, not a line-by-line audit.
 
 ## Step 3 — Audit against the AX rubric
 
