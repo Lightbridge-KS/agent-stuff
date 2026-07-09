@@ -1,8 +1,8 @@
 ---
 name: lightbridge-config
-description: Bootstrap and manage the personal .lightbridge/ config namespace in a repo — create or extend .lightbridge/config.toml, explain its sections (docs-index, …), and register new sections as they're invented. Use when setting up .lightbridge, enabling or adding a config section, asking what .lightbridge supports, or wiring a new per-repo config feature.
+description: Bootstrap and manage the personal .lightbridge/ namespace — per-repo .lightbridge/config.toml sections (docs-index, …) and the user-level ~/.lightbridge/ state dir (projects/, handoffs). Use when setting up .lightbridge, enabling or adding a config section, asking what .lightbridge supports, wiring a new per-repo config feature, or locating user-level lightbridge state.
 metadata:
-  version: "2026-07-06"
+  version: "2026-07-09"
 ---
 
 # .lightbridge config
@@ -13,6 +13,10 @@ One file: `.lightbridge/config.toml`, namespaced by `[section]`.
 
 **The one rule — opt-in by section presence.** A feature is on iff its `[section]` exists;
 `enabled = false` disables without deleting. So the folder is safe to carry across many repos.
+
+There is also a **user level**: `~/.lightbridge/` holds durable, harness-neutral state
+(`projects/<project-key>/…`, e.g. handoff documents) — the user-level sibling of the per-repo
+folder. Registry and key-encoding rule: the catalog's "User level" section.
 
 Full spec (sections, keys, who reads them): [`references/catalog.md`](references/catalog.md).
 

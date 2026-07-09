@@ -10,7 +10,8 @@ conventions. Adding a section? See [`extending.md`](extending.md).
 - **Opt-in by section presence.** A feature activates iff its `[section]` exists.
   `enabled = false` disables it without deleting the block.
 - **Format:** TOML; one `[section]` per feature; keys optional unless noted.
-- **Scope:** project-level only for now (no user-level merge).
+- **Scope:** `config.toml` is project-level only (no user-level merge). Durable user-level
+  *state* lives under `~/.lightbridge/` — see "User level" below.
 - **Hygiene:** no secrets, tokens, or PHI — repos may be public.
 
 ## Sections
@@ -59,3 +60,23 @@ conventions. Adding a section? See [`extending.md`](extending.md).
 - **Notes:** section present → near-zero-question planning; paths may be `~`-relative.
 
 <!-- New sections are appended here via the extending.md recipe. -->
+
+## User level (`~/.lightbridge/`)
+
+Durable, harness-neutral state that must outlive a session and work across every harness
+(Claude Code, Codex, Pi, …) — the user-level sibling of the per-repo folder, mirroring the
+`.claude/` vs `~/.claude/` split. Not config: there is no user-level `config.toml` (yet);
+each feature owns a subtree registered here.
+
+- **Layout:** `~/.lightbridge/projects/<project-key>/` — per-project state, keyed by the
+  absolute project path with path separators replaced by `-` (the same encoding as
+  `~/.claude/projects`), e.g. `-Users-kittipos-my_config-agent-stuff`. On Windows, drop the
+  drive colon (`C:\Users\x` → `-C-Users-x`).
+- **Consumers:**
+  - `handoff` skill (agent-stuff `plugins/productivity`) — writes
+    `projects/<key>/handoffs/<YYYY-MM-DD_HHMM>_<slug>.md`. The filename/frontmatter contract
+    lives in that skill, not re-documented here.
+- **Hygiene:** never committed anywhere; may hold conversation-derived content, so treat the
+  tree as private. No secrets or PHI regardless.
+- **Growth:** a new user-level feature registers its subtree in this list and keeps its
+  internals with the consumer — the [`extending.md`](extending.md) spirit applied to state.
