@@ -247,5 +247,3 @@ diagrams.
 - [ ] All diagrams are valid Mermaid in fenced blocks and render mentally.
 - [ ] Uncertainties live in "Open Questions", not disguised as facts.
 - [ ] Exactly one Markdown file, written to `_docs/`.
-</content>
-</invoke>

@@ -17,10 +17,14 @@ Pair this with [common-options.md](common-options.md) when picking
 
 | TS UID                          | Name                                                 | SCU flag | Encoder (`dcmcjpeg`) | Decoder (`dcmdjpeg`) |
 |---------------------------------|------------------------------------------------------|----------|----------------------|----------------------|
-| `1.2.840.10008.1.2.4.50`        | JPEG Baseline (Process 1), 8-bit lossy               | `-xy`    | `+e1`                | reads automatically  |
-| `1.2.840.10008.1.2.4.51`        | JPEG Extended (Process 2 & 4), 12-bit lossy          | `-xx`    | `+e2`                | reads automatically  |
-| `1.2.840.10008.1.2.4.57`        | JPEG Lossless (Process 14)                           | (none)   | `+e4`                | reads automatically  |
-| `1.2.840.10008.1.2.4.70`        | JPEG Lossless (Process 14 SV1) — the common lossless | `-xs`    | `+e7`                | reads automatically  |
+| `1.2.840.10008.1.2.4.50`        | JPEG Baseline (Process 1), 8-bit lossy               | `-xy`    | `+eb`                | reads automatically  |
+| `1.2.840.10008.1.2.4.51`        | JPEG Extended (Process 2 & 4), 12-bit lossy          | `-xx`    | `+ee`                | reads automatically  |
+| `1.2.840.10008.1.2.4.57`        | JPEG Lossless (Process 14)                           | (none)   | `+el`                | reads automatically  |
+| `1.2.840.10008.1.2.4.70`        | JPEG Lossless (Process 14 SV1) — the common lossless | `-xs`    | `+e1`                | reads automatically  |
+
+> Encoder flags per the `dcmcjpeg` man page: `+e1` is the SV1 lossless
+> default and `+eb` is baseline — not `+e1`=baseline/`+e7`=SV1 as some
+> older docs say. Full table in [image-codecs.md](image-codecs.md).
 
 ## JPEG 2000
 

@@ -4,7 +4,7 @@
 
 ## Results — fix backlog (prioritized)
 
-- **P1 defects (verified by main agent):**
+- **P1 defects — ✅ FIXED 2026-07-09** (dcmtk flag table corrected + cross-ref note added; phantom `dcmcjp2k`/`dcmdjp2k` removed; explain-data-architecture EOF junk stripped; `bin/validate.py` now rejects committed tool-call artifacts, negative-tested):
   - dcmtk: `references/transfer-syntax-uids.md` lists legacy dcmcjpeg encoder flags (`+e1`=Baseline, `+e2`, `+e4`, `+e7`) contradicting the correct table in `references/image-codecs.md` (`+eb`/`+ee`/`+el`/`+e1`); also phantom `dcmcjp2k`/`dcmdjp2k` in `dcmdata.md` (DCMTK ships no JPEG 2000 codec).
   - explain-data-architecture: trailing `</content></invoke>` tool-call junk at EOF. Optional machinery: teach `bin/validate.py` to reject stray tag garbage in skill bodies.
 - **P2 contract tightening:** `handoff` is an underspecified contract — pin a filename scheme and required section schema (currently only "suggested skills" is mandated; "OS temp dir" is vague).

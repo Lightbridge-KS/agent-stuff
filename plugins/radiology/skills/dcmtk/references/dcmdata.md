@@ -334,10 +334,10 @@ dcmconv [options] dcmfile-in dcmfile-out
 
 ### What it CANNOT do
 
-- **Compress** to JPEG / JPEG-LS / JPEG 2000 / RLE — use `dcmcjpeg`,
-  `dcmcjpls`, `dcmcjp2k`, `dcmcrle`.
-- **Decompress** the above — use `dcmdjpeg`, `dcmdjpls`, `dcmdjp2k`,
-  `dcmdrle`.
+- **Compress** to JPEG / JPEG-LS / RLE — use `dcmcjpeg`, `dcmcjpls`,
+  `dcmcrle`. (No JPEG 2000: DCMTK bundles no J2K codec — see
+  [transfer-syntax-uids.md](transfer-syntax-uids.md).)
+- **Decompress** the above — use `dcmdjpeg`, `dcmdjpls`, `dcmdrle`.
 
 If you pass a JPEG-compressed file to `dcmconv` and ask for `+te`, it will
 refuse: the encapsulated pixel data is already in a non-uncompressed
