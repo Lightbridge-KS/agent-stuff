@@ -14,7 +14,8 @@ On top of that, this validator checks:
   * every `plugins[].source` resolves to a dir with `.claude-plugin/plugin.json`,
   * each `plugin.json` is valid JSON whose `name` matches its marketplace entry,
   * every `scripts/<tool>/` has a `README.md`,
-  * every `hooks/<hook>/` has a `README.md` and a well-formed `hook.toml`.
+  * every `hooks/<hook>/` has a `README.md` and a well-formed `hook.toml`,
+  * no skill markdown contains committed tool-call artifacts (stray `</invoke>` etc.).
 
 This is the machine-checkable half of the contract; human rules live in CLAUDE.md.
 
@@ -37,6 +38,16 @@ PLUGINS_ROOT = REPO_ROOT / "plugins"
 SCRIPTS_ROOT = REPO_ROOT / "scripts"
 HOOKS_ROOT = REPO_ROOT / "hooks"
 MARKETPLACE = REPO_ROOT / ".claude-plugin" / "marketplace.json"
+
+# Fragments of agent tool-call syntax that occasionally leak into committed files;
+# kept narrow so skills may still use ordinary XML-ish tags in examples.
+TOOL_CALL_ARTIFACTS = (
+    "</content>",
+    "</invoke>",
+    "<function_calls>",
+    "</function_calls>",
+    "<function_results>",
+)
 
 
 def parse_frontmatter(text: str) -> dict:
@@ -85,6 +96,14 @@ def validate_skill(path: Path) -> list[str]:
     version = metadata.get("version") if isinstance(metadata, dict) else None
     if not version:
         print(f"warning: {rel}: no metadata.version (recommended)", file=sys.stderr)
+
+    for md in sorted(path.parent.rglob("*.md")):
+        body = md.read_text(encoding="utf-8")
+        for tag in TOOL_CALL_ARTIFACTS:
+            if tag in body:
+                errors.append(
+                    f"{md.relative_to(REPO_ROOT)}: contains tool-call artifact '{tag}'"
+                )
 
     return errors
 
