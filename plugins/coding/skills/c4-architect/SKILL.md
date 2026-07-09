@@ -1,8 +1,8 @@
 ---
 name: c4-architect
-description: Transform project requirements, problems, user stories, or rough ideas into Simon Brown's C4 architecture diagrams — System Context (C1), Containers (C2), and Components (C3). Conducts adaptive Q&A, emits Unicode box-drawing ASCII diagrams inline, and optionally saves Mermaid versions to disk. Incorporates light DDD Strategic Design vocabulary (bounded context, ubiquitous language, context map, subdomain triage) with inline plain-English glosses so users unfamiliar with DDD still understand. Invoke this skill when the user asks to design, architect, diagram, model, or transform requirements into a system design, or mentions "C4" explicitly. Stops deliberately at each phase boundary for user confirmation. Code-level diagrams (C4 Level 4) are out of scope — defer to UML/class-diagram skills or trained knowledge for that level.
+description: Transform requirements or rough ideas into C4 diagrams (C1–C3) via phase-gated Q&A — ASCII inline, Mermaid to disk, light DDD-strategic vocabulary. Use when the user wants to design, architect, diagram, or model a system, or mentions C4.
 metadata:
-  version: "2026-06-12"
+  version: "2026-07-09"
 ---
 
 # c4-architect
@@ -26,13 +26,13 @@ You help a user transform messy real-world inputs — requirements, problem stat
 - Wants a class diagram, sequence diagram, or code-level UML → defer to a UML/OOP skill or produce a standalone class diagram. C4 Level 4 is explicitly out of scope for this skill.
 - Wants only a deployment / infrastructure diagram → you may produce a Deployment supplementary view, but only *after* the static C1→C2 diagrams exist.
 - Wants an ER / data-model diagram → not C4's focus; point them elsewhere.
-- Is asking a short factual question about C4 ("what is a container?") → answer directly from the references without running the full workflow.
+- Is asking a short factual question about C4 ("what is a container?") → answer from your own knowledge without running the full workflow.
 
 ---
 
 ## Operating principles (hard rules)
 
-These are non-negotiable. They are distilled from Simon Brown's own talks (see `references/simon-brown-lessons.md`) and from the C4 model definition (see `references/c4-approach.md`).
+These are non-negotiable. You already know the C4 model and DDD strategic design — this skill does not teach them; it pins the process and the divergences (distilled from Simon Brown's talks and c4model.com).
 
 1. **Abstractions before notation.** Never begin by picking shapes, colours, or a tool. Begin by agreeing on the four abstractions (Person, Software System, Container, Component) in the user's own domain.
 2. **Static structure first, dynamic views derived.** Produce C1→C2→C3 before offering any Dynamic, Deployment, or Data view. Never invert this.
@@ -282,15 +282,7 @@ When two bounded contexts communicate, name the *kind* of relationship, with an 
 
 > "These two contexts relate as **Customer / Supplier** — meaning Fulfilment (downstream) depends on Orders (upstream) to provide what it needs, but Fulfilment has some influence on Orders' roadmap because Orders is committed to supporting it."
 
-Other patterns you may name (all with a one-line gloss on first use — see `references/ddd-strategic-primer.md` for the full list):
-
-- **Shared Kernel** — both teams share a small common model; changes require agreement on both sides.
-- **Conformist** — the downstream team accepts the upstream model as-is, no translation.
-- **Anticorruption Layer** — the downstream team wraps the upstream model in a translation layer to keep its own model clean.
-- **Open Host Service** — the upstream publishes a well-defined public interface for many consumers.
-- **Published Language** — a shared, well-documented data format (e.g., a versioned event schema).
-- **Separate Ways** — no integration; the two contexts deliberately don't talk.
-- *(Anti-pattern, worth flagging)* **Big Ball of Mud** — a region with no clear model boundaries; entanglement. If detected, call it out as something to clean up, not model.
+Other patterns you may name — Shared Kernel, Conformist, Anticorruption Layer, Open Host Service, Published Language, Separate Ways, and the Big Ball of Mud anti-pattern (call that one out as something to clean up, not model). Gloss each on first use from the **DDD terms** table below.
 
 **STOP.** Ask the user:
 
@@ -470,8 +462,6 @@ On **first use** of any of these terms in a conversation, follow immediately wit
 | **Separate Ways** | A deliberate non-integration: two contexts do not talk to each other. |
 | **Big Ball of Mud** | *(anti-pattern)* A region with no clear model boundaries — entanglement to be cleaned up, not modelled. |
 
-Full definitions and examples: `references/ddd-strategic-primer.md`.
-
 ---
 
 ## Anti-pattern library (prompts the skill can use)
@@ -493,8 +483,5 @@ When you detect one of these during the workflow, use the suggested prompt to th
 
 ## References for deeper reading
 
-- `references/c4-approach.md` — full 12-section explainer of the C4 model.
-- `references/simon-brown-lessons.md` — seven distilled operational rules from Simon Brown's talks.
-- `references/ddd-strategic-primer.md` — plain-English deep-dive on bounded contexts, ubiquitous language, subdomain triage, and context-map relationships.
-- External: [c4model.com](https://c4model.com) — Simon Brown's canonical site.
-- External: *Domain-Driven Design* by Eric Evans (the original strategic-design source) — for anyone going deeper than this skill covers.
+- [c4model.com](https://c4model.com) — Simon Brown's canonical site.
+- *Domain-Driven Design* by Eric Evans — the original strategic-design source, for anyone going deeper than this skill covers.
