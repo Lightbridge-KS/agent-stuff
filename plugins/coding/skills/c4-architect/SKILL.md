@@ -1,6 +1,6 @@
 ---
 name: c4-architect
-description: Transform requirements or rough ideas into C4 diagrams (C1–C3) via phase-gated Q&A — ASCII inline, Mermaid to disk, light DDD-strategic vocabulary. Use when the user wants to design, architect, diagram, or model a system, or mentions C4.
+description: Transform requirements or rough ideas into C4 diagrams (C1–C3) via phase-gated Q&A — ASCII inline, Mermaid to disk, light DDD-strategic vocabulary. Use when the user wants to design, architect, diagram, or model a system through dialogue, or mentions C4. For compiling already-formed inputs (PRD, settled ideas) into a design doc without elicitation, use `system-architecture` (design mode) instead.
 metadata:
   version: "2026-07-09"
 ---
