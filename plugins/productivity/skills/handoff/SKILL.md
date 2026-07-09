@@ -24,8 +24,10 @@ Location — the user-level lightbridge state dir (spec: `lightbridge-config` sk
   `~/.claude/projects`), e.g. `-Users-kittipos-my_config-agent-stuff`. Windows: drop the
   drive colon.
 - Timestamp — local time; lexicographic order = chronological, so the latest handoff is
-  always the last file.
-- `<slug>` — kebab-cased from the argument; `session` if no argument given.
+  always the last file. (Filename `_HHMM` and frontmatter `THH:MM` intentionally differ:
+  filesystem-safe vs ISO-like.)
+- `<slug>` — kebab-cased from the argument's first few significant words (≤ 6): drop filler
+  words and all punctuation, keep it readable. `session` if no argument given.
 - Create missing parent directories.
 
 Required frontmatter:
