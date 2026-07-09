@@ -25,6 +25,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "bin" / "install.py"
 SKILL_MD = "---\nname: sample\ndescription: sample\n---\n"
+AGENT_MD = "---\nname: sample-agent\ndescription: sample agent\n---\nBody.\n"
 # A harmless default so the registry loads; tests needing real agents override it.
 DEFAULT_TARGETS = '[claude]\nskills = "~/.claude/skills"\n'
 
@@ -39,6 +40,15 @@ def make_repo(base: Path, targets_toml: str = DEFAULT_TARGETS) -> Path:
     (repo / "bin" / "targets.toml").write_text(targets_toml)
     (skill_dir / "SKILL.md").write_text(SKILL_MD)
     return repo
+
+
+def make_agent(repo: Path, domain: str = "demo", name: str = "sample-agent") -> Path:
+    """Add a subagent file at plugins/<domain>/agents/<name>.md."""
+    agents_dir = repo / "plugins" / domain / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    agent_md = agents_dir / f"{name}.md"
+    agent_md.write_text(AGENT_MD)
+    return agent_md
 
 
 def make_hook(repo: Path, name: str = "sample-hook") -> Path:
@@ -184,6 +194,58 @@ class InstallTest(unittest.TestCase):
             # Codex shows statusMessage; the Claude block omits it.
             self.assertNotIn("statusMessage", claude["hooks"]["SessionStart"][0]["hooks"][0])
             self.assertIn("statusMessage", codex["hooks"]["SessionStart"][0]["hooks"][0])
+
+    def test_subagents_install_alongside_skills(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            skills = base / "alpha" / "skills"
+            agents = base / "alpha" / "agents"
+            toml = (
+                f"[alpha]\nskills = {str(skills)!r}\nagents = {str(agents)!r}\n"
+            )
+            repo = make_repo(base, targets_toml=toml)
+            make_agent(repo)
+
+            result = run_install(repo, "--alpha", "--mode", "copy")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((skills / "sample" / "SKILL.md").exists())
+            self.assertTrue((agents / "sample-agent.md").is_file())
+
+    def test_subagent_symlinks_as_file(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            skills = base / "alpha" / "skills"
+            agents = base / "alpha" / "agents"
+            toml = (
+                f"[alpha]\nskills = {str(skills)!r}\nagents = {str(agents)!r}\n"
+            )
+            repo = make_repo(base, targets_toml=toml)
+            source = make_agent(repo)
+
+            result = run_install(repo, "--alpha", "--mode", "symlink", "sample-agent")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            link = agents / "sample-agent.md"
+            self.assertTrue(link.is_symlink())
+            self.assertEqual(os.path.realpath(link), str(source.resolve()))
+            # Bare-name selection installed only the subagent, not the skill.
+            self.assertFalse(skills.exists())
+
+    def test_target_without_agents_key_skips_subagents(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            skills = base / "alpha" / "skills"
+            toml = f"[alpha]\nskills = {str(skills)!r}\n"
+            repo = make_repo(base, targets_toml=toml)
+            make_agent(repo)
+
+            result = run_install(repo, "--alpha", "--mode", "copy")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("skipping subagent: demo/sample-agent", result.stderr)
+            self.assertTrue((skills / "sample" / "SKILL.md").exists())
+            self.assertFalse((base / "alpha" / "agents").exists())
 
     def test_target_rejects_agent_combo(self):
         with tempfile.TemporaryDirectory() as dir_:

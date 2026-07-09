@@ -13,9 +13,14 @@ On top of that, this validator checks:
   * `.claude-plugin/marketplace.json` is well-formed,
   * every `plugins[].source` resolves to a dir with `.claude-plugin/plugin.json`,
   * each `plugin.json` is valid JSON whose `name` matches its marketplace entry,
+  * every subagent (`plugins/<domain>/agents/<name>.md`) has frontmatter whose
+    `name` matches the filename stem, a non-empty `description`, a known `model`
+    value if pinned, no collision with Claude Code built-in agents or with any
+    skill's `<domain>/<name>` key, and a unique name across domains (the
+    installer flattens all subagents into one directory),
   * every `scripts/<tool>/` has a `README.md`,
   * every `hooks/<hook>/` has a `README.md` and a well-formed `hook.toml`,
-  * no skill markdown contains committed tool-call artifacts (stray `</invoke>` etc.).
+  * no skill/subagent markdown contains committed tool-call artifacts (stray `</invoke>` etc.).
 
 This is the machine-checkable half of the contract; human rules live in CLAUDE.md.
 
@@ -48,6 +53,23 @@ TOOL_CALL_ARTIFACTS = (
     "</function_calls>",
     "<function_results>",
 )
+
+# Claude Code's built-in subagent types (lowercased): a custom subagent shadowing
+# one of these would silently win or lose depending on scope — forbid outright.
+CLAUDE_BUILTIN_AGENTS = {
+    "claude",
+    "claude-code-guide",
+    "explore",
+    "general-purpose",
+    "plan",
+    "statusline-setup",
+}
+
+# Legal at user level but SILENTLY IGNORED when the same file ships through the
+# plugin-marketplace channel — warn so a dual-channel divergence stays visible.
+PLUGIN_IGNORED_AGENT_FIELDS = ("hooks", "mcpServers", "permissionMode")
+
+SUBAGENT_MODEL_ALIASES = {"opus", "sonnet", "haiku", "fable", "inherit"}
 
 
 def parse_frontmatter(text: str) -> dict:
@@ -104,6 +126,91 @@ def validate_skill(path: Path) -> list[str]:
                 errors.append(
                     f"{md.relative_to(REPO_ROOT)}: contains tool-call artifact '{tag}'"
                 )
+
+    return errors
+
+
+def validate_subagent(path: Path) -> list[str]:
+    """Return error strings (empty == valid) for one subagent .md, plus stderr warnings."""
+    rel = path.relative_to(REPO_ROOT)
+    stem = path.stem
+    errors: list[str] = []
+
+    try:
+        data = parse_frontmatter(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        return [f"{rel}: invalid YAML: {exc}"]
+    except ValueError as exc:
+        return [f"{rel}: {exc}"]
+
+    name = data.get("name")
+    if not non_empty_str(name):
+        errors.append(f"{rel}: missing name")
+    else:
+        if name != stem:
+            errors.append(f"{rel}: name '{name}' must match filename stem '{stem}'")
+        if name.lower() in CLAUDE_BUILTIN_AGENTS:
+            errors.append(f"{rel}: name '{name}' collides with a Claude Code built-in agent")
+
+    if not non_empty_str(data.get("description")):
+        errors.append(f"{rel}: missing description")
+
+    model = data.get("model")
+    if model is not None and not (
+        isinstance(model, str)
+        and (model in SUBAGENT_MODEL_ALIASES or model.startswith("claude-"))
+    ):
+        errors.append(
+            f"{rel}: model '{model}' is not a known alias "
+            f"({', '.join(sorted(SUBAGENT_MODEL_ALIASES))}) or a claude-* model id"
+        )
+
+    for field in PLUGIN_IGNORED_AGENT_FIELDS:
+        if field in data:
+            print(
+                f"warning: {rel}: '{field}' is silently ignored when this agent "
+                "ships via the plugin marketplace (works only user-level)",
+                file=sys.stderr,
+            )
+
+    metadata = data.get("metadata")
+    version = metadata.get("version") if isinstance(metadata, dict) else None
+    if not version:
+        print(f"warning: {rel}: no metadata.version (recommended)", file=sys.stderr)
+
+    body = path.read_text(encoding="utf-8")
+    for tag in TOOL_CALL_ARTIFACTS:
+        if tag in body:
+            errors.append(f"{rel}: contains tool-call artifact '{tag}'")
+
+    return errors
+
+
+def validate_subagent_names(agent_files: list[Path], skill_files: list[Path]) -> list[str]:
+    """Cross-file checks: unique subagent names, no `<domain>/<name>` clash with skills."""
+    errors: list[str] = []
+
+    by_stem: dict[str, list[Path]] = {}
+    for path in agent_files:
+        by_stem.setdefault(path.stem, []).append(path)
+    for stem, paths in sorted(by_stem.items()):
+        if len(paths) > 1:
+            rels = ", ".join(str(p.relative_to(REPO_ROOT)) for p in paths)
+            errors.append(
+                f"subagent name '{stem}' is defined more than once ({rels}); "
+                "the installer flattens all subagents into one directory"
+            )
+
+    skill_keys = {
+        f"{p.parent.parent.parent.name}/{p.parent.name}" for p in skill_files
+    }
+    for path in agent_files:
+        key = f"{path.parent.parent.name}/{path.stem}"
+        if key in skill_keys:
+            errors.append(
+                f"{path.relative_to(REPO_ROOT)}: '{key}' collides with a skill of "
+                "the same name in the same domain (shared install address space)"
+            )
 
     return errors
 
@@ -205,7 +312,11 @@ def main() -> int:
         print("No plugins/*/skills/*/SKILL.md files found.", file=sys.stderr)
         return 1
 
+    agent_files = sorted(PLUGINS_ROOT.glob("*/agents/*.md"))
+
     errors = [err for path in skill_files for err in validate_skill(path)]
+    errors += [err for path in agent_files for err in validate_subagent(path)]
+    errors += validate_subagent_names(agent_files, skill_files)
     errors += validate_manifests()
     errors += validate_content_dir(SCRIPTS_ROOT, ["README.md"])
     errors += validate_content_dir(HOOKS_ROOT, ["README.md", "hook.toml"])
@@ -219,8 +330,8 @@ def main() -> int:
         return 1
 
     print(
-        f"validated {len(skill_files)} skills, plugin manifests, "
-        "and scripts/hooks contracts"
+        f"validated {len(skill_files)} skills, {len(agent_files)} subagents, "
+        "plugin manifests, and scripts/hooks contracts"
     )
     return 0
 

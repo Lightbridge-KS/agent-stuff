@@ -3,11 +3,14 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Project these shared skills into one or more agents' skills directories.
+"""Project shared skills and subagents into one or more agents' directories.
 
-The canonical source of truth is `plugins/<domain>/skills/<name>/SKILL.md`. This
-installer discovers those skills and either symlinks or copies them into the
-directory each agent reads from (skills land flat, keyed by skill name).
+The canonical sources of truth are `plugins/<domain>/skills/<name>/SKILL.md`
+(skills — folders) and `plugins/<domain>/agents/<name>.md` (subagents — single
+files). This installer discovers both and either symlinks or copies them into
+the directories each agent reads from (flat, keyed by bare name). Subagents
+only ship to targets whose `targets.toml` entry declares an `agents` dir —
+targets without the key are skipped silently by design.
 
 The set of known agents is data-driven — see `bin/targets.toml`. Each entry there
 gets a matching `--<name>` flag here, and several may be combined in one run.
@@ -17,11 +20,12 @@ gets a matching `--<name>` flag here, and several may be combined in one run.
     uv run bin/install.py --claude --codex --pi        # into several agents at once
     uv run bin/install.py --all                        # every agent present on this machine
     uv run bin/install.py --claude coding/example-skill  # one skill
+    uv run bin/install.py --claude mech                # one subagent, same addressing
     uv run bin/install.py --claude --domain coding     # a whole plugin/domain
     uv run bin/install.py --all --dry-run              # preview, no writes
 
-Skills are addressed as `<domain>/<skill>`, or by the bare `<skill>` name when it
-is unambiguous across domains.
+Skills and subagents share one address space: `<domain>/<name>`, or the bare
+`<name>` when it is unambiguous.
 
 Install mode defaults to `auto`: symlink on macOS/Linux (live edits, zero drift),
 copy on Windows where symlinks need elevated/Developer-Mode privileges. Override
@@ -45,16 +49,26 @@ HOOKS_ROOT = REPO_ROOT / "hooks"
 TARGETS_FILE = Path(__file__).resolve().parent / "targets.toml"
 
 
-def load_targets() -> dict[str, Path]:
-    """Read bin/targets.toml -> {agent name: expanded skills dir}."""
+def load_targets() -> dict[str, dict[str, Path | None]]:
+    """Read bin/targets.toml -> {agent name: {"skills": dir, "agents": dir | None}}.
+
+    `skills` is required. `agents` is optional — its presence is what opts a
+    target into receiving subagent files (no key, no subagents, no error).
+    """
     with TARGETS_FILE.open("rb") as fh:
         data = tomllib.load(fh)
-    targets: dict[str, Path] = {}
+    targets: dict[str, dict[str, Path | None]] = {}
     for name, entry in data.items():
         skills = entry.get("skills") if isinstance(entry, dict) else None
         if not isinstance(skills, str) or not skills.strip():
             sys.exit(f"error: targets.toml: '{name}' is missing a string `skills` path")
-        targets[name] = Path(skills).expanduser()
+        agents = entry.get("agents") if isinstance(entry, dict) else None
+        if agents is not None and (not isinstance(agents, str) or not agents.strip()):
+            sys.exit(f"error: targets.toml: '{name}' has a non-string `agents` path")
+        targets[name] = {
+            "skills": Path(skills).expanduser(),
+            "agents": Path(agents).expanduser() if agents else None,
+        }
     if not targets:
         sys.exit("error: targets.toml defines no agents")
     return targets
@@ -167,14 +181,24 @@ def available_skills() -> dict[str, Path]:
     return found
 
 
+def available_subagents() -> dict[str, Path]:
+    """Map `<domain>/<name>` -> source .md file for every discovered subagent."""
+    found: dict[str, Path] = {}
+    for agent_md in sorted(PLUGINS_ROOT.glob("*/agents/*.md")):
+        domain = agent_md.parent.parent.name
+        found[f"{domain}/{agent_md.stem}"] = agent_md
+    return found
+
+
 def resolve_selection(
     tokens: list[str],
     domain: str | None,
     available: dict[str, Path],
 ) -> tuple[list[str], list[str]]:
-    """Resolve user tokens (and an optional --domain) to canonical `<domain>/<skill>` keys.
+    """Resolve user tokens (and an optional --domain) to canonical `<domain>/<name>` keys.
 
-    Returns (selected_keys, errors). A bare `<skill>` resolves only when unique.
+    Works over the merged skill + subagent catalog. Returns (selected_keys,
+    errors). A bare `<name>` resolves only when unique across the catalog.
     """
     selected: list[str] = []
     errors: list[str] = []
@@ -190,17 +214,17 @@ def resolve_selection(
         by_bare.setdefault(key.split("/", 1)[1], []).append(key)
 
     for token in tokens:
-        if token in available:  # already `<domain>/<skill>`
+        if token in available:  # already `<domain>/<name>`
             selected.append(token)
         elif "/" in token:
-            errors.append(f"unknown skill: {token}")
-        else:  # bare `<skill>` name
+            errors.append(f"unknown skill/subagent: {token}")
+        else:  # bare `<name>`
             matches = by_bare.get(token, [])
             if not matches:
-                errors.append(f"unknown skill: {token}")
+                errors.append(f"unknown skill/subagent: {token}")
             elif len(matches) > 1:
                 errors.append(
-                    f"ambiguous skill '{token}': use one of {', '.join(matches)}"
+                    f"ambiguous name '{token}': use one of {', '.join(matches)}"
                 )
             else:
                 selected.append(matches[0])
@@ -209,24 +233,24 @@ def resolve_selection(
     return list(dict.fromkeys(selected)), errors
 
 
-def parse_args(argv: list[str], registry: dict[str, Path]) -> argparse.Namespace:
+def parse_args(argv: list[str], registry: dict[str, dict]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="install.py",
-        description="Install shared skills into one or more agents' skills directories.",
+        description="Install shared skills and subagents into one or more agents' directories.",
     )
     parser.add_argument(
         "skills",
         nargs="*",
-        help="Skills to install as <domain>/<skill> or bare <skill> (default: all).",
+        help="Skills/subagents to install as <domain>/<name> or bare <name> (default: all).",
     )
-    parser.add_argument("--domain", help="Install every skill in this plugin/domain.")
+    parser.add_argument("--domain", help="Install everything in this plugin/domain.")
     parser.add_argument(
         "--target", help="Install into a custom directory (cannot combine with agents)."
     )
     agent_group = parser.add_argument_group("agents (from bin/targets.toml)")
-    for name, skills_dir in registry.items():
+    for name, dirs in registry.items():
         agent_group.add_argument(
-            f"--{name}", action="store_true", help=f"Target {skills_dir}"
+            f"--{name}", action="store_true", help=f"Target {dirs['skills']}"
         )
     parser.add_argument(
         "--all", action="store_true",
@@ -255,18 +279,23 @@ def parse_args(argv: list[str], registry: dict[str, Path]) -> argparse.Namespace
 
 
 def resolve_targets(
-    args: argparse.Namespace, registry: dict[str, Path]
-) -> list[tuple[str, Path]]:
-    """Resolve flags to a list of (label, skills_dir) install targets."""
+    args: argparse.Namespace, registry: dict[str, dict]
+) -> list[tuple[str, dict]]:
+    """Resolve flags to a list of (label, {"skills": dir, "agents": dir|None}) targets."""
     chosen = [name for name in registry if getattr(args, name, False)]
 
     if args.target and (chosen or args.all):
         sys.exit("error: --target cannot be combined with agent flags or --all")
     if args.target:
-        return [("target", Path(args.target).expanduser())]
+        # A custom dir receives everything flat — skills and subagents alike.
+        custom = Path(args.target).expanduser()
+        return [("target", {"skills": custom, "agents": custom})]
 
     if args.all:
-        present = [(name, d) for name, d in registry.items() if is_present(d)]
+        present = [
+            (name, dirs) for name, dirs in registry.items()
+            if is_present(dirs["skills"])
+        ]
         if not present:
             sys.exit(
                 "error: --all found no agents on this machine "
@@ -307,9 +336,11 @@ def install_one(
 
     if not dry_run:
         if mode == "symlink":
-            os.symlink(source, target, target_is_directory=True)
-        else:
+            os.symlink(source, target, target_is_directory=source.is_dir())
+        elif source.is_dir():
             shutil.copytree(source, target)
+        else:
+            shutil.copy2(source, target)
 
     prefix = f"would {mode}" if dry_run else mode
     print(f"{prefix} {name} -> {target}")
@@ -318,22 +349,32 @@ def install_one(
 def main(argv: list[str]) -> int:
     registry = load_targets()
     args = parse_args(argv, registry)
-    available = available_skills()
+    skills = available_skills()
+    subagents = available_subagents()
+    # One address space; the validator forbids a skill and a subagent sharing
+    # a `<domain>/<name>` key, so a plain merge is safe.
+    available = {**skills, **subagents}
 
     if args.hooks:
         return print_hook_snippets()
 
     if args.list:
         print("Skills:")
-        print("\n".join(f"  {key}" for key in sorted(available)) or "  (none)")
+        print("\n".join(f"  {key}" for key in sorted(skills)) or "  (none)")
+        print("\nSubagents:")
+        print("\n".join(f"  {key}" for key in sorted(subagents)) or "  (none)")
         print("\nAgents (from bin/targets.toml):")
-        for name, d in registry.items():
-            mark = "present" if is_present(d) else "not detected"
-            print(f"  --{name:<8} {d}  [{mark}]")
+        for name, dirs in registry.items():
+            mark = "present" if is_present(dirs["skills"]) else "not detected"
+            agents_note = f", agents: {dirs['agents']}" if dirs["agents"] else ""
+            print(f"  --{name:<8} {dirs['skills']}{agents_note}  [{mark}]")
         return 0
 
     if not available:
-        print("No plugins/*/skills/*/SKILL.md files found.", file=sys.stderr)
+        print(
+            "No plugins/*/skills/*/SKILL.md or plugins/*/agents/*.md files found.",
+            file=sys.stderr,
+        )
         return 1
 
     mode = resolve_mode(args.mode)
@@ -348,13 +389,23 @@ def main(argv: list[str]) -> int:
     else:
         selected = sorted(available)
 
-    for label, target_dir in targets:
-        print(f"# {label}: {target_dir}", file=sys.stderr)
-        if not args.dry_run:
-            target_dir.mkdir(parents=True, exist_ok=True)
+    for label, dirs in targets:
+        print(f"# {label}: {dirs['skills']}", file=sys.stderr)
         for key in selected:
+            if key in subagents:
+                dest = dirs["agents"]
+                if dest is None:
+                    print(
+                        f"no agents dir for {label}, skipping subagent: {key}",
+                        file=sys.stderr,
+                    )
+                    continue
+            else:
+                dest = dirs["skills"]
+            if not args.dry_run:
+                dest.mkdir(parents=True, exist_ok=True)
             install_one(
-                available[key], target_dir, mode, force=args.force, dry_run=args.dry_run
+                available[key], dest, mode, force=args.force, dry_run=args.dry_run
             )
 
     return 0

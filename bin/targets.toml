@@ -1,11 +1,17 @@
-# Skill install targets — ONE block per agent. Add an agent = add a block here;
+# Install targets — ONE block per agent. Add an agent = add a block here;
 # no Python change. `bin/install.py` reads this file and generates a `--<name>`
 # shortcut for each entry. `skills` is the directory the agent reads skills from
 # (leading `~` is expanded). A target is considered "present" on a machine when
 # the parent of its skills dir exists, which is what `--all` uses to stay safe.
+#
+# `agents` (optional) is the directory the agent reads subagent definitions
+# from. Its PRESENCE is what opts a target into receiving subagents — no key,
+# no subagents, no error. Claude-only today: Codex subagents are TOML with a
+# different field set, so shipping there would need a render step, not a copy.
 
 [claude]
 skills = "~/.claude/skills"
+agents = "~/.claude/agents"
 
 [codex]
 skills = "~/.codex/skills"

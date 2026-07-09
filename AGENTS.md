@@ -1,9 +1,9 @@
 # agent-stuff (Lightbridge-KS)
 
 A **public, personal** collection of reusable building blocks for coding agents (Claude
-Code, Codex, Pi, …): **skills**, standalone **scripts**, and **hooks**. This repo is the
-**single source of truth** — written once here, shared everywhere via a Claude Code plugin
-marketplace or a small `uv` installer.
+Code, Codex, Pi, …): **skills**, **subagents**, standalone **scripts**, and **hooks**.
+This repo is the **single source of truth** — written once here, shared everywhere via a
+Claude Code plugin marketplace or a small `uv` installer.
 
 > This file is the canonical editing guide. `CLAUDE.md` is a symlink to it.
 
@@ -12,6 +12,7 @@ marketplace or a small `uv` installer.
 The filesystem is the index — there is no separate registry to keep in sync:
 
 - a folder under `plugins/<domain>/skills/` is a **skill** if it contains `SKILL.md`;
+- a file under `plugins/<domain>/agents/` ending in `.md` is a **subagent**;
 - a folder under `scripts/` is a **tool** (carries a `README.md`);
 - a folder under `hooks/` is a **hook** (carries a `README.md` + `hook.toml`).
 
@@ -19,6 +20,7 @@ The filesystem is the index — there is no separate registry to keep in sync:
 
 ```
 plugins/<domain>/skills/<name>/SKILL.md   # SKILLS — canonical, one folder per skill
+plugins/<domain>/agents/<name>.md         # SUBAGENTS — one file per agent (Claude-only)
 plugins/<domain>/.claude-plugin/plugin.json
 .claude-plugin/marketplace.json           # lists every domain plugin
 scripts/<tool>/                           # standalone agent CLIs (Python + uv)
@@ -69,6 +71,34 @@ under scripts/ for repeatable logic.>
   agree on identity.
 - `description` is a **router trigger** — short and specific, not full documentation.
 - Skill bodies stay operational and terse, not essay-like.
+
+## Subagent contract (`plugins/<domain>/agents/<name>.md`)
+
+A Claude Code custom-agent definition — YAML frontmatter over a Markdown body that
+becomes the agent's system prompt. **One file per subagent, Claude-only** (Codex agents
+are TOML with different fields; targets opt in via an `agents` key in `bin/targets.toml`).
+
+```yaml
+---
+name: <kebab-case-name>          # MUST equal the filename stem
+description: <delegation trigger; if opt-in-only, say so HERE — this is the router>
+model: opus                      # optional: opus|sonnet|haiku|fable|inherit|claude-*
+metadata:
+  version: "YYYY-MM-DD"          # recommended; validator warns if absent
+---
+
+<Body = system prompt. Write it as a contract (input expectations, execution
+rules, output format), never persona text.>
+```
+
+- A subagent earns its keep through what a skill cannot do: **context isolation, tool
+  restriction, model/effort override, parallelism**. A persona around knowledge the
+  model already has gets deleted.
+- No name collisions: with Claude Code built-ins (`Explore`, `Plan`, `general-purpose`,
+  …), with other subagents in any domain, or with a same-domain skill.
+- `hooks`, `mcpServers`, `permissionMode` are silently ignored by the plugin
+  marketplace channel — the validator warns if used.
+- Not packageable (claude.ai has no subagent upload); `bin/package.py` ignores them.
 
 ## Scripts contract (`scripts/<tool>/`)
 

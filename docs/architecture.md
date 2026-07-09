@@ -1,7 +1,7 @@
 ---
-summary: Why agent-stuff is structured the way it is — content (skills/scripts/hooks) vs machinery, the distribution model, and the contracts each content type follows.
+summary: Why agent-stuff is structured the way it is — content (skills/subagents/scripts/hooks) vs machinery, the distribution model, and the contracts each content type follows.
 read_when:
-  - adding or changing a skill, script, or hook
+  - adding or changing a skill, subagent, script, or hook
   - modifying the installer, validator, packager, or the targets.toml agent registry
   - understanding the repo layout or distribution model
   - packaging a skill as a .zip/.skill for upload to claude.ai
@@ -37,23 +37,25 @@ then extended with two more kinds of content (scripts, hooks):
 ```
 content (the product)                     machinery (ships + checks content)
 ─────────────────────                     ─────────────────────────────────
-plugins/  →  skills, each domain a plugin  bin/    →  installer, validator,
-scripts/  →  standalone agent CLIs                    + targets.toml (agent registry)
-hooks/    →  SessionStart hooks (Claude     tests/  →  installer + hook test suite
+plugins/  →  skills + subagents, each      bin/    →  installer, validator,
+             domain a plugin                          + targets.toml (agent registry)
+scripts/  →  standalone agent CLIs         tests/  →  installer + hook + packager
+hooks/    →  SessionStart hooks (Claude               test suites
              Code + Codex)
 ```
 
 The split is the same idea the old repo had (`plugins/` vs `scripts/`), widened: there
-are now **three content types** the agent consumes, and the machinery moved to `bin/` so
+are now **four content types** the agent consumes, and the machinery moved to `bin/` so
 the word `scripts/` can mean "things the agent runs" — matching how steipete's
 `agent-scripts` is organized.
 
 A folder under `plugins/<domain>/skills/` is a skill **iff it contains `SKILL.md`**.
 Discovery is `glob("plugins/*/skills/*/SKILL.md")` — the filesystem is the index. No
 registry, no manifest to keep in sync (beyond the marketplace listing of domains).
-The same "filesystem is the index" rule holds for the other two types: a folder under
-`scripts/` is a tool, a folder under `hooks/` is a hook; each carries a `README.md`
-(hooks also carry a `hook.toml`), enforced by the validator.
+The same "filesystem is the index" rule holds for the other types: a **file** under
+`plugins/<domain>/agents/` ending in `.md` is a subagent; a folder under `scripts/` is
+a tool; a folder under `hooks/` is a hook; each carries its contract (`README.md`,
+`hook.toml`, frontmatter), enforced by the validator.
 
 ## Scripts and hooks
 
@@ -72,6 +74,42 @@ The same "filesystem is the index" rule holds for the other two types: a folder 
   website `docs/`. `uv run bin/install.py --hooks` *renders* `hook.toml` into each agent's
   registration block (Claude `settings.json`; Codex `hooks.json` / inline `config.toml`, which
   also needs a one-time `/hooks` trust) with paths resolved — it only prints, never edits.
+
+## Subagents (`plugins/<domain>/agents/<name>.md`)
+
+A subagent is a Claude Code custom-agent definition: YAML frontmatter (`name`,
+`description`, optional `model`, `color`, …) over a Markdown body that becomes the
+agent's system prompt. Unlike a skill it is a **single file, not a folder** — mirroring
+Claude Code's own convention (`~/.claude/agents/*.md`, plugin `agents/*.md`).
+
+Three decisions shape the type:
+
+1. **Claude-only, by data.** Codex subagents are TOML with a different field set
+   (`developer_instructions`, `sandbox_mode`, vendor-specific `model`), so a copy can
+   never be correct — shipping there would need a render step, like hooks. Until that
+   exists, exclusion is expressed in `targets.toml`: only targets that declare an
+   `agents` dir receive subagents (no key → skipped, no error).
+2. **Two channels, one asymmetry.** The plugin marketplace discovers `agents/*.md`
+   automatically but namespaces the identity (`productivity:mech`, invoked as
+   `@agent-productivity:mech`) and **silently ignores** `hooks`, `mcpServers`, and
+   `permissionMode` (the validator warns when a subagent uses them). The `uv` installer
+   symlinks the file into `~/.claude/agents/`, keeping the bare name (`@agent-mech`).
+   Don't consume the same subagent through both channels on one machine — you'd
+   register it twice under two names.
+3. **Not packageable.** claude.ai takes skill uploads only; subagents have no upload
+   channel, so `bin/package.py` deliberately ignores them.
+
+The contract (enforced by `bin/validate.py`): `name` == filename stem; non-empty
+`description` (it is Claude Code's auto-delegation router — an opt-in-only agent must
+say so *in the description*); `model`, if pinned, is a known alias (`opus`, `sonnet`,
+`haiku`, `fable`, `inherit`) or a `claude-*` id; no name collision with Claude Code
+built-ins (`Explore`, `Plan`, `general-purpose`, …) or across domains (the installer
+flattens all subagents into one directory); no `<domain>/<name>` clash with a skill
+(skills and subagents share the installer's address space).
+
+A subagent must earn its keep through what a skill cannot do — context isolation, tool
+restriction, model/effort override, parallelism — never through persona text. The body
+is written like a contract: input expectations, execution rules, output format.
 
 ## Domain = plugin
 
@@ -137,11 +175,16 @@ the machine (detected by whether the parent of its skills dir exists — so it i
 anywhere). Adding an agent is one TOML block, no Python change.
 
 ```toml
-[claude]  skills = "~/.claude/skills"
-[codex]   skills = "~/.codex/skills"
+[claude]  skills = "~/.claude/skills"   agents = "~/.claude/agents"
+[codex]   skills = "~/.codex/skills"    # no `agents` key → no subagents
 [pi]      skills = "~/.pi/agent/skills"
 [agents]  skills = "~/.agents/skills"   # shared cross-agent convention
 ```
+
+The optional `agents` key is the same registry idea applied to subagents: its
+**presence** opts a target into receiving `plugins/*/agents/*.md` files (symlinked or
+copied flat, one file per subagent). Targets without the key skip subagents with a
+notice — the degrade-vs-skip decision is data, not code.
 
 The `agents` entry is the emerging `~/.agents/skills` convention several tools read — one
 install there can serve more than one agent. A skill is a plain `SKILL.md`, so placement is
