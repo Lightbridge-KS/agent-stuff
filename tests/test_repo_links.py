@@ -8,7 +8,10 @@
 Each test builds a throwaway *project* dir (committed `[repo-links]` layer) and a
 throwaway *home* dir (personal `~/.lightbridge/repos.toml` layer), then drives the
 real hook.py / repo_links.py as a subprocess with `HOME` pointed at the fake home —
-so the `~` convention is exercised end to end. The hook resolves its paired
+so the `~` convention is exercised end to end. Files are executed directly, the
+same path as Claude Code's /bin/sh registration, so a missing executable bit or
+broken shebang fails here too (`UV_CACHE_DIR` is pinned to the real cache, since
+the fake `HOME` would otherwise cold-start uv on every subprocess). The hook resolves its paired
 repo_links.py relative to its own location in this repo, so it is exercised in
 place — only the project and home under inspection are synthetic.
 
@@ -23,7 +26,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -31,6 +33,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOK = REPO_ROOT / "hooks" / "repo-links-inject" / "hook.py"
 SCRIPT = REPO_ROOT / "scripts" / "repo-links" / "repo_links.py"
+
+# Resolved against the REAL home before tests override HOME, so uv's environment
+# cache stays warm across the fake-HOME subprocesses.
+UV_CACHE_DIR = os.environ.get("UV_CACHE_DIR", str(Path("~/.cache/uv").expanduser()))
 
 # Common .lightbridge/config.toml bodies.
 ONE_LINK = (
@@ -50,21 +56,23 @@ REGISTRY_OK = '[repos]\nexample-service = "~/work/example-service"\n'
 
 
 def run_hook(cwd: Path, home: Path) -> subprocess.CompletedProcess:
+    # Execute the file directly (not `sys.executable hook.py`) — the same path as
+    # Claude Code's /bin/sh registration, so +x and the uv shebang are under test.
     return subprocess.run(
-        [sys.executable, str(HOOK)],
+        [str(HOOK)],
         input=json.dumps({"cwd": str(cwd), "hook_event_name": "SessionStart"}),
         capture_output=True,
         text=True,
-        env={**os.environ, "HOME": str(home)},
+        env={**os.environ, "HOME": str(home), "UV_CACHE_DIR": UV_CACHE_DIR},
     )
 
 
 def run_cli(args: list[str], home: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, str(SCRIPT), *args],
+        [str(SCRIPT), *args],
         capture_output=True,
         text=True,
-        env={**os.environ, "HOME": str(home)},
+        env={**os.environ, "HOME": str(home), "UV_CACHE_DIR": UV_CACHE_DIR},
     )
 
 

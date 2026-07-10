@@ -18,6 +18,8 @@ jobs:
         run: uv run tests/test_install.py
       - name: Run hook tests
         run: uv run tests/test_hooks.py
+      - name: Run repo-links tests
+        run: uv run tests/test_repo_links.py
       - name: Run packager tests
         run: uv run tests/test_package.py
       - name: Run research-kit tests

@@ -6,9 +6,11 @@
 """Behavioral tests for hooks/docs-index-inject/hook.py — the opt-in gating.
 
 Each test builds a throwaway *project* dir (the repo the hook would run inside) and
-drives the real hook.py as a subprocess with a SessionStart payload on stdin. The
-hook resolves its paired docs_index.py relative to its own location in this repo, so
-it is exercised in place — only the project under inspection is synthetic.
+drives the real hook.py as a subprocess with a SessionStart payload on stdin —
+executing the FILE directly, exactly as Claude Code's /bin/sh registration does, so
+a missing executable bit or broken shebang fails here too. The hook resolves its
+paired docs_index.py relative to its own location in this repo, so it is exercised
+in place — only the project under inspection is synthetic.
 
 Opt-in is via a `[docs-index]` section in `<repo>/.lightbridge/config.toml`.
 
@@ -19,7 +21,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -43,8 +44,10 @@ NO_SECTION = "[something-else]\nkey = 1\n"  # folder exists for another reason
 
 
 def run_hook(cwd: Path) -> subprocess.CompletedProcess:
+    # Execute the file directly (not `sys.executable hook.py`) — the same path as
+    # Claude Code's /bin/sh registration, so +x and the uv shebang are under test.
     return subprocess.run(
-        [sys.executable, str(HOOK)],
+        [str(HOOK)],
         input=json.dumps({"cwd": str(cwd), "hook_event_name": "SessionStart"}),
         capture_output=True,
         text=True,
