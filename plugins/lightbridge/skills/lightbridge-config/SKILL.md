@@ -2,7 +2,7 @@
 name: lightbridge-config
 description: Bootstrap and manage the personal .lightbridge/ namespace — per-repo .lightbridge/config.toml sections (docs-index, …) and the user-level ~/.lightbridge/ state dir (projects/, handoffs). Use when setting up .lightbridge, enabling or adding a config section, asking what .lightbridge supports, wiring a new per-repo config feature, or locating user-level lightbridge state.
 metadata:
-  version: "2026-07-09"
+  version: "2026-07-11"
 ---
 
 # .lightbridge config

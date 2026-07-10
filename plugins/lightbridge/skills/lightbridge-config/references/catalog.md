@@ -59,6 +59,33 @@ conventions. Adding a section? See [`extending.md`](extending.md).
     local-corpus module).
 - **Notes:** section present → near-zero-question planning; paths may be `~`-relative.
 
+### `[repo-links]`
+
+- **Purpose:** declare *logical* links to sibling repos this project references (upstream
+  counterpart, live test service, OSS reference clone), resolved to verified absolute
+  paths and injected at Claude Code `SessionStart`. Replaces hand-maintained path lists
+  in `CLAUDE.local.md`.
+- **Reader:** `agent-stuff` → `hooks/repo-links-inject` (uses `scripts/repo-links`).
+  Internals: `hooks/repo-links-inject/README.md` in this repo.
+- **Opt-in:** presence of `[repo-links]`; `enabled = false` to disable. Additionally
+  gated on the **personal registry** `~/.lightbridge/repos.toml` (see "User level") —
+  registry absent → the hook stays silent, so the committed section imposes nothing on
+  other machines.
+- **Keys:**
+  - `enabled` — bool, default `true`. Must precede the first `[[repo-links.link]]`
+    (TOML attaches later keys to the last `[[table]]` otherwise).
+  - `link` — array of tables (`[[repo-links.link]]`), each:
+    - `name` — string, **required**. Logical repo name, resolved via the registry.
+      Never a path.
+    - `role` — string, optional. Free-form relationship (`upstream`, `oss-reference`,
+      `live-test-service`, …).
+    - `note` — string, optional. One line on why/when the linked repo matters.
+- **Notes:** the committed section carries no filesystem paths — the name→path mapping
+  lives per machine in `~/.lightbridge/repos.toml`. A declared name missing from the
+  registry, or a registered path that no longer exists, injects a compact WARNING
+  line — the rot detector dead `CLAUDE.local.md` paths never had. Audit on demand:
+  `scripts/repo-links/repo_links.py --check`.
+
 <!-- New sections are appended here via the extending.md recipe. -->
 
 ## User level (`~/.lightbridge/`)
@@ -66,16 +93,24 @@ conventions. Adding a section? See [`extending.md`](extending.md).
 Durable, harness-neutral state that must outlive a session and work across every harness
 (Claude Code, Codex, Pi, …) — the user-level sibling of the per-repo folder, mirroring the
 `.claude/` vs `~/.claude/` split. Not config: there is no user-level `config.toml` (yet);
-each feature owns a subtree registered here.
+each feature owns a subtree **or file** registered here.
 
-- **Layout:** `~/.lightbridge/projects/<project-key>/` — per-project state, keyed by the
-  absolute project path with path separators replaced by `-` (the same encoding as
-  `~/.claude/projects`), e.g. `-Users-kittipos-my_config-agent-stuff`. On Windows, drop the
-  drive colon (`C:\Users\x` → `-C-Users-x`).
+- **Layout:**
+  - `~/.lightbridge/projects/<project-key>/` — per-project state, keyed by the
+    absolute project path with path separators replaced by `-` (the same encoding as
+    `~/.claude/projects`), e.g. `-Users-kittipos-my_config-agent-stuff`. On Windows, drop the
+    drive colon (`C:\Users\x` → `-C-Users-x`).
+  - `~/.lightbridge/repos.toml` — the personal repo registry: one `[repos]` table mapping
+    logical repo names to local paths (`~`-relative or absolute). Machine-specific by
+    design; its *presence* is the per-machine opt-in for `[repo-links]` resolution.
 - **Consumers:**
   - `handoff` skill (agent-stuff `plugins/productivity`) — writes
     `projects/<key>/handoffs/<YYYY-MM-DD_HHMM>_<slug>.md`. The filename/frontmatter contract
     lives in that skill, not re-documented here.
+  - `repo-links` reader (agent-stuff `scripts/repo-links` + `hooks/repo-links-inject`) —
+    resolves the names declared in a repo's committed `[repo-links]` section against
+    `repos.toml`. File absent → readers stay silent, so committed sections are inert on
+    machines that haven't opted in.
 - **Hygiene:** never committed anywhere; may hold conversation-derived content, so treat the
   tree as private. No secrets or PHI regardless.
 - **Growth:** a new user-level feature registers its subtree in this list and keeps its

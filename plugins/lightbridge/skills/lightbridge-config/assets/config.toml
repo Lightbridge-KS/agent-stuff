@@ -19,3 +19,12 @@ include = ["CONTEXT.md", "CONTEXT-MAP.md"]  # extra root-level files (default); 
 # searcher_model = "sonnet"          # searcher tier; "inherit" to match the session model
 # verifier_model = "sonnet"          # verifier tier; "inherit" to match the session model
 # corpus = []                        # local corpus dirs (reserved)
+
+# [repo-links]
+# # Declare logical links to sibling repos (agent-stuff repo-links-inject hook resolves
+# # them via the personal ~/.lightbridge/repos.toml registry — nothing here is a path).
+# enabled = true                     # optional; default true. Must precede the first link.
+# [[repo-links.link]]
+# name = "example-service"           # required; logical name, resolved via ~/.lightbridge/repos.toml
+# role = "upstream"                  # optional; free-form (upstream, oss-reference, live-test-service, …)
+# note = "Why this repo matters when working here"  # optional
