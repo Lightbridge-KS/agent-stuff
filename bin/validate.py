@@ -32,6 +32,7 @@ Exits non-zero (and prints every problem it found) if anything is malformed.
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tomllib
 from pathlib import Path
@@ -298,6 +299,12 @@ def validate_hook_toml(hook_dir: Path) -> list[str]:
         errors.append(f"{rel}: missing command")
     elif not (hook_dir / data["command"]).is_file():
         errors.append(f"{rel}: command '{data['command']}' is not a file in {hook_dir.name}/")
+    elif not os.access(hook_dir / data["command"], os.X_OK):
+        # Agents execute the registered command directly via /bin/sh; without +x the
+        # shebang never engages and every session start fails with "Permission denied".
+        errors.append(
+            f"{rel}: command '{data['command']}' is not executable — chmod +x it"
+        )
 
     for key in ("matcher", "statusMessage"):
         if key in data and not isinstance(data[key], str):
