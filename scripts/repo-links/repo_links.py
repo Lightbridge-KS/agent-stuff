@@ -122,6 +122,42 @@ def load_registry(path: Path) -> tuple[dict | None, str | None]:
     return repos, None
 
 
+def find_aliases(registry: dict, relevant: set[str] | None = None) -> list[str]:
+    """
+    Names that resolve to the SAME repo — an identity split, and invisible without this check.
+
+    Both names resolve, so nothing ever errors; the registry just quietly says one repo is two.
+    That breaks any cross-referencing keyed on the name: a `[repo-links]` link declared in one
+    repo as `rmos-inhouse` will not match a handoff whose `from.repo` says `ramaai-inhouse-rmos`,
+    even though they are the same clone. An alias is a registry smell, not a resolver error, so
+    the resolver has to be told to look for it.
+
+    `relevant` scopes the report to alias groups touching the names a repo actually declares —
+    a global registry wart should not nag every unrelated session.
+    """
+    by_path: dict[str, list[str]] = {}
+    for name, raw in registry.items():
+        if not isinstance(raw, str):
+            continue
+        try:
+            resolved = str(Path(raw).expanduser().resolve())
+        except OSError:
+            continue
+        by_path.setdefault(resolved, []).append(name)
+
+    warnings: list[str] = []
+    for path, names in sorted(by_path.items()):
+        if len(names) < 2:
+            continue
+        if relevant is not None and not relevant.intersection(names):
+            continue
+        warnings.append(
+            f"registry aliases: {', '.join(sorted(names))} all resolve to {path} — "
+            f"pick one canonical name; the rest split that repo's identity"
+        )
+    return warnings
+
+
 def resolve_links(
     links: list[dict], registry: dict, registry_display: str = DEFAULT_REGISTRY
 ) -> list[dict]:
@@ -230,7 +266,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Audit mode: exit 1 when any declared link is unresolved.",
+        help="Audit mode: exit 1 when a declared link is unresolved, or the registry "
+        "gives one repo two names.",
     )
     return parser.parse_args(argv)
 
@@ -278,6 +315,11 @@ def main(argv: list[str]) -> int:
         ]
     else:
         resolved = resolve_links(links, registry, registry_display=args.registry)
+        # An alias resolves fine, so it never shows up as a broken link — it has to be looked
+        # for. Folded into the warning stream so the SessionStart hook surfaces it too.
+        config_warnings = config_warnings + find_aliases(
+            registry, relevant={link["name"] for link in links}
+        )
 
     if args.json:
         print(
@@ -305,7 +347,9 @@ def main(argv: list[str]) -> int:
             )
         )
 
-    if args.check and any(link["status"] != "ok" for link in resolved):
+    if args.check and (
+        any(link["status"] != "ok" for link in resolved) or config_warnings
+    ):
         return 1
     return 0
 
