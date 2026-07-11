@@ -77,21 +77,25 @@ from:
 
 ### Sections
 
-The spine is fixed; the prose inside is free.
+Required — the spine is fixed; the prose inside is free.
 
 - `## State` — where the work stands: what's done, what's in flight, what's decided.
-- `## Impact here` — **required when `from:` is present, forbidden otherwise.** Written in the
+- `## Impact here` — **required iff `from:` is present; omit otherwise.** Written in the
   *destination's* terms, not the origin's: what breaks, what must change, what is newly
   possible. **Lead with anything `breaking`.** This is the payload of a cross-repo handoff —
   the receiving agent cares far more about what happens to *their* repo than about what you did
   in yours.
 - `## Next steps` — concrete, ordered; the receiving agent starts here. In a cross-repo handoff
   these are *advisory* — the destination's maintainer decides, you don't.
-- `## Suggested skills` — skills the next agent should invoke, and when. Omit if none apply.
 - `## Pointers` — artifacts referenced by path or URL, never duplicated (PRDs, plans, ADRs,
   trackers, tickets, commits, diffs). Anything already captured elsewhere goes here as a
   reference, not restated. For a cross-repo handoff, prefix origin-repo paths with the repo
   name — the reader is not standing in your repo.
+
+Optional — include only when it carries its weight:
+
+- `## Suggested skills` — skills the next agent should invoke, and when. Most handoffs have
+  nothing worth saying here; an empty ritual section is worse than no section.
 
 Rules:
 
@@ -103,6 +107,16 @@ Rules:
 - After writing, report the absolute path to the user.
 
 ## Pickup
+
+A same-repo handoff is **pulled** — you resume it because the user asked. A cross-repo handoff
+is **pushed**, so nothing prompts you to look; the `handoff-inject` SessionStart hook
+(`hooks/handoff-inject`) announces unread ones, and `scripts/handoff/handoff.py` is the inbox
+behind it:
+
+```bash
+handoff.py                 # unread cross-repo handoffs addressed to this repo
+handoff.py --ack <file>    # mark one read, so it stops being announced
+```
 
 When asked to pick up / resume a handoff:
 
@@ -138,6 +152,10 @@ When asked to pick up / resume a handoff:
    work. That is what the flag is for.
 4. Follow `## Pointers` for full context; continue from `## Next steps` — remembering that in a
    cross-repo handoff those are advisory, and the user owns the call.
+5. **Acknowledge it** once acted on (or consciously declined): `handoff.py --ack <file>`.
+   Acknowledgement is durable state, not "the agent saw it once" — an unacked handoff is
+   re-announced every session, and a notice that never stops firing is a notice that gets tuned
+   out. Do not ack a handoff you have merely read.
 
 ---
 
