@@ -3,23 +3,27 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Claude Code / Codex SessionStart hook: announce cross-repo handoffs addressed to this repo.
+"""Claude Code / Codex SessionStart hook: announce the handoffs pushed at this repo.
 
-A **same-repo** handoff is *pulled* — the user says "resume" and pickup runs because someone
-asked for it. A **cross-repo** handoff is *pushed*: repo A writes it into repo B's project-key
-because A changed something B depends on. **Nothing prompts B to look.** Without this hook the
-artifact is a letter with no postman — and a `breaking: true` flag that nobody reads is worth
-nothing at all.
+Handoffs split on **delivery**. The *journal* (`handoffs/*.md`) is PULLED — the user says
+"resume" and pickup runs because someone asked. The *inbox* (`handoffs/inbox/*.md`) is PUSHED:
+another repo — or a scheduled/background session in this one — left something nobody asked for.
+**Nothing prompts anyone to look.** Without this hook the artifact is a letter with no postman,
+and a `breaking: true` flag nobody reads is worth nothing at all.
 
-So this hook announces **only** cross-repo handoffs (`from:` present in the frontmatter) that
-have not been acknowledged. Same-repo handoffs are deliberately never injected: they are pulled
-on demand, and surfacing one every session would fight the harness's own context management —
-worse, it could resurrect a plan the session has already moved past.
+So this hook announces **the inbox, and only the inbox**. The journal is deliberately never
+injected: it is pulled on demand, and surfacing it every session would fight the harness's own
+context management — worse, it could resurrect a plan the session has already moved past. Push
+must announce itself; pull is already announced by the user asking.
+
+Note the hook does not classify anything. Delivery is decided at write time, by which directory
+the handoff lands in, so this is a plain glob — no frontmatter parsing to work out whether an
+item "counts". That is the point of the split.
 
 To stay DRY this reuses `scripts/handoff/handoff.py` as the single source of truth. It degrades
-silently in every direction: no `~/.lightbridge` state dir, no handoffs dir for this repo, no
-cross-repo handoffs, all acknowledged, or an unparseable file → emits nothing, exit 0. A hook
-that cries wolf is a hook that gets ignored, which is the exact failure it exists to prevent.
+silently in every direction: no `~/.lightbridge` state dir, no inbox for this repo, an empty
+inbox, everything acknowledged, or an unparseable file → emits nothing, exit 0. A hook that
+cries wolf is a hook that gets ignored, which is the exact failure it exists to prevent.
 
 Input  (stdin JSON, from the agent): { "cwd": "...", "hook_event_name": "SessionStart", ... }
 Output (stdout JSON): { "hookSpecificOutput": { "additionalContext": "..." } }  or nothing.

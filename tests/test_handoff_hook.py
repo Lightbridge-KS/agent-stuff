@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Behavioral tests for hooks/handoff-inject/hook.py — what it announces, and what it must not.
+"""Behavioral tests for the handoff split: a pulled journal, and a pushed inbox.
 
 Each test builds a throwaway lightbridge state dir (pointed at by $LIGHTBRIDGE_STATE_DIR) and
 drives the real hook.py as a subprocess with a SessionStart payload on stdin — executing the
@@ -12,12 +12,14 @@ or a broken shebang fails here too.
 
 The load-bearing behaviours:
 
-  * a cross-repo handoff (`from:` present) is ANNOUNCED — nobody asked for it, so nothing else
-    would surface it;
-  * a same-repo handoff is NEVER announced — it is pulled on demand, and injecting it every
-    session would fight the harness's own context management;
-  * an acknowledged handoff goes quiet, durably — a notice that never stops firing is a notice
-    that gets tuned out, which is the exact failure the hook exists to prevent.
+  * the inbox is ANNOUNCED — nobody asked for it, so nothing else would surface it;
+  * the journal is NEVER announced — it is pulled on demand, and injecting it every session
+    would fight the harness's own context management and could resurrect a stale plan;
+  * `--journal` never returns an inbox item — the bug the split exists to kill, where "resume"
+    handed the user an unrelated cross-repo notification instead of their own work;
+  * delivery is not origin — a same-repo item in the inbox (a scheduled/background session
+    leaving a note) is announced too, and `breaking` works without any `from:` block;
+  * an acknowledged item goes quiet, durably.
 
     uv run tests/test_handoff_hook.py
 """
@@ -35,6 +37,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOK = REPO_ROOT / "hooks" / "handoff-inject" / "hook.py"
 SCRIPT = REPO_ROOT / "scripts" / "handoff" / "handoff.py"
 
+# Pushed by a sibling repo. Origin recorded in `from:`; impact in top-level `breaking`.
 CROSS_REPO = """\
 ---
 project: /work/dest
@@ -42,11 +45,11 @@ created: 2026-07-11T17:39
 harness: claude-code
 focus: "The dataset landed; it exposes a routing gap in you."
 git: main @ d04d639
+breaking: true
 from:
   repo: orthanc-test-pacs
   project: /work/origin
   git: main @ 72745e1
-  breaking: true
 ---
 
 ## Impact here
@@ -57,7 +60,25 @@ CROSS_REPO_SAFE = CROSS_REPO.replace("breaking: true", "breaking: false").replac
     "The dataset landed; it exposes a routing gap in you.", "FYI only."
 )
 
-SAME_REPO = """\
+# Pushed from WITHIN this repo — a scheduled/background run leaving a note for the next human.
+# No `from:` block (same origin), but unsolicited all the same. This is the case that proves
+# delivery and origin are different axes.
+SAME_REPO_PUSHED = """\
+---
+project: /work/dest
+created: 2026-07-11T03:00
+harness: claude-code
+focus: "Nightly run left the tree needing a migration."
+git: main @ abc1234
+breaking: true
+---
+
+## Impact here
+Run the migration before touching the schema.
+"""
+
+# An ordinary journal entry: the user's own resumable work.
+JOURNAL = """\
 ---
 project: /work/dest
 created: 2026-07-10T09:00
@@ -77,13 +98,19 @@ def project_key(path: Path) -> str:
     return str(path.resolve()).replace(os.sep, "-").replace("/", "-")
 
 
-def make_state(base: Path, repo: Path, handoffs: dict[str, str]) -> Path:
-    """Build a lightbridge state dir holding `handoffs` addressed to `repo`."""
+def make_state(
+    base: Path, repo: Path, journal: dict[str, str] | None = None, inbox: dict[str, str] | None = None
+) -> Path:
+    """Build a lightbridge state dir with a journal and/or an inbox for `repo`."""
     state = base / "state"
-    directory = state / project_key(repo) / "handoffs"
-    directory.mkdir(parents=True)
-    for name, content in handoffs.items():
-        (directory / name).write_text(content)
+    root = state / project_key(repo) / "handoffs"
+    root.mkdir(parents=True)
+    for name, content in (journal or {}).items():
+        (root / name).write_text(content)
+    if inbox is not None:
+        (root / "inbox").mkdir()
+        for name, content in inbox.items():
+            (root / "inbox" / name).write_text(content)
     return state
 
 
@@ -108,7 +135,7 @@ def run_script(state: Path, *args: str) -> subprocess.CompletedProcess:
     )
 
 
-class HandoffHookTest(unittest.TestCase):
+class HandoffTest(unittest.TestCase):
     def assert_silent(self, result: subprocess.CompletedProcess) -> None:
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "")
@@ -117,51 +144,75 @@ class HandoffHookTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
 
-    def test_cross_repo_handoff_is_announced(self):
+    def repo_and_base(self, d: str) -> tuple[Path, Path]:
+        base = Path(d)
+        repo = base / "dest"
+        repo.mkdir()
+        return base, repo
+
+    # ── the inbox is announced ────────────────────────────────────────────────────────
+
+    def test_inbox_is_announced(self):
         with tempfile.TemporaryDirectory() as d:
-            base = Path(d)
-            repo = base / "dest"
-            repo.mkdir()
-            state = make_state(base, repo, {"2026-07-11_1739_x.md": CROSS_REPO})
+            base, repo = self.repo_and_base(d)
+            state = make_state(base, repo, inbox={"2026-07-11_1739_x.md": CROSS_REPO})
 
             ctx = self.context_of(run_hook(repo, state))
             self.assertIn("orthanc-test-pacs", ctx)
             self.assertIn("BREAKING", ctx)
             self.assertIn("main @ 72745e1", ctx)  # the ORIGIN's sha, not the destination's
-            self.assertIn("Impact here", ctx)
 
-    def test_same_repo_handoff_is_never_announced(self):
-        """It is pulled on demand. Injecting it would fight the harness and resurrect stale plans."""
+    def test_journal_is_never_announced(self):
+        """Pulled on demand. Injecting it would fight the harness and resurrect stale plans."""
         with tempfile.TemporaryDirectory() as d:
-            base = Path(d)
-            repo = base / "dest"
-            repo.mkdir()
-            state = make_state(base, repo, {"2026-07-10_0900_x.md": SAME_REPO})
+            base, repo = self.repo_and_base(d)
+            state = make_state(base, repo, journal={"2026-07-10_0900_x.md": JOURNAL})
 
             self.assert_silent(run_hook(repo, state))
 
-    def test_mixed_inbox_announces_only_the_cross_repo_one(self):
+    # ── delivery is not origin ────────────────────────────────────────────────────────
+
+    def test_same_repo_push_is_announced_too(self):
+        """A scheduled/background run leaving a note is unsolicited — no `from:` block needed."""
         with tempfile.TemporaryDirectory() as d:
-            base = Path(d)
-            repo = base / "dest"
-            repo.mkdir()
+            base, repo = self.repo_and_base(d)
+            state = make_state(base, repo, inbox={"2026-07-11_0300_nightly.md": SAME_REPO_PUSHED})
+
+            ctx = self.context_of(run_hook(repo, state))
+            self.assertIn("BREAKING", ctx)  # breaking works with no `from:` at all
+            self.assertIn("this repo", ctx)  # and it says where it came from
+            self.assertIn("migration", ctx)
+
+    # ── the bug the split exists to kill ──────────────────────────────────────────────
+
+    def test_journal_lookup_never_returns_an_inbox_item(self):
+        """
+        Pre-split, `resume` took the last file in a flat dir — so a newer cross-repo
+        notification shadowed the user's own work. Now it is structurally impossible.
+        """
+        with tempfile.TemporaryDirectory() as d:
+            base, repo = self.repo_and_base(d)
             state = make_state(
                 base,
                 repo,
-                {"2026-07-10_0900_same.md": SAME_REPO, "2026-07-11_1739_cross.md": CROSS_REPO},
+                journal={"2026-07-10_0900_mine.md": JOURNAL},
+                # newer than the journal entry — under the old flat layout this would win
+                inbox={"2026-07-11_1739_theirs.md": CROSS_REPO},
             )
 
-            ctx = self.context_of(run_hook(repo, state))
-            self.assertIn("2026-07-11_1739_cross.md", ctx)
-            self.assertNotIn("2026-07-10_0900_same.md", ctx)
-            self.assertIn(": 1", ctx)  # exactly one, not two
+            result = run_script(state, "--cwd", str(repo), "--journal")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            picked = result.stdout.strip()
+
+            self.assertTrue(picked.endswith("2026-07-10_0900_mine.md"), picked)
+            self.assertNotIn("inbox", picked)
+
+    # ── acknowledgement ───────────────────────────────────────────────────────────────
 
     def test_ack_silences_it_durably(self):
         with tempfile.TemporaryDirectory() as d:
-            base = Path(d)
-            repo = base / "dest"
-            repo.mkdir()
-            state = make_state(base, repo, {"2026-07-11_1739_x.md": CROSS_REPO})
+            base, repo = self.repo_and_base(d)
+            state = make_state(base, repo, inbox={"2026-07-11_1739_x.md": CROSS_REPO})
 
             self.assertIn("BREAKING", self.context_of(run_hook(repo, state)))
 
@@ -174,13 +225,11 @@ class HandoffHookTest(unittest.TestCase):
 
     def test_breaking_is_ordered_first(self):
         with tempfile.TemporaryDirectory() as d:
-            base = Path(d)
-            repo = base / "dest"
-            repo.mkdir()
+            base, repo = self.repo_and_base(d)
             state = make_state(
                 base,
                 repo,
-                {
+                inbox={
                     "2026-07-09_0900_safe.md": CROSS_REPO_SAFE,  # older, non-breaking
                     "2026-07-11_1739_bad.md": CROSS_REPO,  # newer, breaking
                 },
@@ -190,30 +239,27 @@ class HandoffHookTest(unittest.TestCase):
             self.assertLess(
                 ctx.index("2026-07-11_1739_bad.md"),
                 ctx.index("2026-07-09_0900_safe.md"),
-                "the breaking handoff must be surfaced before the harmless one",
+                "the breaking item must be surfaced before the harmless one",
             )
+
+    # ── fail open ─────────────────────────────────────────────────────────────────────
 
     def test_fails_open(self):
         """No state, no inbox, an unparseable file — never crash a session, never cry wolf."""
         with tempfile.TemporaryDirectory() as d:
-            base = Path(d)
-            repo = base / "dest"
-            repo.mkdir()
+            base, repo = self.repo_and_base(d)
 
-            # no state dir at all
-            self.assert_silent(run_hook(repo, base / "nonexistent"))
+            self.assert_silent(run_hook(repo, base / "nonexistent"))  # no state dir
 
-            # inbox exists but holds only junk
-            state = make_state(base, repo, {"garbage.md": MALFORMED})
+            state = make_state(base, repo, journal={"j.md": JOURNAL})  # journal, no inbox dir
             self.assert_silent(run_hook(repo, state))
 
     def test_addressed_to_a_different_repo_is_not_announced(self):
         with tempfile.TemporaryDirectory() as d:
-            base = Path(d)
-            mine, theirs = base / "mine", base / "theirs"
-            mine.mkdir()
+            base, mine = self.repo_and_base(d)
+            theirs = base / "theirs"
             theirs.mkdir()
-            state = make_state(base, theirs, {"2026-07-11_1739_x.md": CROSS_REPO})
+            state = make_state(base, theirs, inbox={"2026-07-11_1739_x.md": CROSS_REPO})
 
             self.assert_silent(run_hook(mine, state))
 
