@@ -1,6 +1,6 @@
 ---
 name: lightbridge-config
-description: Bootstrap and manage the personal .lightbridge namespace — per-project config at ~/.lightbridge/projects/<project-key>/config.toml (docs-index, repo-links, research, …) and the rest of the user-level ~/.lightbridge/ tree (handoffs, repos.toml). Use when setting up lightbridge config for a repo, enabling or adding a config section, asking what .lightbridge supports, wiring a new config feature, or locating user-level lightbridge state.
+description: Bootstrap and manage the personal .lightbridge namespace — per-project config at ~/.lightbridge/projects/<project-key>/config.toml (docs-index, repo-links, research, plans, …) and the rest of the user-level ~/.lightbridge/ tree (handoffs, plans, repos.toml). Use when setting up lightbridge config for a repo, enabling or adding a config section, asking what .lightbridge supports, wiring a new config feature, or locating user-level lightbridge state.
 metadata:
   version: "2026-07-13"
 ---
@@ -21,7 +21,8 @@ key = root path with separators → `-`.
 `enabled = false` disables without deleting.
 
 The same tree holds durable, harness-neutral **state**: `projects/<key>/handoffs/` (the
-`handoff` skill) and `~/.lightbridge/repos.toml`, the personal name→path repo registry.
+`handoff` skill), `projects/<key>/plans/` (approved plan-mode plans, filed by
+`hooks/plan-capture`), and `~/.lightbridge/repos.toml`, the personal name→path repo registry.
 
 Full spec (conventions, sections, keys, who reads them): [`references/catalog.md`](references/catalog.md).
 

@@ -24,6 +24,8 @@ jobs:
         run: uv run tests/test_package.py
       - name: Run research-kit tests
         run: uv run tests/test_research_kit.py
+      - name: Run plan-store tests
+        run: uv run tests/test_plan_store.py
       - name: Syntax-check all Python (bin, scripts, hooks, tests)
         run: |
           uv run python -m py_compile \
