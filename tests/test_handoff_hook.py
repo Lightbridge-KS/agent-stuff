@@ -223,6 +223,21 @@ class HandoffTest(unittest.TestCase):
             self.assert_silent(run_hook(repo, state))
             self.assert_silent(run_hook(repo, state))
 
+    def test_announcement_carries_a_runnable_ack_command_and_the_timing_rule(self):
+        """
+        The dest-repo agent sees ONLY this text (the skill is user-invoked, never auto-loaded),
+        and `handoff.py` is not on PATH — so the ack command must be an absolute path, and the
+        when-to-ack rule (after acting, never after merely reading) must travel with it.
+        """
+        with tempfile.TemporaryDirectory() as d:
+            base, repo = self.repo_and_base(d)
+            state = make_state(base, repo, inbox={"2026-07-11_1739_x.md": CROSS_REPO})
+
+            ctx = self.context_of(run_hook(repo, state))
+            self.assertIn(f"uv run {SCRIPT} --ack", ctx)  # absolute, not a bare `handoff.py`
+            self.assertIn("acted on", ctx)
+            self.assertIn("merely", ctx)  # ...and the read-only case is explicitly forbidden
+
     def test_breaking_is_ordered_first(self):
         with tempfile.TemporaryDirectory() as d:
             base, repo = self.repo_and_base(d)

@@ -4,7 +4,7 @@ description: Compact the current conversation into a durable handoff document an
 argument-hint: "What will the next session be used for?"
 disable-model-invocation: true
 metadata:
-  version: "2026-07-11"
+  version: "2026-07-12"
 ---
 
 # Handoff
@@ -162,9 +162,10 @@ handoff.py --ack <file>    # mark one inbox item read
    fires gets ignored.
 
 3. Inbox `## Next steps` are **advisory** — the user owns the call.
-4. **Ack once acted on (or consciously declined):** `handoff.py --ack <file>`. An unacked item
-   is re-announced every session; a notice that never stops firing gets tuned out. Do not ack
-   an item you have merely read.
+4. **Ack once acted on (or consciously declined):** `handoff.py --ack <file>`. The ack is part
+   of the task's definition of done — work on an inbox item is not complete until it has run.
+   An unacked item is re-announced every session; a notice that never stops firing gets tuned
+   out. Do not ack an item you have merely read.
 
 ---
 

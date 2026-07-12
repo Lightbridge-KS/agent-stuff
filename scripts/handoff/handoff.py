@@ -214,10 +214,16 @@ def render(items: list[dict]) -> str:
         lines.append(f"     {item['path']}")
 
     lines.append("")
+    # The receiving agent sees ONLY this text (the skill is user-invoked), and it is standing in
+    # another repo — so the ack command must carry its own absolute path, and the timing rule
+    # (ack after acting, never after merely reading) must travel with it.
+    script = Path(__file__).resolve()
     lines.append(
         "These were PUSHED here — nobody asked for them, so read before assuming context. "
         "Start with `## Impact here`; a BREAKING one means this repo needs a code or ops change "
-        "to stay correct. Acknowledge with `handoff.py --ack <file>` so it stops being announced. "
+        "to stay correct. Once an item is acted on — or the user consciously declines it — "
+        f"acknowledge it: `uv run {script} --ack <file>`. Do not ack an item you have merely "
+        "read; an unacked item re-announces every session. "
         "(Your own resumable work is the journal, one level up — this is not that.)"
     )
     return "\n".join(lines)
