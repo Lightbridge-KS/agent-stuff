@@ -7,8 +7,9 @@ conventions. Adding a section? See [`extending.md`](extending.md).
 
 - **Location:** `~/.lightbridge/projects/<project-key>/config.toml` — user-level,
   per-project, **never inside the repo** (the "local scope" model: collaborators never
-  see it, and no gitignore entry is needed). Locate or create it with
-  `lightbridge path` (agent-stuff `scripts/lightbridge`, the canonical resolver).
+  see it, and no gitignore entry is needed). Create it with `lb init` and locate it with
+  `lb path` (agent-stuff `scripts/lightbridge`, the canonical resolver — it also owns the
+  emittable template for every section below, so configs are never hand-written).
 - **Keying:** `<project-key>` = the project root's absolute path with path separators
   replaced by `-` (the `~/.claude/projects` encoding; Windows drops the drive colon).
   The root is `git rev-parse --show-toplevel` of the session's cwd — cwd itself for
@@ -111,7 +112,8 @@ feature owns a subtree **or file** registered here.
     design; its *presence* is the per-machine opt-in for `[repo-links]` resolution.
 - **Consumers:**
   - `lightbridge` resolver (agent-stuff `scripts/lightbridge`) — the canonical
-    root/key/config resolution every reader imports, plus the `path` / `doctor` CLI.
+    root/key/config resolution every reader imports, plus the CLI that writes and audits
+    configs (`init` · `add` · `sections` · `path` · `doctor`; linked onto PATH as `lb`).
   - `handoff` skill (agent-stuff `plugins/productivity`) — writes
     `projects/<key>/handoffs/<YYYY-MM-DD_HHMM>_<slug>.md`. The filename/frontmatter contract
     lives in that skill, not re-documented here.

@@ -18,8 +18,10 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -219,6 +221,191 @@ class PathCliTest(unittest.TestCase):
             self.assertEqual(data["root"], str(proj.resolve()))
             self.assertFalse(data["exists"])
             self.assertIsNone(data["legacy"])
+
+
+class BootstrapCliTest(unittest.TestCase):
+    """`init` / `add` — the deterministic bootstrap. Isolated via $LIGHTBRIDGE_STATE_DIR,
+    the same way PathCliTest is: both verbs resolve through config_path()."""
+
+    def run_cli(self, state: Path, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [str(SCRIPT), *args],
+            capture_output=True,
+            text=True,
+            env={**os.environ, lb.STATE_DIR_ENV: str(state)},
+        )
+
+    def repo(self, d: str, *, docs: bool) -> Path:
+        """A git repo, with or without a `docs/` dir — the trigger `init` detects on."""
+        proj = Path(d) / "repo"
+        proj.mkdir()
+        if docs:
+            (proj / "docs").mkdir()
+        git_init(proj)
+        return proj.resolve()
+
+    def config_of(self, state: Path, proj: Path) -> Path:
+        return state / lb.project_key(proj) / "config.toml"
+
+    def test_init_creates_config_with_root(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=False)
+            result = self.run_cli(state, "init", "--start", str(proj))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            config = self.config_of(state, proj)
+            self.assertTrue(config.is_file())
+            data = tomllib.loads(config.read_text())
+            self.assertEqual(data["root"], str(proj))
+
+    def test_init_detects_docs_dir(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=True)
+            result = self.run_cli(state, "init", "--start", str(proj), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            self.assertEqual(
+                set(data),
+                {
+                    "root",
+                    "key",
+                    "config",
+                    "created",
+                    "sections_added",
+                    "sections_skipped",
+                    "detected",
+                },
+            )
+            self.assertTrue(data["created"])
+            self.assertEqual(data["detected"], ["docs-index"])
+            self.assertEqual(data["sections_added"], ["docs-index"])
+            self.assertIn("docs-index", tomllib.loads(Path(data["config"]).read_text()))
+
+    def test_init_bare_when_no_docs(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=False)
+            result = self.run_cli(state, "init", "--start", str(proj), "--json")
+            self.assertEqual(json.loads(result.stdout)["sections_added"], [])
+            data = tomllib.loads(self.config_of(state, proj).read_text())
+            self.assertEqual(set(data), {"root"})
+
+    def test_init_explicit_sections_override_detection(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=True)  # docs/ IS present
+            result = self.run_cli(
+                state, "init", "--start", str(proj), "--sections", "research", "--json"
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["sections_added"], ["research"])
+            data = tomllib.loads(self.config_of(state, proj).read_text())
+            self.assertEqual(set(data), {"root", "research"})  # detection did NOT fire
+
+    def test_init_refuses_existing_config(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=False)
+            config = write_config(state, proj, body='[docs-index]\ndir = "guide"\n')
+            before = config.read_bytes()
+            result = self.run_cli(state, "init", "--start", str(proj))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("never clobbers", result.stderr)
+            self.assertEqual(config.read_bytes(), before)  # not one byte touched
+
+    def test_init_dry_run_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=True)
+            result = self.run_cli(state, "init", "--start", str(proj), "--dry-run")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("[docs-index]", result.stdout)
+            self.assertFalse(self.config_of(state, proj).exists())
+
+    def test_add_appends_missing_section(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=True)
+            self.run_cli(state, "init", "--start", str(proj))
+            result = self.run_cli(state, "add", "repo-links", "--start", str(proj), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertFalse(payload["created"])
+            self.assertEqual(payload["sections_added"], ["repo-links"])
+            data = tomllib.loads(self.config_of(state, proj).read_text())
+            self.assertEqual(set(data), {"root", "docs-index", "repo-links"})
+            # `enabled` must land on the section, not on the [[link]] appended after it
+            self.assertTrue(data["repo-links"]["enabled"])
+            self.assertEqual(data["repo-links"]["link"][0]["name"], "example-service")
+
+    def test_add_skips_present_section(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=True)
+            self.run_cli(state, "init", "--start", str(proj))
+            config = self.config_of(state, proj)
+            before = config.read_bytes()
+            result = self.run_cli(state, "add", "docs-index", "--start", str(proj), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)  # idempotent, not an error
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["sections_added"], [])
+            self.assertEqual(payload["sections_skipped"], ["docs-index"])
+            self.assertEqual(config.read_bytes(), before)
+
+    def test_add_without_config_exits_1(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=False)
+            result = self.run_cli(state, "add", "research", "--start", str(proj))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("init", result.stderr)
+
+    def test_unknown_section_exits_2(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=False)
+            for args in (
+                ("init", "--start", str(proj), "--sections", "nope"),
+                ("add", "nope", "--start", str(proj)),
+            ):
+                result = self.run_cli(state, *args)
+                self.assertEqual(result.returncode, 2, args)
+                self.assertIn("docs-index", result.stderr, args)  # names the valid set
+
+    def test_init_output_survives_doctor(self):
+        """The writer and the auditor agree — a config `init` wrote is clean to `doctor`."""
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=True)
+            self.run_cli(state, "init", "--start", str(proj))
+            self.run_cli(state, "add", "research", "repo-links", "--start", str(proj))
+            result = subprocess.run(
+                [
+                    str(SCRIPT), "doctor",
+                    "--state-dir", str(state),
+                    "--registry", str(state / "no-registry.toml"),
+                    "--json",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertEqual(json.loads(result.stdout)["problems"], [])
+
+
+class SectionsTest(unittest.TestCase):
+    def test_sections_lists_every_known_section(self):
+        result = subprocess.run(
+            [str(SCRIPT), "sections", "--json"], capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(set(json.loads(result.stdout)), set(lb.SECTIONS))
+
+    def test_sections_match_catalog(self):
+        """The anti-drift guard: the CLI's emittable templates and the catalog's prose
+        must describe the SAME set of sections. The catalog is canonical for what a key
+        means; SECTIONS is canonical for what gets written. Neither may grow alone."""
+        catalog = (
+            REPO_ROOT
+            / "plugins/lightbridge/skills/lightbridge-config/references/catalog.md"
+        ).read_text(encoding="utf-8")
+        documented = set(re.findall(r"^### `\[([^\]]+)\]`", catalog, flags=re.MULTILINE))
+        self.assertEqual(
+            documented,
+            set(lb.SECTIONS),
+            "catalog.md and lightbridge.SECTIONS disagree — a section was added to one "
+            "and not the other (see references/extending.md).",
+        )
 
 
 if __name__ == "__main__":
