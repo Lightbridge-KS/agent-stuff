@@ -27,21 +27,32 @@ keyed by project path; repos stay completely clean.
       git-toplevel; per-repo walk-up deleted; legacy per-repo file → one-line warning — `5223495`
 - [x] **Tests** — test_hooks.py reworked to `LIGHTBRIDGE_STATE_DIR` fixtures; test_repo_links.py
       config into fake home; new test_lightbridge.py; handoff subdir-keying test — `5223495`
-- [ ] **Docs sweep (agent-stuff)** — lightbridge-config skill (SKILL/catalog/extending/assets),
+- [x] **Docs sweep (agent-stuff)** — lightbridge-config skill (SKILL/catalog/extending/assets),
       research + handoff SKILL.md, 5 hook/script READMEs, README.md, docs/architecture.md,
-      plugin description strings
-- [ ] **Brief sync (`agent-instruction`)** — AGENTS.qmd §Personal config rewritten, `make build`,
-      commit on main
-- [ ] **Data migration** — 10 configs moved to `~/.lightbridge/projects/<key>/config.toml`
-      (`root =` added); per-repo `.lightbridge/` deleted; chore commits: RMOS + RMOS-InHouse
-      on `develop`, orthanc-test-pacs + agent-stuff on `main`
+      research design.md, plugin description strings — `46a95eb`
+- [x] **Brief sync (`agent-instruction`)** — AGENTS.qmd §Personal config rewritten, `make build`,
+      committed on main — `b3603d9` (agent-instruction)
+- [x] **Data migration** — **14** configs (not 10: `--no-ignore` sweep also found
+      ramaai-api-specs, RAMAAI-QMS-RD-Retrofit, and two `_tests` fixtures) moved to
+      `~/.lightbridge/projects/<key>/config.toml` with `root =`; per-repo `.lightbridge/`
+      deleted everywhere; `doctor` clean. Chore commits: RMOS `faffb04` (develop),
+      RMOS-InHouse `12f3348` (**main** — repo has no develop branch; deviation from D5
+      surfaced to KS), orthanc-test-pacs `c78f50f` (main), RAMAAI-QMS-RD-Retrofit
+      `3b3f522` (main; also tracked, not in the original plan)
 - [ ] **Verified** — validate.py + full test suite green; hook smoke tests with real payloads
       (docs-index @ agent-stuff, repo-links @ RMOS-InHouse, handoff from a subdir); `doctor` clean
 
 ## Now / Next
 
-- Now: docs sweep (agent-stuff prose + lightbridge-config skill).
-- Next: agent-instruction brief sync, then data migration + verify.
+- Now: final verification (hook smoke tests with real payloads).
+- Next: (done — see Milestones)
+
+## Notes
+
+- `RAMAAI-WorkSpace/RAMAAI-QMS-RD-Retrofit` is a symlink into `~/my_ramaai/QMS/`; the
+  resolver keys by the physical git toplevel, so both entry paths land on one key.
+- The two `_tests` fixtures (docs-index-demo, deep-research-test) were migrated too; their
+  READMEs may still describe the old per-repo opt-in — follow-up if they are re-run.
 
 ## Confirmed contracts (bind the implementation)
 
