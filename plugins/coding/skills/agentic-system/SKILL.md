@@ -34,7 +34,7 @@ scaffolding wired around that core**:
 
 A generic architecture pass would describe the repo as "a monorepo with packages" and never
 surface the loop, memory, and MCP as first-class organs — that is the gap this skill fills.
-Where a sibling skill *judges the outward surface* an agent drives (`ax-interface-analysis`),
+Where a sibling skill *judges the outward surface* an agent drives (`ax-interface`),
 this skill *maps the inward anatomy*.
 
 ## Mode: explain or design
@@ -138,7 +138,7 @@ sits in the product.
 **Cross-link:** check the output directory for related docs and add a "See also" line under
 the title for each — match on *topic*, not just filename suffix (a hand-named
 `ARCHITECTURE.md` counts as the structure doc). Canonical siblings: `system-architecture`
-(generic structure), `ax-interface-analysis` output (the agent-facing surface, judged),
+(generic structure), `ax-interface` output (the agent-facing surface, judged),
 `ux-dx-design` / `data-architecture` (the outside / the data).
 
 Use this skeleton. Keep prose tight; let the diagrams carry the structure.

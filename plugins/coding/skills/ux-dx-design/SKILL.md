@@ -67,7 +67,7 @@ the intended shape in the inputs.
 likely consumer is an autonomous agent. If so, add one short note to §6 on its *agent
 experience* ("AX"): self-documenting spec/`--help`, token-economical output, errors that
 teach, stable exit/status codes to branch on. Keep it descriptive; for a full evaluative
-audit, defer to the `ax-interface-analysis` skill.
+audit, defer to the `ax-interface` skill.
 
 | Section                       | GUI App | CLI/TUI | Library/SDK | Web API |
 |-------------------------------|---------|---------|-------------|---------|
