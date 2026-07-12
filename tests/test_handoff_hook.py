@@ -162,6 +162,19 @@ class HandoffTest(unittest.TestCase):
             self.assertIn("BREAKING", ctx)
             self.assertIn("main @ 72745e1", ctx)  # the ORIGIN's sha, not the destination's
 
+    def test_git_subdir_keys_to_toplevel(self):
+        """One keying rule for the whole tree: a session launched from a subdirectory
+        of a git repo lands on the repo root's project-key."""
+        with tempfile.TemporaryDirectory() as d:
+            base, repo = self.repo_and_base(d)
+            subprocess.run(["git", "init", "-q", str(repo)], check=True, capture_output=True)
+            sub = repo / "src" / "inner"
+            sub.mkdir(parents=True)
+            state = make_state(base, repo, inbox={"2026-07-11_1739_x.md": CROSS_REPO})
+
+            ctx = self.context_of(run_hook(sub, state))
+            self.assertIn("BREAKING", ctx)
+
     def test_journal_is_never_announced(self):
         """Pulled on demand. Injecting it would fight the harness and resurrect stale plans."""
         with tempfile.TemporaryDirectory() as d:

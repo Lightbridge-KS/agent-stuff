@@ -3,14 +3,14 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Resolve a repo's declared cross-repo links to verified local paths.
+"""Resolve a project's declared cross-repo links to verified local paths.
 
 Multi-repo work needs the agent to know its neighborhood: where the upstream
 counterpart, the live test service, or the OSS reference clone lives on THIS
-machine. Two layers keep that colleague-safe:
+machine. Two user-level layers — nothing ever lives inside the repo:
 
-  1. Committed, logical — `<repo>/.lightbridge/config.toml` declares links by
-     NAME only (never a path), so the committed file is true for everyone:
+  1. Per-project, logical — `~/.lightbridge/projects/<project-key>/config.toml`
+     (resolved by `scripts/lightbridge`) declares links by NAME only:
 
          [repo-links]              # presence of this section = opt in
          enabled = true            # optional; default true. Must precede the links.
@@ -19,8 +19,7 @@ machine. Two layers keep that colleague-safe:
          role = "upstream"         # optional; free-form relationship
          note = "Why this repo matters when working here"  # optional
 
-  2. Personal, per-machine — `~/.lightbridge/repos.toml` maps names to paths
-     (never committed anywhere):
+  2. Per-machine — `~/.lightbridge/repos.toml` maps names to paths:
 
          [repos]
          example-service = "~/work/example-service"
@@ -43,25 +42,27 @@ or the section is disabled).
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import sys
 import tomllib
 from pathlib import Path
 
-CONFIG_REL = Path(".lightbridge") / "config.toml"
+LIGHTBRIDGE = Path(__file__).resolve().parents[1] / "lightbridge" / "lightbridge.py"
 DEFAULT_REGISTRY = "~/.lightbridge/repos.toml"
 REMINDER = (
     "When a task involves a linked repo, work with it at the absolute path above."
 )
 
 
-def find_config(start: Path) -> Path | None:
-    """Walk up from `start` for a `.lightbridge/config.toml`; None if not found."""
-    for directory in (start, *start.parents):
-        candidate = directory / CONFIG_REL
-        if candidate.is_file():
-            return candidate
-    return None
+def load_lightbridge():
+    """Import the lightbridge resolver from its file path (single source of truth)."""
+    spec = importlib.util.spec_from_file_location("lightbridge", LIGHTBRIDGE)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _as_str(value) -> str | None:
@@ -177,7 +178,7 @@ def resolve_links(
                 path=None,
                 status="unregistered",
                 detail=f"not registered in {registry_display} "
-                "(add it there, or fix the name in .lightbridge/config.toml)",
+                "(add it there, or fix the name in the project's lightbridge config)",
             )
             resolved.append(record)
             continue
@@ -253,7 +254,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--start",
         default=".",
-        help="Directory to start the walk-up for .lightbridge/config.toml (default: CWD).",
+        help="Directory whose project root (git toplevel) is resolved to the "
+        "user-level lightbridge config (default: CWD).",
     )
     parser.add_argument(
         "--registry",
@@ -276,18 +278,24 @@ def main(argv: list[str]) -> int:
     args = parse_args(argv)
     start = Path(args.start).expanduser().resolve()
 
-    config_path = find_config(start)
-    if config_path is None:
+    lb = load_lightbridge()
+    if lb is None:
+        print(f"repo-links: resolver not found at {LIGHTBRIDGE}.", file=sys.stderr)
+        return 2
+
+    config, config_path, error = lb.load_config(start)
+    legacy = lb.legacy_config(start)
+    if legacy is not None:
+        print(lb.legacy_warning(legacy), file=sys.stderr)
+    if error is not None:
+        print(f"repo-links: {config_path} is unreadable: {error}", file=sys.stderr)
+        return 2
+    if config is None:
         print(
-            f"repo-links: no .lightbridge/config.toml found from '{start}'. "
-            "Bootstrap one — see the lightbridge-config skill.",
+            f"repo-links: no lightbridge config for this project (expected at "
+            f"{config_path}). Bootstrap one — see the lightbridge-config skill.",
             file=sys.stderr,
         )
-        return 2
-    try:
-        config = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    except (tomllib.TOMLDecodeError, OSError) as exc:
-        print(f"repo-links: {config_path} is unreadable: {exc}", file=sys.stderr)
         return 2
 
     section = config.get("repo-links")

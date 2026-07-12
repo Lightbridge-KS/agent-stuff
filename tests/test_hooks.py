@@ -6,13 +6,16 @@
 """Behavioral tests for hooks/docs-index-inject/hook.py — the opt-in gating.
 
 Each test builds a throwaway *project* dir (the repo the hook would run inside) and
-drives the real hook.py as a subprocess with a SessionStart payload on stdin —
-executing the FILE directly, exactly as Claude Code's /bin/sh registration does, so
-a missing executable bit or broken shebang fails here too. The hook resolves its
-paired docs_index.py relative to its own location in this repo, so it is exercised
-in place — only the project under inspection is synthetic.
+a throwaway *state* dir standing in for `~/.lightbridge/projects` (wired via
+`$LIGHTBRIDGE_STATE_DIR`, the documented testing seam), then drives the real hook.py
+as a subprocess with a SessionStart payload on stdin — executing the FILE directly,
+exactly as Claude Code's /bin/sh registration does, so a missing executable bit or
+broken shebang fails here too. The hook resolves its paired docs_index.py and
+lightbridge.py relative to its own location in this repo, so it is exercised in
+place — only the project and state under inspection are synthetic.
 
-Opt-in is via a `[docs-index]` section in `<repo>/.lightbridge/config.toml`.
+Opt-in is via a `[docs-index]` section in the project's user-level config,
+`<state>/<project-key>/config.toml` (the "local scope" model — nothing in the repo).
 
     uv run tests/test_hooks.py
 """
@@ -20,6 +23,7 @@ Opt-in is via a `[docs-index]` section in `<repo>/.lightbridge/config.toml`.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -37,13 +41,18 @@ CONTEXT = (
     "---\nsummary: The domain glossary.\nread_when:\n  - naming a domain term\n---\n# Context\n"
 )
 
-# Common .lightbridge/config.toml bodies.
+# Common config.toml bodies.
 OPTED_IN = "[docs-index]\n"  # section present, all defaults
 DISABLED = "[docs-index]\nenabled = false\n"
-NO_SECTION = "[something-else]\nkey = 1\n"  # folder exists for another reason
+NO_SECTION = "[something-else]\nkey = 1\n"  # config exists for another feature
 
 
-def run_hook(cwd: Path) -> subprocess.CompletedProcess:
+def project_key(path: Path) -> str:
+    """Mirror of the lightbridge encoding (resolved absolute path, separators → '-')."""
+    return str(path.resolve()).replace(os.sep, "-").replace("/", "-")
+
+
+def run_hook(cwd: Path, state: Path) -> subprocess.CompletedProcess:
     # Execute the file directly (not `sys.executable hook.py`) — the same path as
     # Claude Code's /bin/sh registration, so +x and the uv shebang are under test.
     return subprocess.run(
@@ -51,30 +60,36 @@ def run_hook(cwd: Path) -> subprocess.CompletedProcess:
         input=json.dumps({"cwd": str(cwd), "hook_event_name": "SessionStart"}),
         capture_output=True,
         text=True,
+        env={**os.environ, "LIGHTBRIDGE_STATE_DIR": str(state)},
     )
 
 
 def make_project(
     base: Path,
     *,
-    config: str | None,
     docs: dict[str, str],
     docs_dir: str = "docs",
     root_files: dict[str, str] | None = None,
 ) -> Path:
-    """Build a project dir with optional .lightbridge/config.toml, a docs dir, and
-    optional repo-root files (e.g. CONTEXT.md) for the `include` path."""
+    """Build a project dir: a docs dir plus optional repo-root files (e.g. CONTEXT.md)."""
     proj = base / "proj"
     (proj / docs_dir).mkdir(parents=True)
     for name, content in docs.items():
         (proj / docs_dir / name).write_text(content)
     for name, content in (root_files or {}).items():
         (proj / name).write_text(content)
-    if config is not None:
-        lb = proj / ".lightbridge"
-        lb.mkdir()
-        (lb / "config.toml").write_text(config)
     return proj
+
+
+def make_state(base: Path, proj: Path, config: str | None) -> Path:
+    """Build the user-level state dir; write the project's config.toml when given."""
+    state = base / "state"
+    state.mkdir(exist_ok=True)
+    if config is not None:
+        cfg_dir = state / project_key(proj)
+        cfg_dir.mkdir(parents=True, exist_ok=True)
+        (cfg_dir / "config.toml").write_text(config)
+    return state
 
 
 class HookTest(unittest.TestCase):
@@ -89,88 +104,131 @@ class HookTest(unittest.TestCase):
 
     def test_opted_in_injects_index(self):
         with tempfile.TemporaryDirectory() as d:
-            proj = make_project(Path(d), config=OPTED_IN, docs={"cache.md": ANNOTATED})
-            ctx = self.context_of(run_hook(proj))
+            proj = make_project(Path(d), docs={"cache.md": ANNOTATED})
+            state = make_state(Path(d), proj, OPTED_IN)
+            ctx = self.context_of(run_hook(proj, state))
             self.assertIn("cache.md", ctx)
             self.assertIn("Read when: touching cache", ctx)
 
     def test_no_config_is_silent(self):
         with tempfile.TemporaryDirectory() as d:
-            proj = make_project(Path(d), config=None, docs={"cache.md": ANNOTATED})
-            self.assert_silent(run_hook(proj))
+            proj = make_project(Path(d), docs={"cache.md": ANNOTATED})
+            state = make_state(Path(d), proj, None)
+            self.assert_silent(run_hook(proj, state))
+
+    def test_missing_state_dir_is_silent(self):
+        # No ~/.lightbridge/projects equivalent at all — a fresh machine.
+        with tempfile.TemporaryDirectory() as d:
+            proj = make_project(Path(d), docs={"cache.md": ANNOTATED})
+            self.assert_silent(run_hook(proj, Path(d) / "nonexistent"))
 
     def test_section_absent_is_silent(self):
-        # .lightbridge/config.toml exists but has no [docs-index] section.
+        # config.toml exists but has no [docs-index] section.
         with tempfile.TemporaryDirectory() as d:
-            proj = make_project(Path(d), config=NO_SECTION, docs={"cache.md": ANNOTATED})
-            self.assert_silent(run_hook(proj))
+            proj = make_project(Path(d), docs={"cache.md": ANNOTATED})
+            state = make_state(Path(d), proj, NO_SECTION)
+            self.assert_silent(run_hook(proj, state))
 
     def test_disabled_is_silent(self):
         with tempfile.TemporaryDirectory() as d:
-            proj = make_project(Path(d), config=DISABLED, docs={"cache.md": ANNOTATED})
-            self.assert_silent(run_hook(proj))
+            proj = make_project(Path(d), docs={"cache.md": ANNOTATED})
+            state = make_state(Path(d), proj, DISABLED)
+            self.assert_silent(run_hook(proj, state))
 
     def test_website_docs_not_surfaced(self):
         # Opted in, but the only doc has `description` (no summary) -> stay silent.
         with tempfile.TemporaryDirectory() as d:
-            proj = make_project(Path(d), config=OPTED_IN, docs={"index.md": WEBSITE})
-            self.assert_silent(run_hook(proj))
+            proj = make_project(Path(d), docs={"index.md": WEBSITE})
+            state = make_state(Path(d), proj, OPTED_IN)
+            self.assert_silent(run_hook(proj, state))
 
     def test_empty_section_uses_defaults(self):
         with tempfile.TemporaryDirectory() as d:
-            proj = make_project(Path(d), config=OPTED_IN, docs={"cache.md": ANNOTATED})
-            self.assertIn("cache.md", self.context_of(run_hook(proj)))
+            proj = make_project(Path(d), docs={"cache.md": ANNOTATED})
+            state = make_state(Path(d), proj, OPTED_IN)
+            self.assertIn("cache.md", self.context_of(run_hook(proj, state)))
 
     def test_custom_dir(self):
         with tempfile.TemporaryDirectory() as d:
             proj = make_project(
-                Path(d),
-                config='[docs-index]\ndir = "agent-docs"\n',
-                docs={"cache.md": ANNOTATED},
-                docs_dir="agent-docs",
+                Path(d), docs={"cache.md": ANNOTATED}, docs_dir="agent-docs"
             )
-            self.assertIn("cache.md", self.context_of(run_hook(proj)))
+            state = make_state(Path(d), proj, '[docs-index]\ndir = "agent-docs"\n')
+            self.assertIn("cache.md", self.context_of(run_hook(proj, state)))
 
     def test_exclude_respected(self):
         with tempfile.TemporaryDirectory() as d:
-            proj = make_project(
-                Path(d),
-                config='[docs-index]\nexclude = ["private"]\n',
-                docs={"cache.md": ANNOTATED},
-            )
+            proj = make_project(Path(d), docs={"cache.md": ANNOTATED})
+            state = make_state(Path(d), proj, '[docs-index]\nexclude = ["private"]\n')
             private = proj / "docs" / "private"
             private.mkdir()
             (private / "secret.md").write_text(ANNOTATED.replace("cache", "secret"))
-            ctx = self.context_of(run_hook(proj))
+            ctx = self.context_of(run_hook(proj, state))
             self.assertIn("cache.md", ctx)
             self.assertNotIn("secret.md", ctx)
 
     def test_config_missing_dir_is_silent(self):
         with tempfile.TemporaryDirectory() as d:
-            proj = make_project(
-                Path(d),
-                config='[docs-index]\ndir = "nonexistent"\n',
-                docs={"cache.md": ANNOTATED},
-            )
-            self.assert_silent(run_hook(proj))
+            proj = make_project(Path(d), docs={"cache.md": ANNOTATED})
+            state = make_state(Path(d), proj, '[docs-index]\ndir = "nonexistent"\n')
+            self.assert_silent(run_hook(proj, state))
 
     def test_malformed_config_is_silent(self):
         with tempfile.TemporaryDirectory() as d:
-            proj = make_project(
-                Path(d), config="[unclosed\n", docs={"cache.md": ANNOTATED}
+            proj = make_project(Path(d), docs={"cache.md": ANNOTATED})
+            state = make_state(Path(d), proj, "[unclosed\n")
+            self.assert_silent(run_hook(proj, state))
+
+    def test_git_subdir_resolves_to_toplevel(self):
+        # Launched from a subdirectory of a git repo, the hook must key on the
+        # toplevel — the config written for the repo root is still found.
+        with tempfile.TemporaryDirectory() as d:
+            proj = make_project(Path(d), docs={"cache.md": ANNOTATED})
+            subprocess.run(
+                ["git", "init", "-q", str(proj)], check=True, capture_output=True
             )
-            self.assert_silent(run_hook(proj))
+            sub = proj / "src" / "inner"
+            sub.mkdir(parents=True)
+            state = make_state(Path(d), proj, OPTED_IN)
+            ctx = self.context_of(run_hook(sub, state))
+            self.assertIn("cache.md", ctx)
+
+    def test_legacy_per_repo_config_warns(self):
+        # A stray pre-migration <repo>/.lightbridge/config.toml is NOT read, but
+        # earns a one-line deprecation warning — even with no user-level config.
+        with tempfile.TemporaryDirectory() as d:
+            proj = make_project(Path(d), docs={"cache.md": ANNOTATED})
+            lb = proj / ".lightbridge"
+            lb.mkdir()
+            (lb / "config.toml").write_text(OPTED_IN)
+            state = make_state(Path(d), proj, None)
+            ctx = self.context_of(run_hook(proj, state))
+            self.assertIn("WARNING", ctx)
+            self.assertIn("no longer read", ctx)
+            self.assertNotIn("cache.md", ctx)  # the legacy file must not opt in
+
+    def test_legacy_warning_appended_to_index(self):
+        # User-level config active AND a stray per-repo file -> index + warning.
+        with tempfile.TemporaryDirectory() as d:
+            proj = make_project(Path(d), docs={"cache.md": ANNOTATED})
+            lb = proj / ".lightbridge"
+            lb.mkdir()
+            (lb / "config.toml").write_text(OPTED_IN)
+            state = make_state(Path(d), proj, OPTED_IN)
+            ctx = self.context_of(run_hook(proj, state))
+            self.assertIn("cache.md", ctx)
+            self.assertIn("no longer read", ctx)
 
     def test_context_file_surfaced_by_default(self):
         # Root CONTEXT.md appears in its own group, alongside the docs index.
         with tempfile.TemporaryDirectory() as d:
             proj = make_project(
                 Path(d),
-                config=OPTED_IN,
                 docs={"cache.md": ANNOTATED},
                 root_files={"CONTEXT.md": CONTEXT},
             )
-            ctx = self.context_of(run_hook(proj))
+            state = make_state(Path(d), proj, OPTED_IN)
+            ctx = self.context_of(run_hook(proj, state))
             self.assertIn("Domain context (repo root)", ctx)
             self.assertIn("CONTEXT.md", ctx)
             self.assertIn("Read when: naming a domain term", ctx)
@@ -178,13 +236,9 @@ class HookTest(unittest.TestCase):
     def test_context_injects_without_docs(self):
         # No annotated docs, but a root CONTEXT.md is enough to inject.
         with tempfile.TemporaryDirectory() as d:
-            proj = make_project(
-                Path(d),
-                config=OPTED_IN,
-                docs={},
-                root_files={"CONTEXT.md": CONTEXT},
-            )
-            ctx = self.context_of(run_hook(proj))
+            proj = make_project(Path(d), docs={}, root_files={"CONTEXT.md": CONTEXT})
+            state = make_state(Path(d), proj, OPTED_IN)
+            ctx = self.context_of(run_hook(proj, state))
             self.assertIn("CONTEXT.md", ctx)
             self.assertNotIn("Docs index", ctx)  # no docs group when the dir is empty
 
@@ -193,11 +247,11 @@ class HookTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             proj = make_project(
                 Path(d),
-                config=OPTED_IN,
                 docs={"cache.md": ANNOTATED},
                 root_files={"CONTEXT.md": WEBSITE},
             )
-            ctx = self.context_of(run_hook(proj))
+            state = make_state(Path(d), proj, OPTED_IN)
+            ctx = self.context_of(run_hook(proj, state))
             self.assertIn("cache.md", ctx)
             self.assertNotIn("CONTEXT.md", ctx)
 
@@ -205,11 +259,11 @@ class HookTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             proj = make_project(
                 Path(d),
-                config="[docs-index]\ninclude = []\n",
                 docs={"cache.md": ANNOTATED},
                 root_files={"CONTEXT.md": CONTEXT},
             )
-            ctx = self.context_of(run_hook(proj))
+            state = make_state(Path(d), proj, "[docs-index]\ninclude = []\n")
+            ctx = self.context_of(run_hook(proj, state))
             self.assertIn("cache.md", ctx)
             self.assertNotIn("CONTEXT.md", ctx)
 
@@ -218,11 +272,11 @@ class HookTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             proj = make_project(
                 Path(d),
-                config='[docs-index]\ninclude = ["GLOSSARY.md"]\n',
                 docs={"cache.md": ANNOTATED},
                 root_files={"GLOSSARY.md": CONTEXT, "CONTEXT.md": CONTEXT},
             )
-            ctx = self.context_of(run_hook(proj))
+            state = make_state(Path(d), proj, '[docs-index]\ninclude = ["GLOSSARY.md"]\n')
+            ctx = self.context_of(run_hook(proj, state))
             self.assertIn("GLOSSARY.md", ctx)
             self.assertNotIn("CONTEXT.md", ctx)
 

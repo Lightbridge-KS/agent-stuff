@@ -24,8 +24,10 @@ install *args:
 # Run the full test suite
 test:
     uv run tests/test_install.py
+    uv run tests/test_lightbridge.py
     uv run tests/test_hooks.py
     uv run tests/test_repo_links.py
+    uv run tests/test_handoff_hook.py
     uv run tests/test_package.py
     uv run tests/test_research_kit.py
 

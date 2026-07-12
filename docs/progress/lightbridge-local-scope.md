@@ -20,9 +20,9 @@ keyed by project path; repos stay completely clean.
 
 ## Milestones
 
-- [ ] **Tracker** — this file
-- [ ] **`scripts/lightbridge/` tool** — canonical resolver (git-toplevel → project-key →
-      `~/.lightbridge/projects/<key>/config.toml`) + `path` / `doctor` CLI
+- [x] **Tracker** — this file — `593799c`
+- [x] **`scripts/lightbridge/` tool** — canonical resolver (git-toplevel → project-key →
+      `~/.lightbridge/projects/<key>/config.toml`) + `path` / `doctor` CLI — `20c040c`
 - [ ] **Readers refactored** — docs-index-inject, repo-links (+hook), handoff keyed on
       git-toplevel; per-repo walk-up deleted; legacy per-repo file → one-line warning
 - [ ] **Tests** — test_hooks.py reworked to `LIGHTBRIDGE_STATE_DIR` fixtures; test_repo_links.py
@@ -40,8 +40,8 @@ keyed by project path; repos stay completely clean.
 
 ## Now / Next
 
-- Now: build `scripts/lightbridge/` (resolver + CLI).
-- Next: refactor readers + tests, then docs sweep, then migration.
+- Now: docs sweep (agent-stuff prose + lightbridge-config skill).
+- Next: agent-instruction brief sync, then data migration + verify.
 
 ## Confirmed contracts (bind the implementation)
 

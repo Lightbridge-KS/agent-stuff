@@ -45,32 +45,32 @@ that gets tuned out, which is the exact failure this exists to prevent.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
-import os
 import sys
 from pathlib import Path
 
-DEFAULT_STATE_DIR = "~/.lightbridge/projects"
-STATE_DIR_ENV = "LIGHTBRIDGE_STATE_DIR"  # override; exists so the hook is testable in isolation
 INBOX = "inbox"
 ACK_FILE = ".acked"
 
+# Root/key/config resolution is owned by scripts/lightbridge — one implementation
+# for the whole ~/.lightbridge tree (config, handoffs). Keys derive from the git
+# toplevel (cwd fallback), so a session launched in a subdir lands on the same key.
+_LIGHTBRIDGE = Path(__file__).resolve().parents[1] / "lightbridge" / "lightbridge.py"
+_spec = importlib.util.spec_from_file_location("lightbridge", _LIGHTBRIDGE)
+_lb = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_lb)
 
-def default_state_dir() -> Path:
-    return Path(os.environ.get(STATE_DIR_ENV) or DEFAULT_STATE_DIR).expanduser()
-
-
-def project_key(path: Path) -> str:
-    """Absolute path → project-key, the same encoding `~/.claude/projects` uses."""
-    text = str(path.resolve())
-    if len(text) > 1 and text[1] == ":":  # Windows drive letter
-        text = text[0] + text[2:]
-    return text.replace(os.sep, "-").replace("/", "-")
+DEFAULT_STATE_DIR = _lb.DEFAULT_STATE_DIR
+STATE_DIR_ENV = _lb.STATE_DIR_ENV  # override; exists so the hook is testable in isolation
+default_state_dir = _lb.default_state_dir
+project_key = _lb.project_key
+repo_root = _lb.repo_root
 
 
 def handoffs_dir(cwd: Path, state_dir: Path) -> Path:
     """The journal: handoffs this repo wrote to its own future sessions."""
-    return state_dir / project_key(cwd) / "handoffs"
+    return state_dir / project_key(repo_root(cwd)) / "handoffs"
 
 
 def inbox_dir(cwd: Path, state_dir: Path) -> Path:
