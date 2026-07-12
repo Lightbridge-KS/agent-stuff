@@ -48,6 +48,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+__version__ = "0.1.0"
+
 PLANS = "plans"
 SECTION = "plans"
 
@@ -322,6 +324,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=None,
         help=f"override the ~/.lightbridge tree (or ${STATE_DIR_ENV})",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="cmd")
 
     p_list = sub.add_parser("list", help="plans for this project, newest last")
