@@ -53,11 +53,55 @@ plan_store.py show                    # the latest plan, in full
 plan_store.py show 2026-07-13_0040    # stem, or any unique prefix
 plan_store.py status latest landed    # move it through the lifecycle
 plan_store.py capture < payload.json  # file a plan from a hook payload (hooks call this)
+plan_store.py backfill --dry-run      # recover past plans from Claude Code's transcripts
 ```
 
 `<id>` is a filename stem, any unique prefix of one, or `latest`.
 
 Exit codes: `0` ok · `1` refused (no such plan, ambiguous id, bad state) · `2` usage.
+
+`list` / `show` always **name the project** they looked in. "No plans for this project" is
+indistinguishable from "you are standing in the wrong directory" — and since the store is
+keyed on the git root of cwd, the wrong directory is the likelier cause.
+
+## `backfill` — recovering the plans you already had
+
+Every plan Claude Code ever drafted is still in `~/.claude/plans/`, but flat and
+project-blind, so the history is unusable. The transcripts under
+`~/.claude/projects/*/*.jsonl` can put it back together: each `ExitPlanMode` tool_use record
+carries `cwd`, `sessionId`, `timestamp`, and `planFilePath`, and the matching tool_result
+says whether the human approved it (`"User has approved your plan"`).
+
+```bash
+plan_store.py backfill --dry-run   # always look first
+plan_store.py backfill             # idempotent — safe to re-run
+```
+
+**The `cwd` field is what makes this tractable, and it is the trap to avoid.** The two
+project-key encodings **differ**:
+
+```
+Claude Code   -Users-kittipos-my-config-agent-stuff     ← underscores collapse to dashes
+lightbridge   -Users-kittipos-my_config-agent-stuff     ← underscores preserved
+```
+
+So decoding a transcript's *directory name* back to a path is lossy and will mis-file.
+Reading `cwd` out of the record sidesteps the problem entirely — it is the real absolute
+path. `test_cwd_beats_the_lossy_dir_name` pins this, because a future "simplification" to
+dir-name parsing would fail silently.
+
+Backfill holds the same contracts as live capture:
+
+- **Only approved plans.** A rejected plan is not history worth keeping.
+- **Opt-in is honored.** A project without `[plans]` is *reported*, never silently created —
+  the output names each skipped project and its plan count, so nothing is capped in silence.
+- **Idempotent**, keyed on `source:`. Re-running never duplicates.
+- **Never lies about the past.** The git sha at approval time is unrecoverable, so backfilled
+  plans carry `git: unknown (backfilled)` and `backfilled: true` rather than today's sha.
+- Filed under the **original** approval time (transcript UTC → local).
+
+A plan whose project directory no longer exists is named, not silently dropped — a moved repo
+is fixable, and re-running backfill after restoring it will pick the plan up.
 
 ## Opt-in
 

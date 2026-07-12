@@ -268,6 +268,201 @@ class PlanGateCase(unittest.TestCase):
         self.assertEqual(proc.stdout.strip(), "")
 
 
+class BackfillCase(unittest.TestCase):
+    """Recovering approved plans from Claude Code's transcripts.
+
+    The transcript's `cwd` field is what makes this tractable: the two project-key
+    encodings DIFFER (Claude Code collapses `_`→`-`, lightbridge preserves `_`), so
+    decoding a transcript's directory name back to a path is lossy. Reading `cwd` out
+    of the record sidesteps that entirely — and `test_cwd_beats_the_lossy_dir_name`
+    pins it, because a future refactor to dir-name parsing would silently mis-file.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.base = Path(self.tmp.name)
+        self.state = self.base / "state"
+        self.projects = self.base / "cc-projects"
+        # An underscore in the path is the whole point — it is what the two encodings
+        # disagree about.
+        self.project = self.base / "my_proj"
+        self.project.mkdir()
+        self.plan_file = self.base / "claude-plans" / "silly-fox.md"
+        self.plan_file.parent.mkdir()
+        self.plan_file.write_text(PLAN_BODY, encoding="utf-8")
+        self.addCleanup(self.tmp.cleanup)
+
+    def config(self, body: str = "[plans]\nenabled = true\n") -> None:
+        key = ps.project_key(ps.repo_root(self.project))
+        target = self.state / key / "config.toml"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(f'root = "{self.project}"\n\n{body}', encoding="utf-8")
+
+    def transcript(self, *, approved: bool, source: Path | None = None) -> None:
+        """A minimal two-record transcript: the ExitPlanMode call, then its result."""
+        source = source or self.plan_file
+        # Claude Code's OWN key encoding — underscores collapsed to dashes. Deliberately
+        # NOT lightbridge's encoding, so a dir-name-decoding implementation would fail.
+        cc_key = str(self.project).replace("/", "-").replace("_", "-")
+        d = self.projects / cc_key
+        d.mkdir(parents=True, exist_ok=True)
+        result = (
+            "User has approved your plan. You can now start coding."
+            if approved
+            else "The user doesn't want to proceed with this tool use."
+        )
+        records = [
+            {
+                "type": "assistant",
+                "cwd": str(self.project),
+                "sessionId": "sess-1",
+                "timestamp": "2026-07-01T03:30:00.000Z",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_1",
+                            "name": "ExitPlanMode",
+                            "input": {"plan": "DRAFT", "planFilePath": str(source)},
+                        }
+                    ]
+                },
+            },
+            {
+                "type": "user",
+                "message": {
+                    "content": [
+                        {"type": "tool_result", "tool_use_id": "toolu_1", "content": result}
+                    ]
+                },
+            },
+        ]
+        (d / "sess-1.jsonl").write_text(
+            "\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8"
+        )
+
+    def run_backfill(self, dry_run: bool = False) -> dict:
+        return ps.backfill(self.state, dry_run=dry_run, projects_dir=self.projects)
+
+    def test_approved_plan_is_recovered(self) -> None:
+        self.config()
+        self.transcript(approved=True)
+        result = self.run_backfill()
+        self.assertEqual(len(result["filed"]), 1)
+        meta, body = ps.parse_frontmatter(result["filed"][0].read_text(encoding="utf-8"))
+        self.assertIn("Append `subtract(a, b)`.", body)
+        self.assertEqual(meta["status"], "approved")
+        self.assertEqual(meta["backfilled"], "true")
+        self.assertEqual(meta["approval"], "human")
+        # The sha at approval time is NOT recoverable — must not claim today's.
+        self.assertEqual(meta["git"], "unknown (backfilled)")
+        # Filed under the ORIGINAL approval time (UTC in transcript → local here).
+        self.assertTrue(meta["created"].startswith("2026-07-01"), meta["created"])
+
+    def test_cwd_beats_the_lossy_dir_name(self) -> None:
+        """The filed plan must land under the project's REAL path, underscore intact."""
+        self.config()
+        self.transcript(approved=True)
+        result = self.run_backfill()
+        meta, _ = ps.parse_frontmatter(result["filed"][0].read_text(encoding="utf-8"))
+        # repo_root() resolves symlinks (macOS /var → /private/var), so compare resolved.
+        self.assertEqual(meta["project"], str(ps.repo_root(self.project)))
+        self.assertIn("my_proj", str(result["filed"][0]))  # not "my-proj" — the real claim
+
+    def test_rejected_plan_is_not_recovered(self) -> None:
+        """Same approval contract as the live hook: only what the human said yes to."""
+        self.config()
+        self.transcript(approved=False)
+        result = self.run_backfill()
+        self.assertEqual(result["filed"], [])
+        self.assertEqual(result["approved_total"], 0)
+
+    def test_opt_in_is_honored(self) -> None:
+        """No [plans] section → reported as skipped, never silently created."""
+        self.transcript(approved=True)
+        result = self.run_backfill()
+        self.assertEqual(result["filed"], [])
+        self.assertEqual(result["skipped"], {str(ps.repo_root(self.project)): 1})
+
+    def test_backfill_is_idempotent(self) -> None:
+        self.config()
+        self.transcript(approved=True)
+        self.assertEqual(len(self.run_backfill()["filed"]), 1)
+        second = self.run_backfill()
+        self.assertEqual(second["filed"], [])
+        self.assertEqual(second["already"], 1)
+
+    def test_dry_run_writes_nothing(self) -> None:
+        self.config()
+        self.transcript(approved=True)
+        result = self.run_backfill(dry_run=True)
+        self.assertEqual(len(result["filed"]), 1)
+        self.assertEqual(list(self.state.glob("*/plans/*.md")), [])
+
+    def test_missing_project_is_named_not_counted_as_lost(self) -> None:
+        """A moved/deleted repo is a fixable cause — it must be named, not lumped in."""
+        self.config()
+        self.transcript(approved=True)
+        gone = self.base / "vanished"
+        raw = (self.projects).glob("*/sess-1.jsonl")
+        for f in raw:
+            f.write_text(
+                f.read_text(encoding="utf-8").replace(str(self.project), str(gone)),
+                encoding="utf-8",
+            )
+        result = self.run_backfill()
+        self.assertEqual(result["filed"], [])
+        self.assertEqual(result["gone_project"], [str(gone)])
+        self.assertEqual(result["gone_content"], 0)
+
+    def test_draft_rescues_a_deleted_plan_file(self) -> None:
+        """Plan file gone from ~/.claude/plans, but the transcript kept a copy."""
+        self.config()
+        self.transcript(approved=True, source=self.base / "deleted.md")
+        result = self.run_backfill()
+        self.assertEqual(len(result["filed"]), 1)
+        _meta, body = ps.parse_frontmatter(result["filed"][0].read_text(encoding="utf-8"))
+        self.assertIn("DRAFT", body)
+
+    def test_torn_transcript_line_does_not_sink_the_scan(self) -> None:
+        self.config()
+        self.transcript(approved=True)
+        f = next(self.projects.glob("*/sess-1.jsonl"))
+        f.write_text("{not json\n" + f.read_text(encoding="utf-8"), encoding="utf-8")
+        self.assertEqual(len(self.run_backfill()["filed"]), 1)
+
+
+class MessagingCase(unittest.TestCase):
+    """`list` / `show` must NAME the project they looked in.
+
+    "No plans for this project" cannot be told apart from "you are standing in the wrong
+    directory" — and the wrong directory is the likelier cause. A real agent misread this
+    and nearly filed a false negative against working code.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.elsewhere = Path(self.tmp.name) / "elsewhere"
+        self.elsewhere.mkdir()
+        self.addCleanup(self.tmp.cleanup)
+
+    def run_store(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [str(STORE), *args], cwd=self.elsewhere,
+            capture_output=True, text=True, timeout=60,
+        )
+
+    def test_list_names_the_project(self) -> None:
+        proc = self.run_store("list")
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn(str(self.elsewhere), proc.stdout)
+
+    def test_show_names_the_project(self) -> None:
+        proc = self.run_store("show")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn(str(self.elsewhere), proc.stderr)
+
+
 class FailOpenCase(unittest.TestCase):
     """Neither hook may ever break a session, whatever it is handed."""
 

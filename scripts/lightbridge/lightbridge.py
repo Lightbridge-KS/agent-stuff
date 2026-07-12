@@ -52,6 +52,8 @@ import sys
 import tomllib
 from pathlib import Path
 
+__version__ = "0.1.0"
+
 DEFAULT_STATE_DIR = "~/.lightbridge/projects"
 STATE_DIR_ENV = "LIGHTBRIDGE_STATE_DIR"  # override; exists so readers are testable in isolation
 CONFIG_NAME = "config.toml"
@@ -360,6 +362,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         epilog="Exit: 0 ok · 1 refused (doctor problems, init would clobber, add has no "
         "config) · 2 usage.",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_init = sub.add_parser("init", help="Create this project's config (never clobbers).")

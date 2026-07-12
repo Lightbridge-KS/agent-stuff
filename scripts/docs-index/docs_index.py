@@ -40,6 +40,8 @@ from pathlib import Path
 
 import yaml
 
+__version__ = "0.1.0"
+
 DEFAULT_EXCLUDES = ("archive", "research")
 REMINDER = (
     'When your task matches a "Read when" hint above, read that doc before '
@@ -208,6 +210,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         prog="docs-index",
         description="Print a compact, read-before-coding index of a repo's docs.",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "--dir", default="docs", help="Docs directory to index (default: docs)."
     )

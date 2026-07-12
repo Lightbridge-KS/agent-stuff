@@ -95,6 +95,10 @@ conventions. Adding a section? See [`extending.md`](extending.md).
   zoomed-in, one-off execution detail; Claude Code itself writes it to a user-level path.
   This is the *ephemeral* layer given a filing system, and it links up to the tracker.
 
+  **Recovering past plans:** `plan_store.py backfill` reconstructs approved plans from
+  Claude Code's transcripts (`--dry-run` first; idempotent; opt-in honored, so it reports
+  the projects it skipped rather than creating configs for them).
+
 ### `[repo-links]`
 
 - **Purpose:** declare *logical* links to sibling repos this project references (upstream
