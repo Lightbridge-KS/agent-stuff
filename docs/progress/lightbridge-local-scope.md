@@ -39,13 +39,15 @@ keyed by project path; repos stay completely clean.
       RMOS-InHouse `12f3348` (**main** — repo has no develop branch; deviation from D5
       surfaced to KS), orthanc-test-pacs `c78f50f` (main), RAMAAI-QMS-RD-Retrofit
       `3b3f522` (main; also tracked, not in the original plan)
-- [ ] **Verified** — validate.py + full test suite green; hook smoke tests with real payloads
-      (docs-index @ agent-stuff, repo-links @ RMOS-InHouse, handoff from a subdir); `doctor` clean
+- [x] **Verified** (2026-07-12) — validate.py + all 7 suites green; live smoke tests:
+      docs-index @ agent-stuff injects from home config (tracker listed), repo-links @
+      RMOS-InHouse resolves all 4 links, handoff `--journal` from a subdir lands on the
+      repo-root key; `lightbridge doctor` → no problems
 
 ## Now / Next
 
-- Now: final verification (hook smoke tests with real payloads).
-- Next: (done — see Milestones)
+- Work complete 2026-07-12; tracker retained as the record of the migration and its contracts.
+- Open follow-up: `_tests` fixture READMEs may still describe per-repo opt-in (see Notes).
 
 ## Notes
 
