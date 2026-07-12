@@ -68,6 +68,33 @@ conventions. Adding a section? See [`extending.md`](extending.md).
     local-corpus module).
 - **Notes:** section present → near-zero-question planning; paths may be `~`-relative.
 
+### `[plans]`
+
+- **Purpose:** file every **approved** plan-mode plan into
+  `~/.lightbridge/projects/<key>/plans/`, with a project key, a git sha, and a lifecycle —
+  and, optionally, auto-approve Claude Code's plan gate.
+- **Reader:** `agent-stuff` → `hooks/plan-capture` (`PostToolUse(ExitPlanMode)`) and
+  `hooks/plan-gate` (`PreToolUse(ExitPlanMode)`), both over `scripts/plan-store`.
+  Internals: `scripts/plan-store/README.md` in this repo.
+- **Opt-in:** presence of `[plans]`; `enabled = false` to disable.
+- **Keys:**
+  - `enabled` — bool, default `true`.
+  - `auto_approve` — bool, default **`false`**. `true` makes `plan-gate` return
+    `permissionDecision: "allow"`, so the approval dialog never renders. Read
+    `hooks/plan-gate/README.md` first: it costs you plan iteration ("keep planning with
+    feedback"), the post-approval mode choice, and the last checkpoint before writes.
+- **Notes:** Claude Code already writes *every* plan it drafts to
+  `~/.claude/plans/<codename>.md` — flat across all repos, randomly named, no frontmatter,
+  no outcome. This section keeps only what you **approved**, keyed per project. The
+  approval signal is `PostToolUse`, which fires iff `ExitPlanMode` actually executed;
+  rejecting a plan files nothing. Plans are captured from the file at `planFilePath` (the
+  user may edit the plan in the dialog, so `tool_input.plan` is only the pre-edit draft).
+
+  **Not a replacement for `docs/progress/`.** A tracker is shared, committed, zoomed-out
+  checkbox state collaborators audit — it belongs in the repo. A plan is private,
+  zoomed-in, one-off execution detail; Claude Code itself writes it to a user-level path.
+  This is the *ephemeral* layer given a filing system, and it links up to the tracker.
+
 ### `[repo-links]`
 
 - **Purpose:** declare *logical* links to sibling repos this project references (upstream

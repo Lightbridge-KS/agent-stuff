@@ -30,6 +30,7 @@ test:
     uv run tests/test_handoff_hook.py
     uv run tests/test_package.py
     uv run tests/test_research_kit.py
+    uv run tests/test_plan_store.py
 
 # Remove build artifacts
 clean:

@@ -97,6 +97,18 @@ verifier_model = "sonnet"          # verifier tier; "inherit" to match the sessi
 corpus = []                        # local corpus dirs (reserved)
 """,
     },
+    "plans": {
+        "purpose": "file every approved plan mode plan; optionally auto-approve the gate",
+        "reader": "hooks/plan-capture + hooks/plan-gate (via scripts/plan-store)",
+        "block": """\
+[plans]
+enabled = true                     # optional; default true
+auto_approve = false               # true = skip Claude Code's plan-approval dialog.
+                                   # Costs you plan iteration, the post-approval mode
+                                   # choice, and the last checkpoint before writes.
+                                   # Read hooks/plan-gate/README.md before enabling.
+""",
+    },
     "repo-links": {
         "purpose": "declare logical links to sibling repos, injected at SessionStart",
         "reader": "hooks/repo-links-inject (resolved via ~/.lightbridge/repos.toml)",
