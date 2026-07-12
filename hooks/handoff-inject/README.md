@@ -25,6 +25,7 @@ This hook is the postman.
 
 ```
 SessionStart → cwd
+  repo root = git toplevel of cwd (cwd itself if not a git repo)
   ~/.lightbridge/projects/<project-key>/handoffs/inbox/   missing?  → exit 0, silent
   each inbox/*.md  (a plain glob — delivery was decided at WRITE time,
                     so there is nothing to classify here)

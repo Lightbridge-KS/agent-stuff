@@ -5,30 +5,33 @@ working in one repo knows where its neighbors (upstream counterpart, live test s
 OSS reference clone) live on *this* machine, without anyone committing personal paths.
 
 Replaces the hand-maintained path list in a `CLAUDE.local.md`: names are declared once
-in committed config, resolved per machine, and **verified on every run** — a dead name
-or stale path surfaces as a WARNING line instead of rotting silently.
+per project, resolved per machine, and **verified on every run** — a dead name or stale
+path surfaces as a WARNING line instead of rotting silently.
 
 ## The two-layer model
 
+Both layers are user-level — nothing ever lives inside the repo:
+
 ```
-<repo>/.lightbridge/config.toml    [repo-links]     COMMITTED — logical names only, never paths
-        │  resolved through
+~/.lightbridge/projects/<key>/config.toml  [repo-links]  PER PROJECT — logical names only, never paths
+        │  resolved through                              (located via scripts/lightbridge)
         ▼
-~/.lightbridge/repos.toml          [repos]          PERSONAL — name → path, never committed
+~/.lightbridge/repos.toml                  [repos]       PER MACHINE — name → path
         │  tilde-expand + verify the path exists
         ▼
 one line per link, or a WARNING line when resolution fails
 ```
 
-**Colleague safety:** the committed section carries no filesystem paths. On a machine
-with no `~/.lightbridge/repos.toml`, the declared links simply don't resolve (and the
-companion hook stays completely silent) — the committed file imposes nothing on anyone
-else's setup.
+On a machine with no `~/.lightbridge/repos.toml`, the declared links simply don't
+resolve (and the companion hook stays completely silent).
 
-## Declaring links (committed, per repo)
+## Declaring links (per project, user-level)
+
+`lightbridge path` prints where the project's config lives:
 
 ```toml
-# <repo>/.lightbridge/config.toml
+# ~/.lightbridge/projects/<project-key>/config.toml
+root = "/abs/path/to/repo"  # staleness marker for `lightbridge doctor`
 [repo-links]              # presence of this section = opt in
 enabled = true            # optional; default true. MUST precede the first link —
                           # TOML attaches later keys to the last [[table]] otherwise.
@@ -64,7 +67,7 @@ Human output:
 ```
 Linked repos (.lightbridge [repo-links]):
 - example-service → /Users/x/work/example-service (upstream) — Why this repo matters
-- old-name: WARNING — not registered in ~/.lightbridge/repos.toml (add it there, or fix the name in .lightbridge/config.toml)
+- old-name: WARNING — not registered in ~/.lightbridge/repos.toml (add it there, or fix the name in the project's lightbridge config)
 - gone-repo: WARNING — registered path /Users/x/work/gone does not exist (stale registry entry?)
 
 When a task involves a linked repo, work with it at the absolute path above.
@@ -74,7 +77,7 @@ When a task involves a linked repo, work with it at the absolute path above.
 
 ```json
 {
-  "config": "/abs/.lightbridge/config.toml",
+  "config": "/abs/state/dir/<project-key>/config.toml",
   "registry": "/abs/expanded/repos.toml",
   "registry_found": true,
   "registry_error": null,
@@ -92,7 +95,7 @@ When a task involves a linked repo, work with it at the absolute path above.
 
 - `0` — ran and rendered (warnings included; warnings are payload, not errors)
 - `1` — `--check` only: at least one link unresolved
-- `2` — nothing to read: no `.lightbridge/config.toml` up-tree, no `[repo-links]`
+- `2` — nothing to read: no lightbridge config for the project, no `[repo-links]`
   section, or `enabled = false` (stderr names the next move)
 
 ## Notes

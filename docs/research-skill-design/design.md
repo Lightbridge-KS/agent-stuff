@@ -65,7 +65,7 @@ Settled 2026-07-05 with the user; these are binding on the implementation.
 | D3 | Execution engine | **Agent-tool fan-out.** The orchestrator (main loop, driven by SKILL.md) spawns parallel research subagents. Portable in spirit; state via files. | Workflow tool (Claude-Code-only, less inspectable); hybrid |
 | D4 | Skill surface | **One phase-aware skill.** `/research` is the only entrypoint; it reads on-disk state to resume at the right phase. | 2–3 skill family; Weizhena-style 5+ |
 | D5 | Verification rigor | **Verify wave + citation gate.** Adversarial refutation of load-bearing claims before writing, plus a deterministic script checking report ↔ source-ledger consistency. | Citation gate only; prompt discipline only |
-| D6 | Backend configuration | **Probe + strategy modules + `.lightbridge`.** Capability probe at plan time; tactics in pluggable module files; optional `[research]` section in `.lightbridge/config.toml` for per-repo defaults. | Probe+modules only; hardcoded set |
+| D6 | Backend configuration | **Probe + strategy modules + `.lightbridge`.** Capability probe at plan time; tactics in pluggable module files; optional `[research]` section in the project's lightbridge config (user-level, `~/.lightbridge/projects/<key>/config.toml`) for per-project defaults. | Probe+modules only; hardcoded set |
 | D7 | Placement | **New `research` plugin domain**: `plugins/research/skills/research/`. Room for strategy modules and future companion skills. | `productivity` domain; `radiology` domain |
 
 ## 3. UX: the session lifecycle
@@ -108,7 +108,7 @@ wave: everything landed is on disk, and re-invoking `/research` resumes.
 **Working directory** (from the idea file):
 - repo with `docs/` → `docs/research/YYYY-MM-DD_slug/`
 - otherwise → ask once; default `./research/YYYY-MM-DD_slug/`
-- `.lightbridge/config.toml` `[research] dir = "..."` overrides both (D6).
+- the project's lightbridge config `[research] dir = "..."` overrides both (D6).
 
 ## 4. The state contract (the load-bearing design)
 
@@ -278,7 +278,7 @@ ToolSearch (PubMed, Tavily, Exa, Brave, SearXNG…), and any configured local co
 capability degrades gracefully and *visibly* — the plan says what fuel the session will run
 on, and the user can object before execution.
 
-Optional per-repo defaults via the `lightbridge-config` mechanism (D6):
+Optional per-project defaults via the `lightbridge-config` mechanism (D6):
 
 ```toml
 [research]

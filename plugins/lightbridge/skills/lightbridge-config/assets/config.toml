@@ -1,7 +1,11 @@
-# .lightbridge/config.toml — personal workflow config (Lightbridge-KS).
-# Per-repo, committed. Opt-in by SECTION presence: a feature is on iff its [section]
-# exists. Delete sections you don't use; set enabled = false to disable without deleting.
+# ~/.lightbridge/projects/<project-key>/config.toml — personal workflow config (Lightbridge-KS).
+# User-level, per-project — NEVER inside the repo ("local scope": the repo stays clean).
+# Locate/create with `lightbridge path` (agent-stuff scripts/lightbridge). Opt-in by SECTION
+# presence: a feature is on iff its [section] exists. Delete sections you don't use; set
+# enabled = false to disable without deleting.
 # Full spec: the lightbridge-config skill (references/catalog.md).
+
+root = ""  # REQUIRED: absolute path of the project root — `lightbridge doctor` staleness marker
 
 [docs-index]
 # Inject this repo's docs map at Claude Code SessionStart (agent-stuff docs-index-inject hook).
@@ -11,7 +15,7 @@ exclude = ["archive", "research"]  # subdir names to skip
 include = ["CONTEXT.md", "CONTEXT-MAP.md"]  # extra root-level files (default); [] to suppress
 
 # [research]
-# # Per-repo defaults for the research skill (agent-stuff plugins/research) — deep-research sessions.
+# # Per-project defaults for the research skill (agent-stuff plugins/research) — deep-research sessions.
 # enabled = true                     # optional; default true
 # dir = "docs/research"              # parent dir for session folders
 # output = "markdown"                # markdown | quarto (.bib + @key cites, HTML render)

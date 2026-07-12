@@ -68,10 +68,11 @@ a tool; a folder under `hooks/` is a hook; each carries its contract (`README.md
   the same wire format) described by an agent-neutral `hook.toml`. `docs-index-inject` runs
   the `docs-index` logic and injects the map as `additionalContext` — the deterministic tool
   stays the core, the hook is thin wiring that reuses its paired script. It is **registered
-  once** (user-level settings) but **opt-in per repository**: it only fires where a
-  `[docs-index]` section is declared in `.lightbridge/config.toml` (a personal, tool-agnostic
-  config namespace), so a single global registration is safe across repos with no docs or a
-  website `docs/`. `uv run bin/install.py --hooks` *renders* `hook.toml` into each agent's
+  once** (user-level settings) but **opt-in per project**: it only fires where a
+  `[docs-index]` section is declared in the project's user-level lightbridge config —
+  `~/.lightbridge/projects/<key>/config.toml`, resolved by `scripts/lightbridge`; nothing
+  lives inside the repo — so a single global registration is safe across repos with no docs
+  or a website `docs/`. `uv run bin/install.py --hooks` *renders* `hook.toml` into each agent's
   registration block (Claude `settings.json`; Codex `hooks.json` / inline `config.toml`, which
   also needs a one-time `/hooks` trust) with paths resolved — it only prints, never edits.
 

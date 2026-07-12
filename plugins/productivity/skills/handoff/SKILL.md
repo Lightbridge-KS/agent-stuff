@@ -46,9 +46,10 @@ They are different data structures: the journal is a log (newest supersedes, pic
 is a queue (every item independently live, each needs an explicit ack). Mixed together, a
 "resume" would hand the user an unrelated notification instead of their own work.
 
-- `<project-key>` — **destination** repo's absolute path, separators → `-` (same encoding as
-  `~/.claude/projects`), e.g. `-Users-kittipos-my_config-agent-stuff`. Windows: drop the drive
-  colon.
+- `<project-key>` — **destination** repo root's absolute path (its git toplevel; the dir
+  itself for non-git projects), separators → `-` (same encoding as `~/.claude/projects`),
+  e.g. `-Users-kittipos-my_config-agent-stuff`. Windows: drop the drive colon. The canonical
+  implementation is `scripts/lightbridge` (agent-stuff); `handoff.py` uses it.
 - Timestamp — local time; lexicographic = chronological, so the latest is the last file.
   (Filename `_HHMM` vs frontmatter `THH:MM` is intentional: filesystem-safe vs ISO-like.)
 - `<slug>` — kebab-case from the argument's first ≤ 6 significant words; `session` if no
@@ -132,7 +133,7 @@ handoff.py --ack <file>    # mark one inbox item read
 
 **Resuming (journal).**
 
-1. Derive `<project-key>` from cwd; take the **last file in `handoffs/`** — the root, *not*
+1. Derive `<project-key>` from cwd's git toplevel; take the **last file in `handoffs/`** — the root, *not*
    `inbox/` (or the one the user names). An inbox item is never what "resume" means.
 2. **Staleness guard** — flag and confirm before acting if: older than 7 days; `git`'s sha is
    not an ancestor of current `HEAD`; or the repo state visibly contradicts `## State`.

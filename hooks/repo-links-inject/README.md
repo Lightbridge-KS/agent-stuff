@@ -10,13 +10,15 @@ The hook logic is agent-neutral: it reads `cwd` on stdin and emits the shared
 `hookSpecificOutput.additionalContext` envelope that both agents consume. Only the
 *registration* differs per agent (see below); `bin/install.py --hooks` renders both.
 
-It is **opt-in twice**, which makes one global registration safe everywhere:
+It is **opt-in twice**, which makes one global registration safe everywhere — both layers
+are user-level; nothing lives inside the repo:
 
-1. **Per repository** — only fires in repos whose committed `.lightbridge/config.toml`
-   declares a `[repo-links]` section. Links are logical *names*, never paths.
+1. **Per project** — only fires for projects whose user-level lightbridge config
+   (`~/.lightbridge/projects/<project-key>/config.toml`, resolved by
+   [`scripts/lightbridge`](../../scripts/lightbridge)) declares a `[repo-links]` section.
+   Links are logical *names*, never paths.
 2. **Per machine** — names resolve through the personal `~/.lightbridge/repos.toml`
-   registry. **No registry file → completely silent**, so a committed `[repo-links]`
-   section imposes nothing on a colleague's machine.
+   registry. **No registry file → completely silent.**
 
 It pairs with [`scripts/repo-links`](../../scripts/repo-links): the script is the
 deterministic core (the agent can also run it by hand — `--check` audits a repo's links
@@ -26,15 +28,18 @@ on demand), the hook is the thin wiring.
 
 ```
 SessionStart → cwd
-  walk up for .lightbridge/config.toml   none? / malformed?     → exit 0, silent
+  repo root = git toplevel of cwd (cwd itself if not a git repo)
+  read ~/.lightbridge/projects/<key>/config.toml   none? / malformed? → exit 0, silent
   read [repo-links] section              no section / enabled=false → exit 0, silent
   parse [[repo-links.link]] entries      zero declared?         → exit 0, silent
-  read ~/.lightbridge/repos.toml         file absent?           → exit 0, silent  (colleague machine)
-    registry unreadable / no [repos]?    → inject ONE warning line (owner's machine; rot must show)
+  read ~/.lightbridge/repos.toml         file absent?           → exit 0, silent
+    registry unreadable / no [repos]?    → inject ONE warning line (rot must show)
   resolve each name → path, verify it exists on disk
   → emit additionalContext:
       - name → /abs/path (role) — note          for each resolved link
       - name: WARNING — …                        for dead names / stale paths
+  a stray pre-migration <repo>/.lightbridge/config.toml (no longer read)
+      → one-line deprecation warning appended to the context
 ```
 
 Warnings are payload, not errors — the hook always exits 0 and never blocks a session.
@@ -78,10 +83,13 @@ group's `hooks` array):
 Merge the printed block into `~/.codex/hooks.json` (or the inline `config.toml` form),
 then trust it via `/hooks`.
 
-## 2. Opt in (per repository, committed)
+## 2. Opt in (per project, user-level)
+
+`lightbridge path` prints where the project's config lives (never inside the repo):
 
 ```toml
-# <repo>/.lightbridge/config.toml
+# ~/.lightbridge/projects/<project-key>/config.toml
+root = "/abs/path/to/repo"  # staleness marker for `lightbridge doctor`
 [repo-links]              # presence of this section = opt in
 enabled = true            # optional; default true. MUST precede the first link —
                           # TOML attaches later keys to the last [[table]] otherwise.

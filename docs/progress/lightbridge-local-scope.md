@@ -23,10 +23,10 @@ keyed by project path; repos stay completely clean.
 - [x] **Tracker** — this file — `593799c`
 - [x] **`scripts/lightbridge/` tool** — canonical resolver (git-toplevel → project-key →
       `~/.lightbridge/projects/<key>/config.toml`) + `path` / `doctor` CLI — `20c040c`
-- [ ] **Readers refactored** — docs-index-inject, repo-links (+hook), handoff keyed on
-      git-toplevel; per-repo walk-up deleted; legacy per-repo file → one-line warning
-- [ ] **Tests** — test_hooks.py reworked to `LIGHTBRIDGE_STATE_DIR` fixtures; test_repo_links.py
-      config into fake home; new test_lightbridge.py; handoff subdir-keying test
+- [x] **Readers refactored** — docs-index-inject, repo-links (+hook), handoff keyed on
+      git-toplevel; per-repo walk-up deleted; legacy per-repo file → one-line warning — `5223495`
+- [x] **Tests** — test_hooks.py reworked to `LIGHTBRIDGE_STATE_DIR` fixtures; test_repo_links.py
+      config into fake home; new test_lightbridge.py; handoff subdir-keying test — `5223495`
 - [ ] **Docs sweep (agent-stuff)** — lightbridge-config skill (SKILL/catalog/extending/assets),
       research + handoff SKILL.md, 5 hook/script READMEs, README.md, docs/architecture.md,
       plugin description strings

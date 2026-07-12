@@ -8,10 +8,12 @@ The hook logic is agent-neutral: it reads `cwd` on stdin and emits the shared
 `hookSpecificOutput.additionalContext` envelope that both agents consume. Only the
 *registration* differs per agent (see below); `bin/install.py --hooks` renders both.
 
-It is **opt-in per repository**: registered once in your user settings, it only fires in
-repos whose `.lightbridge/config.toml` declares a `[docs-index]` section. Repos with no
-docs — or a `docs/` used for a website (Docusaurus/mkdocs/Quarto) — get nothing. That makes
-one global registration safe across every project.
+It is **opt-in per project**: registered once in your user settings, it only fires for
+projects whose user-level lightbridge config — `~/.lightbridge/projects/<project-key>/config.toml`,
+resolved by [`scripts/lightbridge`](../../scripts/lightbridge); nothing lives inside the
+repo — declares a `[docs-index]` section. Projects with no docs — or a `docs/` used for a
+website (Docusaurus/mkdocs/Quarto) — get nothing. That makes one global registration safe
+across every project.
 
 It pairs with [`scripts/docs-index`](../../scripts/docs-index): the script is the
 deterministic core (the agent can also run it by hand), the hook is the thin wiring.
@@ -20,7 +22,8 @@ deterministic core (the agent can also run it by hand), the hook is the thin wir
 
 ```
 SessionStart → cwd
-  walk up for .lightbridge/config.toml   none?                → exit 0, silent (not opted in)
+  repo root = git toplevel of cwd (cwd itself if not a git repo)
+  read ~/.lightbridge/projects/<key>/config.toml   none?      → exit 0, silent (not opted in)
   read [docs-index] section              no section / enabled=false → exit 0, silent
   build index of <repo>/<dir>            (skipped if the dir is missing)
     (explicit summary/read_when only — no description fallback)
@@ -29,6 +32,8 @@ SessionStart → cwd
   else → emit additionalContext with the docs map + a "Domain context (repo root)" group
          (docs without a summary are dropped from the listing but counted
           in a footer line, so the map never silently reads as complete)
+  a stray pre-migration <repo>/.lightbridge/config.toml (no longer read)
+         → one-line deprecation warning appended to the context
 ```
 
 Unlike the CLI, the hook does **not** fall back to the `description` key, so website
@@ -84,13 +89,14 @@ re-prompts for review whenever `hook.py` changes; re-trust after edits (or pass
 `--dangerously-bypass-hook-trust` while iterating). The hook only consumes `cwd`, so it does
 not depend on the session starting at a git root.
 
-## 2. Opt in (per repo)
+## 2. Opt in (per project)
 
-In each repo where you want the index injected, add a `[docs-index]` section to a committed
-`.lightbridge/config.toml` at the repo root:
+For each project where you want the index injected, add a `[docs-index]` section to its
+user-level config — `lightbridge path` prints where it lives (never inside the repo):
 
 ```toml
-# .lightbridge/config.toml
+# ~/.lightbridge/projects/<project-key>/config.toml
+root = "/abs/path/to/repo"  # staleness marker for `lightbridge doctor`
 [docs-index]              # presence of this section = opt in
 enabled = true            # optional; default true. Set false to disable without deleting.
 dir = "docs"              # docs directory, relative to repo root
@@ -105,15 +111,15 @@ map — so they surface with no extra config when present. Set `include = []` to
 If a repo's `docs/` is a website, point `dir` at your agent-facing docs instead
 (e.g. `dir = "agent-docs"`), or simply omit the `[docs-index]` section.
 
-`.lightbridge/` is a personal, tool-agnostic config namespace; the hook only reads its
-`[docs-index]` section and ignores everything else.
+`.lightbridge` is a personal, tool-agnostic config namespace (spec: the `lightbridge-config`
+skill); the hook only reads its `[docs-index]` section and ignores everything else.
 
 ## Verify
 
 ```sh
-# from a repo whose .lightbridge/config.toml has [docs-index] + annotated docs:
+# from a repo whose lightbridge config has [docs-index] + annotated docs:
 echo '{"cwd":"'"$PWD"'","hook_event_name":"SessionStart"}' | uv run hook.py
 ```
 
 You should see a JSON object with `hookSpecificOutput.additionalContext` containing the
-index. A repo without the `[docs-index]` section prints nothing and exits 0.
+index. A project without the `[docs-index]` section prints nothing and exits 0.

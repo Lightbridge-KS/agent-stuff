@@ -92,8 +92,9 @@ uv run bin/install.py --hooks
 
 - **[`hooks/docs-index-inject`](hooks/docs-index-inject)** — a `SessionStart` hook that
   injects the project's docs index into context automatically, pairing with `docs-index`.
-  **Registered once** (user settings) but **opt-in per repo**: it only fires where a
-  `[docs-index]` section is declared in `.lightbridge/config.toml`, so repos with no docs —
+  **Registered once** (user settings) but **opt-in per project**: it only fires where a
+  `[docs-index]` section is declared in the project's user-level lightbridge config
+  (`~/.lightbridge/projects/<key>/config.toml`), so repos with no docs —
   or a website `docs/` — are untouched. (Codex additionally requires trusting the hook via
   `/hooks`.)
 

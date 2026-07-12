@@ -2,7 +2,7 @@
 name: research
 description: Stateful deep-research sessions with resumable file state under docs/research/. Use when the user says /research, "start a research session", or asks to resume or check on one; also when research needs pluggable backends (PubMed MCP) or state that survives interrupts. NOT for quick one-shot fact-checked answers — use the built-in deep-research skill for those.
 metadata:
-  version: "2026-07-09"
+  version: "2026-07-12"
 ---
 
 # Research — stateful deep-research sessions
@@ -27,7 +27,9 @@ Session directory layout:
 ## Session directory resolution
 
 Precedence for `<research-parent>`:
-1. `.lightbridge/config.toml` `[research] dir` (skip if `enabled = false`)
+1. the project's lightbridge config `[research] dir` (skip if `enabled = false`) —
+   `~/.lightbridge/projects/<project-key>/config.toml`; locate via
+   `uv run <agent-stuff>/scripts/lightbridge/lightbridge.py path`
 2. repo has `docs/` → `docs/research/`
 3. otherwise ask once; default `./research/`
 
@@ -58,11 +60,11 @@ Conversational, not machinery. Before any searching:
 
 1. Ask the 2–4 questions that most change what you'd research: audience/purpose, time
    range, depth, output language. Open questions in prose; enumerable choices may use
-   AskUserQuestion. Skip questions `.lightbridge` or the conversation already answers.
+   AskUserQuestion. Skip questions the lightbridge config or the conversation already answers.
 2. **Capability probe** — determine the research fuel:
    - Built-ins: are WebSearch / WebFetch available (load via ToolSearch if deferred)?
    - MCP: ToolSearch for search/retrieval tools (e.g. `pubmed search articles`).
-   - `.lightbridge/config.toml` `[research]`: `backends` preference order;
+   - the project's lightbridge config `[research]` (same file as above): `backends` preference order;
      `searcher_model` / `verifier_model` seed the matching `execution` keys in the plan
      (`corpus` is reserved for a future local-corpus module — acknowledge but don't use).
    - Map backends → modules: web search/fetch → [`modules/general-web.md`](modules/general-web.md);

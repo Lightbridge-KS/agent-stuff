@@ -1,18 +1,26 @@
 # .lightbridge catalog
 
-The canonical registry of `.lightbridge/config.toml` sections, plus the cross-cutting
+The canonical registry of lightbridge `config.toml` sections, plus the cross-cutting
 conventions. Adding a section? See [`extending.md`](extending.md).
 
 ## Conventions
 
-- **Location:** `<repo>/.lightbridge/config.toml`, committed. (Reserved for later:
-  `config.local.toml`, gitignored, for machine/personal overrides — not used yet.)
+- **Location:** `~/.lightbridge/projects/<project-key>/config.toml` — user-level,
+  per-project, **never inside the repo** (the "local scope" model: collaborators never
+  see it, and no gitignore entry is needed). Locate or create it with
+  `lightbridge path` (agent-stuff `scripts/lightbridge`, the canonical resolver).
+- **Keying:** `<project-key>` = the project root's absolute path with path separators
+  replaced by `-` (the `~/.claude/projects` encoding; Windows drops the drive colon).
+  The root is `git rev-parse --show-toplevel` of the session's cwd — cwd itself for
+  non-git dirs — so sessions launched from a subdirectory land on the same key.
+- **`root` key:** every config carries a top-level `root = "/abs/path"`. The key
+  encoding is lossy and a moved repo silently orphans its config; `lightbridge doctor`
+  uses `root` to flag stale entries. Readers ignore it.
 - **Opt-in by section presence.** A feature activates iff its `[section]` exists.
   `enabled = false` disables it without deleting the block.
 - **Format:** TOML; one `[section]` per feature; keys optional unless noted.
-- **Scope:** `config.toml` is project-level only (no user-level merge). Durable user-level
-  *state* lives under `~/.lightbridge/` — see "User level" below.
-- **Hygiene:** no secrets, tokens, or PHI — repos may be public.
+- **Hygiene:** the tree is personal and never committed anywhere; still no secrets,
+  tokens, or PHI.
 
 ## Sections
 
@@ -37,7 +45,7 @@ conventions. Adding a section? See [`extending.md`](extending.md).
 
 ### `[research]`
 
-- **Purpose:** per-repo defaults for the `research` skill (deep-research sessions) — where
+- **Purpose:** per-project defaults for the `research` skill (deep-research sessions) — where
   sessions live, preferred backends, output format, and local corpora offered to the
   planner.
 - **Reader:** `agent-stuff` → `plugins/research/skills/research/SKILL.md` reads this
@@ -69,8 +77,7 @@ conventions. Adding a section? See [`extending.md`](extending.md).
   Internals: `hooks/repo-links-inject/README.md` in this repo.
 - **Opt-in:** presence of `[repo-links]`; `enabled = false` to disable. Additionally
   gated on the **personal registry** `~/.lightbridge/repos.toml` (see "User level") —
-  registry absent → the hook stays silent, so the committed section imposes nothing on
-  other machines.
+  registry absent → the hook stays silent.
 - **Keys:**
   - `enabled` — bool, default `true`. Must precede the first `[[repo-links.link]]`
     (TOML attaches later keys to the last `[[table]]` otherwise).
@@ -80,37 +87,41 @@ conventions. Adding a section? See [`extending.md`](extending.md).
     - `role` — string, optional. Free-form relationship (`upstream`, `oss-reference`,
       `live-test-service`, …).
     - `note` — string, optional. One line on why/when the linked repo matters.
-- **Notes:** the committed section carries no filesystem paths — the name→path mapping
-  lives per machine in `~/.lightbridge/repos.toml`. A declared name missing from the
-  registry, or a registered path that no longer exists, injects a compact WARNING
-  line — the rot detector dead `CLAUDE.local.md` paths never had. Audit on demand:
+- **Notes:** the section carries no filesystem paths — the name→path mapping lives in
+  `~/.lightbridge/repos.toml`. A declared name missing from the registry, or a
+  registered path that no longer exists, injects a compact WARNING line — the rot
+  detector dead `CLAUDE.local.md` paths never had. Audit on demand:
   `scripts/repo-links/repo_links.py --check`.
 
 <!-- New sections are appended here via the extending.md recipe. -->
 
 ## User level (`~/.lightbridge/`)
 
-Durable, harness-neutral state that must outlive a session and work across every harness
-(Claude Code, Codex, Pi, …) — the user-level sibling of the per-repo folder, mirroring the
-`.claude/` vs `~/.claude/` split. Not config: there is no user-level `config.toml` (yet);
-each feature owns a subtree **or file** registered here.
+The whole lightbridge tree is user-level: durable, harness-neutral config and state that
+must outlive a session and work across every harness (Claude Code, Codex, Pi, …). Each
+feature owns a subtree **or file** registered here.
 
 - **Layout:**
-  - `~/.lightbridge/projects/<project-key>/` — per-project state, keyed by the
-    absolute project path with path separators replaced by `-` (the same encoding as
-    `~/.claude/projects`), e.g. `-Users-kittipos-my_config-agent-stuff`. On Windows, drop the
-    drive colon (`C:\Users\x` → `-C-Users-x`).
+  - `~/.lightbridge/projects/<project-key>/` — per-project config **and** state, keyed
+    per the Conventions above:
+    - `config.toml` — the project's config (the Sections in this catalog).
+    - `handoffs/` — the `handoff` skill's journal + inbox.
   - `~/.lightbridge/repos.toml` — the personal repo registry: one `[repos]` table mapping
     logical repo names to local paths (`~`-relative or absolute). Machine-specific by
     design; its *presence* is the per-machine opt-in for `[repo-links]` resolution.
 - **Consumers:**
+  - `lightbridge` resolver (agent-stuff `scripts/lightbridge`) — the canonical
+    root/key/config resolution every reader imports, plus the `path` / `doctor` CLI.
   - `handoff` skill (agent-stuff `plugins/productivity`) — writes
     `projects/<key>/handoffs/<YYYY-MM-DD_HHMM>_<slug>.md`. The filename/frontmatter contract
     lives in that skill, not re-documented here.
   - `repo-links` reader (agent-stuff `scripts/repo-links` + `hooks/repo-links-inject`) —
-    resolves the names declared in a repo's committed `[repo-links]` section against
-    `repos.toml`. File absent → readers stay silent, so committed sections are inert on
-    machines that haven't opted in.
+    resolves the names declared in a project's `[repo-links]` section against
+    `repos.toml`. File absent → readers stay silent.
+- **Trade-off (accepted):** nothing in the repo means nothing travels with a clone —
+  config does not follow the repo to another machine, and a moved/renamed repo orphans
+  its entry (run `lightbridge doctor`). Sync `projects/*/config.toml` via private
+  dotfiles if it must roam; `handoffs/` is conversation-derived — keep it local.
 - **Hygiene:** never committed anywhere; may hold conversation-derived content, so treat the
   tree as private. No secrets or PHI regardless.
 - **Growth:** a new user-level feature registers its subtree in this list and keeps its

@@ -1,12 +1,14 @@
-# Extending `.lightbridge/`
+# Extending `.lightbridge`
 
 The protocol for adding a new `config.toml` section. Follow it whenever we design a new
-per-repo config feature, so the catalog grows by a known recipe instead of ad hoc.
+per-project config feature, so the catalog grows by a known recipe instead of ad hoc.
 
 ## Steps
 
 1. **Build the reader.** A script (`scripts/<tool>/`) or hook (`hooks/<hook>/`) that parses
-   `[<name>]` from `.lightbridge/config.toml`. Rules:
+   `[<name>]` from the project's user-level config. Rules:
+   - Resolve the config through `scripts/lightbridge/lightbridge.py` (`load_config`) — never
+     reimplement root/key/config resolution, and never read from inside the repo.
    - Opt-in = section presence; honor `enabled = false`.
    - Fail open and quiet (no section / missing keys / malformed file → do nothing, exit 0).
    - A sensible default for every optional key.
@@ -20,7 +22,9 @@ per-repo config feature, so the catalog grows by a known recipe instead of ad ho
 
 ## Invariants to preserve
 
-- One file; sections independent; opt-in by presence.
+- One file per project, user-level (`~/.lightbridge/projects/<key>/config.toml`) — never a
+  file inside the repo; sections independent; opt-in by presence.
+- One resolver: `scripts/lightbridge` owns root/key/config resolution.
 - The skill links to feature internals — it never re-documents them.
 - Bootstrap stays idempotent (never clobber a user's `config.toml`).
-- No secrets/PHI in `.lightbridge/` (repos may be public).
+- No secrets/PHI in the tree (treat it as private regardless).

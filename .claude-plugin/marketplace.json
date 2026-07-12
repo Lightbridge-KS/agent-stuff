@@ -27,7 +27,7 @@
       "name": "lightbridge",
       "displayName": "Lightbridge",
       "source": "./plugins/lightbridge",
-      "description": "Personal workflow conventions — bootstrap and manage the .lightbridge/ per-repo config namespace.",
+      "description": "Personal workflow conventions — bootstrap and manage the .lightbridge personal config namespace (user-level, per-project).",
       "category": "productivity",
       "tags": ["config", "workflow", "lightbridge"]
     },

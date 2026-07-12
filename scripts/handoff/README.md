@@ -51,6 +51,9 @@ State is `<handoffs>/inbox/.acked` — one filename per line. An agent merely *s
 not an acknowledgement; a notice that re-fires forever is one that gets tuned out, which is the
 exact failure this exists to prevent.
 
-`$LIGHTBRIDGE_STATE_DIR` overrides the default `~/.lightbridge/projects` (used by the tests).
+`<project-key>` derives from the repo root — the git toplevel of cwd (cwd itself for
+non-git dirs) — via the `scripts/lightbridge` resolver, so a session launched in a subdir
+lands on the same key. `$LIGHTBRIDGE_STATE_DIR` overrides the default
+`~/.lightbridge/projects` (used by the tests).
 
 Exit codes: `0` ok · `1` nothing to acknowledge · `2` usage.
