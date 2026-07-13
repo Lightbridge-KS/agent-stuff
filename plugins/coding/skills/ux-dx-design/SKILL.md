@@ -32,6 +32,10 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
   "Decisions needed".
   Output: `docs/design/<nn>-ux-dx-design.md` (next free number) unless the user names
   a path.
+  When the design is settled and the user is about to build, point forward to
+  `codebase-blueprint` — it reconciles this doc against its sibling lenses and the chosen
+  framework, and has standing to amend claims here. Every verb promised in this doc must
+  land on a use case and a data field there, or it is a promise with no schema.
 
 ## Core principles
 

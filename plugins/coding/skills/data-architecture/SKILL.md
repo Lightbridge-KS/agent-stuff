@@ -33,6 +33,9 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
   settle open choices (engine, retention, partitioning …) — undecided → "Decisions needed".
   Output: `docs/design/<nn>-data-architecture.md` (next free number) unless the user names
   a path.
+  When the design is settled and the user is about to build, point forward to
+  `codebase-blueprint` — it reconciles this doc against its sibling lenses and the chosen
+  framework, and has standing to amend claims here.
 
 ## Core principles
 

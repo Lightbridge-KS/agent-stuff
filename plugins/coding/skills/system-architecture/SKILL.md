@@ -35,6 +35,9 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
   names a path.
   If requirements are too fuzzy to compile, hand off to `c4-architect` — its phase-gated
   dialogue elicits them first.
+  When the design is settled and the user is about to build, point forward to
+  `codebase-blueprint`: it reconciles this doc against its sibling lenses and the chosen
+  framework, deepens §5 into a real object model, and has standing to amend claims here.
 
 ## Core principles
 
@@ -125,6 +128,9 @@ flowchart TD
 ## 5. OOP & Class Architecture
 Key classes, interfaces, inheritance, composition, and the design patterns in use
 (name the pattern, point to where it lives, and say why it's used).
+<!-- A sketch, written while the design is still fluid. The implementer's object model is
+     `codebase-blueprint`'s job — do not try to be complete here. -->
+
 ```mermaid
 classDiagram
     class Base { <<abstract>> +run() }
