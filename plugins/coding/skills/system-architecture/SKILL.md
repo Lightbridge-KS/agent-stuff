@@ -2,11 +2,11 @@
 name: system-architecture
 description: >-
   Explain an existing codebase's system architecture, or design one from a PRD or rough
-  ideas — either way one C4-style Markdown doc with Mermaid diagrams. Use only when the
-  user explicitly invokes it by name (`system-architecture`) or near-match. For fuzzy
+  ideas — either way one C4-style Markdown doc with Mermaid diagrams. Use when the
+  user invokes it by name (`system-architecture`) or near-match. For fuzzy
   requirements needing interactive elicitation, use `c4-architect` instead.
 metadata:
-  version: "2026-07-09"
+  version: "2026-07-15"
 ---
 
 # System Architecture
@@ -76,8 +76,8 @@ result for a library).
 
 ## Write the document
 
-**Cross-link:** check the output directory for sibling lens docs (`ux-dx-design`,
-`data-architecture`, `agentic-system`) and add a "See also" line under the title for each
+**Cross-link:** check the output directory for sibling lens docs (`surface-architecture`,
+`data-architecture`, `agentic-architecture`) and add a "See also" line under the title for each
 found — the set triangulates one system. If none, the doc stands alone.
 
 Use this skeleton. Keep prose tight; let the diagrams carry the structure.

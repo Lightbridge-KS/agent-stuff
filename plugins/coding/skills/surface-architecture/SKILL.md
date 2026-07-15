@@ -1,15 +1,16 @@
 ---
-name: ux-dx-design
+name: surface-architecture
 description: >-
   Explain an existing codebase's user-facing surface — UX/DX/API as seen from outside the
   boundary, whether the "user" is an end user, developer, or agent — or design that surface
-  from requirements. One Markdown doc with Mermaid diagrams. Use only when the user
-  explicitly invokes it by name (`ux-dx-design`) or near-match.
+  from requirements. One Markdown doc with Mermaid diagrams. For a deep agent-only audit
+  against AX principles, use `ax-interface` instead. Use when the user invokes it by name
+  (`surface-architecture`) or near-match.
 metadata:
-  version: "2026-07-09"
+  version: "2026-07-15"
 ---
 
-# UX & DX Design
+# Surface Architecture (UX / DX / API)
 
 One lens, two directions: **describe the surface as the user sees it, not as the code
 implements it.** Document the command `app sync --force`, the route `/settings/billing`,
@@ -30,7 +31,7 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
   same document shape. Evidence = those inputs only. Don't invent requirements or silently
   settle open choices (navigation model, auth flow, error contract …) — undecided →
   "Decisions needed".
-  Output: `docs/design/<nn>-ux-dx-design.md` (next free number) unless the user names
+  Output: `docs/design/<nn>-surface-architecture.md` (next free number) unless the user names
   a path.
   When the design is settled and the user is about to build, point forward to
   `codebase-blueprint` — it reconciles this doc against its sibling lenses and the chosen
@@ -96,8 +97,8 @@ flags → output` for a CLI; `import → construct → call → handle` for a li
 ## Write the document
 
 **Cross-link:** check the output directory for sibling lens docs (`system-architecture`,
-`data-architecture`, `agentic-system`) and add a "See also" line under the title for each
-found — the set triangulates one system. If none, the doc stands alone.
+`data-architecture`, `agentic-architecture`) and add a "See also" line under the title for
+each found — the set triangulates one system. If none, the doc stands alone.
 
 **Cheat sheet:** open the doc with a `## Cheat Sheet` preamble (unnumbered, before
 `## 1. Overview`) — a one-screen TL;DR of the 5–10 most-used touchpoints a reader can copy

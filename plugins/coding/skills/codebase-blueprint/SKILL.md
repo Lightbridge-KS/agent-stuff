@@ -25,7 +25,7 @@ certainly skipped Phase 1.
 ## Where it sits
 
 ```
-design fluid    ─►  c4-architect · system-architecture · data-architecture · ux-dx-design
+design fluid    ─►  c4-architect · system-architecture · data-architecture · surface-architecture
 design settled  ─►  codebase-blueprint   ← you are here: reconcile, then compile
 code exists     ─►  improve-codebase-architecture
 ```

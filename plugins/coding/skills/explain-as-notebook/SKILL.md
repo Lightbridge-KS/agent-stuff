@@ -3,10 +3,10 @@ name: explain-as-notebook
 description: >-
   Decompose a function, method, class, or module of an existing codebase into a
   runnable notebook that explains it top-down — each piece executed on concrete
-  inputs with real output shown inline. Use only when the user explicitly
+  inputs with real output shown inline. Use when the user
   invokes it by name (`explain-as-notebook`) or near-match mentioning.
 metadata:
-  version: "2026-07-09"
+  version: "2026-07-15"
 ---
 
 # Explain as Notebook
