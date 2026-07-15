@@ -4,11 +4,12 @@ description: >-
   The agent-experience ("AX") lens for any interface an AI agent drives — a CLI, MCP
   server, HTTP/REST API, or library/SDK. Judge an existing surface against the AX
   principles and prescribe prioritized fixes, or apply the principles while designing a
-  new agent-facing surface. Use only when the user explicitly invokes it by name
-  (`ax-interface`) or near-match ("AX analysis", "agent experience of …",
+  new agent-facing surface. For a descriptive whole-surface doc across all audiences (end
+  user / developer / agent), use `surface-architecture` instead. Use when the user invokes
+  it by name (`ax-interface`) or near-match ("AX analysis", "agent experience of …",
   "agent-friendly interface").
 metadata:
-  version: "2026-07-12"
+  version: "2026-07-15"
 ---
 
 # AX Interface
@@ -132,7 +133,7 @@ app with a public API) is common — cover each surface, label sections clearly.
 ## Analyze mode: inventory, then audit
 
 Build a faithful map of what an agent touches — not a line-by-line read. If a sibling
-`_docs/*_ux_design.md` from `ux-dx-design` exists, **reuse its surface map** instead of
+`_docs/*_ux_design.md` from `surface-architecture` exists, **reuse its surface map** instead of
 re-deriving it.
 
 1. **Spec sources:** `--help` output, MCP tool list + schemas, OpenAPI/GraphQL schema,

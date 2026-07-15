@@ -1,16 +1,16 @@
 ---
-name: agentic-system
+name: agentic-architecture
 description: >-
   Explain an existing agentic system — a codebase where an AI agent is the central "CPU"
   surrounded by agent-native organs (reasoning loop, memory, context, tools, skills, MCP,
   subagents, hooks) — or design one from requirements. Covers agent runtimes/harnesses and
-  capability/steering packs. Use only when the user explicitly invokes it by name
-  (`agentic-system`) or near-match.
+  capability/steering packs. Use when the user invokes it by name
+  (`agentic-architecture`) or near-match.
 metadata:
-  version: "2026-07-09"
+  version: "2026-07-15"
 ---
 
-# Agentic System
+# Agentic Architecture
 
 One lens, two directions. Produce a single document mapping an agentic system as **the core
 plus its surround** — not just packages and classes.
@@ -50,7 +50,7 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
   same document shape. Evidence = those inputs only. In this mode **every organ is a
   decision**: needed / not needed / undecided — don't silently settle the undecided ones;
   they go to "Decisions needed".
-  Output: `docs/design/<nn>-agentic-system.md` (next free number) unless the user names
+  Output: `docs/design/<nn>-agentic-architecture.md` (next free number) unless the user names
   a path.
 
 ## Core principles
@@ -139,7 +139,7 @@ sits in the product.
 the title for each — match on *topic*, not just filename suffix (a hand-named
 `ARCHITECTURE.md` counts as the structure doc). Canonical siblings: `system-architecture`
 (generic structure), `ax-interface` output (the agent-facing surface, judged),
-`ux-dx-design` / `data-architecture` (the outside / the data).
+`surface-architecture` / `data-architecture` (the outside / the data).
 
 Use this skeleton. Keep prose tight; let the diagrams carry the structure.
 

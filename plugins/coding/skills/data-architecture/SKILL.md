@@ -3,10 +3,10 @@ name: data-architecture
 description: >-
   Explain an existing codebase's data architecture — where data rests (stores, schema) and
   how it moves (dataflow, lineage) — or design one from requirements. One Markdown doc with
-  Mermaid diagrams. Use only when the user explicitly invokes it by name
+  Mermaid diagrams. Use when the user invokes it by name
   (`data-architecture`) or near-match.
 metadata:
-  version: "2026-07-09"
+  version: "2026-07-15"
 ---
 
 # Data Architecture
@@ -82,7 +82,7 @@ archived/purged` — naming the real stores and jobs it passes through.
 ## Write the document
 
 **Cross-link:** check the output directory for sibling lens docs (`system-architecture`,
-`ux-dx-design`, `agentic-system`) and add a "See also" line under the title for each found —
+`surface-architecture`, `agentic-architecture`) and add a "See also" line under the title for each found —
 the set triangulates one system. If none, the doc stands alone.
 
 **Modeling lens — Conceptual → Logical → Physical:** present schema at the zoom that fits.
