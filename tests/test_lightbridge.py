@@ -7,8 +7,9 @@
 
 Library functions (project_key, repo_root, config_path, load_config, legacy_config)
 are tested by importing the module the same way the hooks do (importlib from file
-path). The CLI (`path`, `doctor`) is driven as a subprocess, executing the file
-directly — the same path as an agent's `uv run`, so the shebang is under test.
+path). The CLI (`status` · `init` · `add` · `show` · `enable`/`disable` · `path` ·
+`repos` · `doctor`) is driven as a subprocess, executing the file directly — the same
+path as an agent's `uv run`, so the shebang is under test.
 
     uv run tests/test_lightbridge.py
 """
@@ -223,9 +224,9 @@ class PathCliTest(unittest.TestCase):
             self.assertIsNone(data["legacy"])
 
 
-class BootstrapCliTest(unittest.TestCase):
-    """`init` / `add` — the deterministic bootstrap. Isolated via $LIGHTBRIDGE_STATE_DIR,
-    the same way PathCliTest is: both verbs resolve through config_path()."""
+class CliHarness(unittest.TestCase):
+    """Shared subprocess harness for the project-scoped verbs, isolated via
+    $LIGHTBRIDGE_STATE_DIR — every verb resolves through config_path()."""
 
     def run_cli(self, state: Path, *args: str) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -246,6 +247,10 @@ class BootstrapCliTest(unittest.TestCase):
 
     def config_of(self, state: Path, proj: Path) -> Path:
         return state / lb.project_key(proj) / "config.toml"
+
+
+class BootstrapCliTest(CliHarness):
+    """`init` / `add` — the deterministic bootstrap."""
 
     def test_init_creates_config_with_root(self):
         with tempfile.TemporaryDirectory() as d:
@@ -292,7 +297,7 @@ class BootstrapCliTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             state, proj = Path(d) / "state", self.repo(d, docs=True)  # docs/ IS present
             result = self.run_cli(
-                state, "init", "--start", str(proj), "--sections", "research", "--json"
+                state, "init", "research", "--start", str(proj), "--json"
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout)["sections_added"], ["research"])
@@ -356,7 +361,7 @@ class BootstrapCliTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             state, proj = Path(d) / "state", self.repo(d, docs=False)
             for args in (
-                ("init", "--start", str(proj), "--sections", "nope"),
+                ("init", "nope", "--start", str(proj)),
                 ("add", "nope", "--start", str(proj)),
             ):
                 result = self.run_cli(state, *args)
@@ -381,6 +386,240 @@ class BootstrapCliTest(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout)
             self.assertEqual(json.loads(result.stdout)["problems"], [])
+
+
+class ShowCliTest(CliHarness):
+    def test_show_whole_config_verbatim_and_json(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=True)
+            self.run_cli(state, "init", "--start", str(proj))
+            result = self.run_cli(state, "show", "--start", str(proj))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("[docs-index]", result.stdout)
+            self.assertIn("# ~/.lightbridge/projects", result.stdout)  # comments verbatim
+            result = self.run_cli(state, "show", "--start", str(proj), "--json")
+            self.assertEqual(set(json.loads(result.stdout)), {"root", "docs-index"})
+
+    def test_show_one_section_block_only(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=True)
+            self.run_cli(state, "init", "--start", str(proj))
+            result = self.run_cli(state, "show", "docs-index", "--start", str(proj))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(result.stdout.startswith("[docs-index]"))
+            self.assertIn("dir =", result.stdout)
+            self.assertNotIn("root =", result.stdout)  # the block, not the file
+            result = self.run_cli(state, "show", "docs-index", "--start", str(proj), "--json")
+            self.assertEqual(set(json.loads(result.stdout)), {"docs-index"})
+
+    def test_show_absent_config_exits_1(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=False)
+            result = self.run_cli(state, "show", "--start", str(proj))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("init", result.stderr)
+
+    def test_show_absent_section_exits_1_names_add(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=False)
+            self.run_cli(state, "init", "--start", str(proj))
+            result = self.run_cli(state, "show", "research", "--start", str(proj))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("add research", result.stderr)
+
+
+class ToggleCliTest(CliHarness):
+    def test_disable_flips_in_place_comments_survive(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=True)
+            self.run_cli(state, "init", "--start", str(proj))
+            result = self.run_cli(state, "disable", "docs-index", "--start", str(proj))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            text = self.config_of(state, proj).read_text()
+            self.assertFalse(tomllib.loads(text)["docs-index"]["enabled"])
+            self.assertIn("# ~/.lightbridge/projects", text)  # header comment intact
+            self.assertIn("# optional; default true", text)  # trailing comment survives
+
+    def test_enable_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=True)
+            self.run_cli(state, "init", "--start", str(proj))
+            config = self.config_of(state, proj)
+            before = config.read_bytes()
+            result = self.run_cli(state, "enable", "docs-index", "--start", str(proj), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(
+                set(payload), {"root", "key", "config", "section", "enabled", "changed"}
+            )
+            self.assertFalse(payload["changed"])
+            self.assertEqual(config.read_bytes(), before)  # no-op wrote nothing
+
+    def test_toggle_absent_section_exits_1(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=False)
+            self.run_cli(state, "init", "--start", str(proj))
+            result = self.run_cli(state, "disable", "research", "--start", str(proj))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("add research", result.stderr)
+
+    def test_toggle_unknown_section_exits_2(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=False)
+            result = self.run_cli(state, "disable", "nope", "--start", str(proj))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("docs-index", result.stderr)  # names the valid set
+
+    def test_disable_repo_links_enabled_precedes_links(self):
+        """The TOML invariant: `enabled` must stay attached to [repo-links], never to
+        the [[repo-links.link]] entries after it."""
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=False)
+            self.run_cli(state, "init", "--start", str(proj))
+            self.run_cli(state, "add", "repo-links", "--start", str(proj))
+            result = self.run_cli(state, "disable", "repo-links", "--start", str(proj))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            text = self.config_of(state, proj).read_text()
+            self.assertLess(text.index("enabled = false"), text.index("[[repo-links.link]]"))
+            data = tomllib.loads(text)
+            self.assertFalse(data["repo-links"]["enabled"])
+            self.assertEqual(data["repo-links"]["link"][0]["name"], "example-service")
+
+
+class StatusCliTest(CliHarness):
+    JSON_KEYS = {
+        "root", "key", "config", "exists", "error", "sections",
+        "unknown_sections", "state", "registry", "legacy",
+    }
+
+    def status(self, state: Path, proj: Path, *extra: str) -> subprocess.CompletedProcess:
+        # --registry pinned to a missing file so the runner's real ~/.lightbridge
+        # never leaks into assertions.
+        return self.run_cli(
+            state, "status", "--start", str(proj),
+            "--registry", str(state / "no-registry.toml"), *extra,
+        )
+
+    def test_absent_config_exits_0_and_teaches_init(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=False)
+            result = self.status(state, proj)
+            self.assertEqual(result.returncode, 0, result.stderr)  # absence is a state
+            self.assertIn("init", result.stdout)
+
+    def test_json_dashboard_sections_state_and_unknown(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=True)
+            self.run_cli(state, "init", "--start", str(proj))
+            self.run_cli(state, "add", "repo-links", "--start", str(proj))
+            self.run_cli(state, "disable", "repo-links", "--start", str(proj))
+            config = self.config_of(state, proj)
+            config.write_text(config.read_text() + "\n[mystery]\n")
+            project_dir = config.parent
+            (project_dir / "handoffs" / "inbox").mkdir(parents=True)
+            (project_dir / "handoffs" / "a.md").write_text("x")
+            (project_dir / "handoffs" / "b.md").write_text("x")
+            (project_dir / "handoffs" / "inbox" / "c.md").write_text("x")
+            (project_dir / "plans").mkdir()
+            (project_dir / "plans" / "p.md").write_text("x")
+
+            result = self.status(state, proj, "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            self.assertEqual(set(data), self.JSON_KEYS)
+            self.assertTrue(data["exists"])
+            self.assertIsNone(data["error"])
+            self.assertEqual(data["sections"], {"docs-index": True, "repo-links": False})
+            self.assertEqual(data["unknown_sections"], ["mystery"])
+            self.assertEqual(data["state"], {"handoffs": 2, "inbox": 1, "plans": 1})
+            self.assertFalse(data["registry"])
+
+    def test_unreadable_config_exits_1(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=False)
+            write_config(state, proj).write_text("[unclosed\n")
+            result = self.status(state, proj, "--json")
+            self.assertEqual(result.returncode, 1)
+            self.assertIsNotNone(json.loads(result.stdout)["error"])
+
+    def test_registry_presence_reported(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=False)
+            registry = Path(d) / "repos.toml"
+            registry.write_text("[repos]\n")
+            result = self.run_cli(
+                state, "status", "--start", str(proj), "--registry", str(registry), "--json"
+            )
+            self.assertTrue(json.loads(result.stdout)["registry"])
+
+
+class ReposCliTest(unittest.TestCase):
+    def run_repos(self, registry: Path, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [str(SCRIPT), "repos", *args, "--registry", str(registry)],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_add_creates_registry_then_lists(self):
+        with tempfile.TemporaryDirectory() as d:
+            registry = Path(d) / "repos.toml"
+            target = Path(d) / "svc"
+            target.mkdir()
+            result = self.run_repos(registry, "add", "svc", str(target))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = tomllib.loads(registry.read_text())
+            self.assertEqual(data["repos"]["svc"], str(target))
+            result = self.run_repos(registry, "list", "--json")
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["repos"]["svc"], {"path": str(target), "exists": True})
+
+    def test_add_duplicate_name_exits_1_untouched(self):
+        with tempfile.TemporaryDirectory() as d:
+            registry = Path(d) / "repos.toml"
+            self.run_repos(registry, "add", "svc", str(d))
+            before = registry.read_bytes()
+            result = self.run_repos(registry, "add", "svc", "/elsewhere")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("already registered", result.stderr)
+            self.assertEqual(registry.read_bytes(), before)
+
+    def test_add_missing_path_warns_but_registers(self):
+        with tempfile.TemporaryDirectory() as d:
+            registry = Path(d) / "repos.toml"
+            result = self.run_repos(registry, "add", "ghost", str(Path(d) / "nowhere"))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("does not exist", result.stderr)
+            result = self.run_repos(registry, "list")
+            self.assertIn("MISSING", result.stdout)
+
+    def test_rm_removes_line_comments_survive_unknown_exits_1(self):
+        with tempfile.TemporaryDirectory() as d:
+            registry = Path(d) / "repos.toml"
+            self.run_repos(registry, "add", "one", str(d))
+            self.run_repos(registry, "add", "two", str(d))
+            result = self.run_repos(registry, "rm", "one")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            text = registry.read_text()
+            self.assertEqual(set(tomllib.loads(text)["repos"]), {"two"})
+            self.assertIn("# ~/.lightbridge/repos.toml", text)  # header comment intact
+            result = self.run_repos(registry, "rm", "one")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("repos list", result.stderr)
+
+    def test_add_invalid_name_exits_2(self):
+        with tempfile.TemporaryDirectory() as d:
+            registry = Path(d) / "repos.toml"
+            result = self.run_repos(registry, "add", "bad name!", "/x")
+            self.assertEqual(result.returncode, 2)
+            self.assertFalse(registry.exists())
+
+    def test_list_absent_registry_is_informational(self):
+        with tempfile.TemporaryDirectory() as d:
+            registry = Path(d) / "repos.toml"
+            result = self.run_repos(registry, "list", "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIsNone(json.loads(result.stdout)["repos"])
 
 
 class SectionsTest(unittest.TestCase):
