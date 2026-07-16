@@ -27,7 +27,7 @@ Design (the spec): [`../lightbridge-cli-design.md`](../lightbridge-cli-design.md
 - [x] Docs sync: `scripts/lightbridge/README.md`, `SKILL.md` (+version), `catalog.md`
 - [x] Gates: `bin/validate.py` + full `just test` green (8 suites, 169 tests, 2026-07-16)
 - [x] E2E verification (throwaway `LIGHTBRIDGE_STATE_DIR` flow + read-only `status` on the real tree)
-- [ ] Draft PR opened
+- [x] Draft PR opened — [#4](https://github.com/Lightbridge-KS/agent-stuff/pull/4)
 
 ## Confirmed contracts
 
