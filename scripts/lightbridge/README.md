@@ -55,23 +55,49 @@ agent's non-interactive shell, and this CLI has two users.
 ## CLI
 
 ```bash
+lightbridge status                  # one-shot dashboard: config, sections, state, registry
 lightbridge init                    # create this project's config — never clobbers
-lightbridge init --sections docs-index,research
+lightbridge init docs-index research
 lightbridge init --dry-run          # print it instead of writing it
 lightbridge add repo-links          # append section(s) to an existing config
+lightbridge show                    # print the stored config; `show SECTION` for one block
+lightbridge enable research         # flip a section's `enabled` in place (or `disable`)
 lightbridge sections                # what can go in a config, and who reads it
 lightbridge path                    # this project's config path (+ exists?)
 lightbridge path --start DIR        # another project's
+lightbridge repos list              # manage ~/.lightbridge/repos.toml
+lightbridge repos add NAME PATH     # register a repo — never clobbers a name
+lightbridge repos rm NAME
 lightbridge doctor                  # audit the whole tree; exit 1 on problems
 ```
 
-Every verb takes `--json`; `init` / `add` / `path` take `--start DIR`.
+Every verb takes `--json`; the project-scoped verbs (`status` / `init` / `add` / `show` /
+`enable` / `disable` / `path`) take `--start DIR`; `status`, `repos`, and `doctor` take
+`--registry FILE`.
 
-**Bootstrap.** `init` writes the `root` marker plus the sections you name. With no
-`--sections` it **detects**: a repo with a `docs/` dir gets `[docs-index]` — and the output
-says so, so nothing is inferred silently. It refuses to touch an existing config (exit 1);
-`add` is the way to extend one, and skips sections already present rather than duplicating
-them. Both are safe to re-run.
+**Status** is the read path — one bounded dashboard instead of a `path → cat → parse → ls`
+chain: root, key, config, each present section with its `enabled` state (unknown tables
+flagged), sibling-state counts with the tool that owns each (`handoffs … — handoff.py`,
+`plans … — plan_store.py`), and whether the registry exists. Counts only — it never
+reaches into the siblings' logic. Exit 0 even when the config is absent (absence is a
+state, and the output names `init`); exit 1 only when the config exists but is unreadable.
+
+**Bootstrap.** `init` writes the `root` marker plus the sections you name (positional,
+same shape as `add`). With none it **detects**: a repo with a `docs/` dir gets
+`[docs-index]` — and the output says so, so nothing is inferred silently. It refuses to
+touch an existing config (exit 1); `add` is the way to extend one, and skips sections
+already present rather than duplicating them. Both are safe to re-run.
+
+**Show / enable / disable** never rewrite the file: `show` prints it verbatim (`--json`
+parses it; no defaults injected — those live with each reader, per the catalog), and
+`enable`/`disable` are targeted line edits of the one `enabled` key, so comments and
+layout survive. Toggling is idempotent (`unchanged`, exit 0); a missing section teaches
+`add` instead.
+
+**Repos** owns the personal registry `~/.lightbridge/repos.toml` (per machine, never
+committed): `add` creates the file on first use and refuses to overwrite an existing name
+(exit 1 — `rm` first); a path that doesn't exist yet registers with a note (pre-clone is
+legitimate); `list` marks dead paths instead of hiding them.
 
 **Sections.** The emittable templates live in `SECTIONS` (in `lightbridge.py`); what each
 key *means* is the `lightbridge-config` skill's `references/catalog.md`, the canonical spec.
@@ -83,4 +109,5 @@ plus `legacy` — a pre-migration `<repo>/.lightbridge/config.toml` found under 
 `~/.lightbridge/repos.toml` (no longer read by anything; migrate and delete).
 
 Exit codes: `0` ok, including an idempotent no-op · `1` refused (`doctor` found problems,
-`init` would clobber, `add` found no config) · `2` usage.
+`init`/`repos add` would clobber, the config/section/name a verb needs is absent or
+unreadable) · `2` usage.

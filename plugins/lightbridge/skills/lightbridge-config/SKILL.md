@@ -2,7 +2,7 @@
 name: lightbridge-config
 description: Bootstrap and manage the personal .lightbridge namespace — per-project config at ~/.lightbridge/projects/<project-key>/config.toml (docs-index, repo-links, research, plans, …) and the rest of the user-level ~/.lightbridge/ tree (handoffs, plans, repos.toml). Use when setting up lightbridge config for a repo, enabling or adding a config section, asking what .lightbridge supports, wiring a new config feature, or locating user-level lightbridge state.
 metadata:
-  version: "2026-07-13"
+  version: "2026-07-16"
 ---
 
 # .lightbridge config
@@ -33,16 +33,21 @@ Linked onto PATH as `lightbridge` / `lb` (see its README); otherwise
 `uv run <agent-stuff>/scripts/lightbridge/lightbridge.py <verb>`.
 
 ```bash
+lb status                # FIRST MOVE for "what's lightbridge doing here?" — one dashboard
 lb init                  # create this project's config; detects docs/ → [docs-index]
-lb init --sections research,repo-links   # or name them; --dry-run to preview
+lb init research repo-links   # or name sections; --dry-run to preview
 lb add repo-links        # extend an existing config (skips sections already there)
+lb show [SECTION]        # print the stored config (or one block); --json to parse
+lb enable|disable NAME   # flip a section's `enabled` in place (idempotent)
 lb sections              # what can go in a config, and who reads it
 lb path                  # where this project's config lives (+ exists?)
+lb repos list|add|rm     # manage ~/.lightbridge/repos.toml (add never clobbers a name)
 lb doctor                # audit the whole tree (stale roots, legacy files)
 ```
 
-`init` never clobbers an existing config (exit 1 — use `add`), and `add` is idempotent, so
-both are safe to re-run. Report back what was written and which reader consumes it.
+`init` never clobbers an existing config (exit 1 — use `add`), and `add` /
+`enable` / `disable` are idempotent, so all are safe to re-run. Report back what was
+written and which reader consumes it.
 
 ## Explain / "what can go in .lightbridge?"
 
@@ -52,8 +57,9 @@ one-line version.)
 
 ## Enable or disable a section
 
-`lb add <name>` appends a section. To toggle one, set `enabled = true|false` in the config —
-don't delete the block just to disable it.
+`lb add <name>` appends a section; `lb enable <name>` / `lb disable <name>` toggle one in
+place (a line edit — comments survive). Never delete a block just to disable it, and don't
+hand-edit `enabled` — the CLI owns that key.
 
 ## Invent a NEW section (how this skill grows)
 

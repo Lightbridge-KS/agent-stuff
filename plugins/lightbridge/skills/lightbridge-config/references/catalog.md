@@ -141,10 +141,12 @@ feature owns a subtree **or file** registered here.
   - `~/.lightbridge/repos.toml` — the personal repo registry: one `[repos]` table mapping
     logical repo names to local paths (`~`-relative or absolute). Machine-specific by
     design; its *presence* is the per-machine opt-in for `[repo-links]` resolution.
+    Managed by `lb repos list|add|rm` (`add` never clobbers an existing name).
 - **Consumers:**
   - `lightbridge` resolver (agent-stuff `scripts/lightbridge`) — the canonical
-    root/key/config resolution every reader imports, plus the CLI that writes and audits
-    configs (`init` · `add` · `sections` · `path` · `doctor`; linked onto PATH as `lb`).
+    root/key/config resolution every reader imports, plus the CLI that writes, inspects,
+    and audits configs (`status` · `init` · `add` · `show` · `enable`/`disable` ·
+    `sections` · `path` · `repos` · `doctor`; linked onto PATH as `lb`).
   - `handoff` skill (agent-stuff `plugins/productivity`) — writes
     `projects/<key>/handoffs/<YYYY-MM-DD_HHMM>_<slug>.md`. The filename/frontmatter contract
     lives in that skill, not re-documented here.

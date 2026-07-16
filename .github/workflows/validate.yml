@@ -18,6 +18,10 @@ jobs:
         run: uv run tests/test_install.py
       - name: Run hook tests
         run: uv run tests/test_hooks.py
+      - name: Run lightbridge tests
+        run: uv run tests/test_lightbridge.py
+      - name: Run handoff-hook tests
+        run: uv run tests/test_handoff_hook.py
       - name: Run repo-links tests
         run: uv run tests/test_repo_links.py
       - name: Run packager tests
