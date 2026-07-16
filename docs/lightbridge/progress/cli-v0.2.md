@@ -47,4 +47,7 @@ Design (the spec): [`../lightbridge-cli-design.md`](../lightbridge-cli-design.md
 
 ## Follow-up after merge
 
-- [ ] `agent-instruction/AGENTS.qmd:116` — update CLI verb list to v0.2 set; `make build`.
+- [x] `agent-instruction/AGENTS.qmd` — CLI verb list updated to the v0.2 set;
+  `make build` regenerated `dist/*` (agent-instruction `9b12349`, 2026-07-16).
+
+All milestones landed — this tracker is closed.
