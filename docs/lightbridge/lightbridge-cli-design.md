@@ -142,7 +142,7 @@ deterministic, idempotent (already-false → `unchanged`, exit 0), reversible.
 | 1 | Self-documenting affordance | `--help` epilog names sibling tools + the skill (the spec is the only onboarding). `sections` stays the in-CLI catalog digest. |
 | 2 | Context economy | `status` returns a bounded dashboard, never file contents; `show` scopes to one section on request; no verb dumps sibling state bodies. |
 | 3 | Right abstraction | The agent's real task is "what's active here?" → one `status` verb, not a chain. Siblings stay separate tools (task boundary = state ownership), cross-referenced not wrapped. |
-| 4 | Unambiguous contract | Sections are argparse `choices` everywhere (already true for `add`; `init` moves to the same positional form — one shape for "name sections"). Unknown section → usage error naming the valid set (exists, keep). |
+| 4 | Unambiguous contract | Sections are a choice type everywhere — since v0.3 a `SectionName` enum Typer validates at the parser (uniform across `init`/`add`/`enable`/`disable`; v0.2 used argparse `choices`). Unknown section → usage error (exit 2) naming the valid set — the contract, whatever the mechanism. |
 | 5 | Errors that teach | Keep the 0/1/2 taxonomy; every refusal names the next verb. `status` distinguishes "absent" (informational) from "unreadable" (problem, mirrors doctor's kind). |
 | 6 | Predictable & safe | All new verbs idempotent; `enable/disable` edits exactly one key by targeted line-edit inside the section block (templates always emit `enabled =`), never a TOML rewrite — comments and layout survive. No `doctor --fix` (deferred, see Decisions). |
 | 7 | Composable & verifiable | `init/add/enable/disable` are read-after-write verifiable via `show`/`status`. JSON shapes reuse the v0.1 `bootstrap_json` philosophy: one shape per concern, caller never branches on the verb. |
@@ -171,7 +171,8 @@ All five settled with the recommended option:
    `stale` needs the multi-machine `relocate`/`not-on-this-machine` nuance from the
    [sync design](./multi-machine-sync.md), and building half of that now risks
    contradicting it.
-5. **Bare `lb` stays a usage error** (exit 2, `required=True`). The usage line already
+5. **Bare `lb` stays a usage error** (exit 2 — argparse `required=True` in v0.2; Typer's
+   missing-command default in v0.3, locked by a test). The usage line already
    lists every verb — adequate self-documentation; full-help-on-bare is cosmetic.
 
 ## Non-goals
@@ -180,3 +181,6 @@ All five settled with the recommended option:
 - Injecting per-key defaults into `show` (defaults stay with readers + catalog).
 - `lb sync` / `lb relocate` — owned by the deferred [multi-machine design](./multi-machine-sync.md).
 - Colors, tables, interactive prompts — two-audience rule: nothing that needs a TTY.
+  (v0.3's Typer port keeps this: `rich_markup_mode=None` forces plain click help — the
+  default rich panels emit box-drawing padded to 80 columns even when piped, a per-read
+  token tax on the agent. Locked by a test.)
