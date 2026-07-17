@@ -29,7 +29,7 @@ Branch: `refactoring/lb-typer`.
   parser-generated text (help pages, version, usage errors) differs
 - [x] Docs sync: design doc §6-P4 / §8-5 wording, Non-goals note on rich help;
   README/skill grepped for drift — none
-- [ ] Draft PR opened
+- [x] Draft PR opened — [#5](https://github.com/Lightbridge-KS/agent-stuff/pull/5)
 
 ## Confirmed contracts
 
