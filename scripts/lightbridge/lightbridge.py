@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = []
+# dependencies = ["typer>=0.27"]
 # ///
 """Resolve a project's .lightbridge config — the "local scope" model.
 
@@ -49,8 +49,8 @@ config/section/registry entry a verb needs is absent, would clobber, or is unrea
 
 from __future__ import annotations
 
-import argparse
 import json
+from enum import Enum
 import os
 import re
 import subprocess
@@ -58,7 +58,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 DEFAULT_STATE_DIR = "~/.lightbridge/projects"
 STATE_DIR_ENV = "LIGHTBRIDGE_STATE_DIR"  # override; exists so readers are testable in isolation
@@ -450,156 +450,35 @@ def doctor(state_dir: Path, registry: Path) -> list[dict]:
 # ── CLI ─────────────────────────────────────────────────────────────────────
 
 
-def parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        prog=Path(sys.argv[0]).stem,  # `lb` when invoked through the short PATH shim
-        description="Create, inspect, and audit user-level .lightbridge project config "
-        "— plus the personal repo registry.",
-        epilog="Exit: 0 ok · 1 refused (doctor problems, would clobber, missing "
-        "config/section/name, unreadable file) · 2 usage. "
-        "Siblings (own their state, not wrapped here): plan_store.py (plans/), "
-        "handoff.py (handoffs/), repo_links.py ([repo-links] resolution), "
-        "docs-index ([docs-index] rendering). Spec: the lightbridge-config skill.",
-    )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    sub = parser.add_subparsers(dest="command", required=True)
-
-    p_status = sub.add_parser(
-        "status", help="One-shot dashboard: config, sections, sibling state, registry."
-    )
-    p_status.add_argument(
-        "--start",
-        default=".",
-        help="Directory whose project root is resolved (default: CWD).",
-    )
-    p_status.add_argument(
-        "--registry",
-        default=DEFAULT_REGISTRY,
-        help=f"Personal repo registry (default: {DEFAULT_REGISTRY}).",
-    )
-    p_status.add_argument("--json", action="store_true", help="Emit JSON.")
-
-    p_init = sub.add_parser("init", help="Create this project's config (never clobbers).")
-    p_init.add_argument(
-        "sections",
-        nargs="*",
-        metavar="SECTION",
-        # no `choices`: Python 3.11 argparse rejects zero args against choices
-        # ("invalid choice: []"); cmd_init validates instead — same exit 2.
-        help=f"Section(s) to write: {', '.join(sorted(SECTIONS))}. "
-        "Omitted: detected from the repo layout.",
-    )
-    p_init.add_argument(
-        "--start",
-        default=".",
-        help="Directory whose project root is resolved (default: CWD).",
-    )
-    p_init.add_argument(
-        "--dry-run", action="store_true", help="Print the config; write nothing."
-    )
-    p_init.add_argument("--json", action="store_true", help="Emit JSON.")
-
-    p_add = sub.add_parser("add", help="Append section(s) to an existing config.")
-    p_add.add_argument(
-        "sections",
-        nargs="+",
-        choices=sorted(SECTIONS),
-        metavar="SECTION",
-        help=f"Section(s) to add: {', '.join(sorted(SECTIONS))}.",
-    )
-    p_add.add_argument(
-        "--start",
-        default=".",
-        help="Directory whose project root is resolved (default: CWD).",
-    )
-    p_add.add_argument(
-        "--dry-run", action="store_true", help="Print what would be appended; write nothing."
-    )
-    p_add.add_argument("--json", action="store_true", help="Emit JSON.")
-
-    p_show = sub.add_parser(
-        "show", help="Print the stored config, or one section's block, verbatim."
-    )
-    p_show.add_argument(
-        "section",
-        nargs="?",
-        default=None,
-        metavar="SECTION",
-        help="Only this section (any table present in the config).",
-    )
-    p_show.add_argument(
-        "--start",
-        default=".",
-        help="Directory whose project root is resolved (default: CWD).",
-    )
-    p_show.add_argument("--json", action="store_true", help="Emit JSON (parsed TOML).")
-
-    for verb, sense in (("enable", "true"), ("disable", "false")):
-        p_toggle = sub.add_parser(
-            verb, help=f"Set `enabled = {sense}` on a section, in place."
-        )
-        p_toggle.add_argument(
-            "section",
-            choices=sorted(SECTIONS),
-            metavar="SECTION",
-            help=f"Section to {verb}: {', '.join(sorted(SECTIONS))}.",
-        )
-        p_toggle.add_argument(
-            "--start",
-            default=".",
-            help="Directory whose project root is resolved (default: CWD).",
-        )
-        p_toggle.add_argument("--json", action="store_true", help="Emit JSON.")
-
-    p_repos = sub.add_parser(
-        "repos", help="Manage the personal repo registry (never clobbers a name)."
-    )
-    rsub = p_repos.add_subparsers(dest="repos_command", required=True)
-    r_list = rsub.add_parser("list", help="Every registered name → path; dead paths marked.")
-    r_add = rsub.add_parser("add", help="Register NAME → PATH (refuses an existing name).")
-    r_add.add_argument("name", help="Logical repo name (a bare TOML key).")
-    r_add.add_argument("path", help="Local path, ~-relative or absolute; stored as given.")
-    r_rm = rsub.add_parser("rm", help="Unregister NAME.")
-    r_rm.add_argument("name", help="Registered repo name — see `repos list`.")
-    for p_sub in (r_list, r_add, r_rm):
-        p_sub.add_argument(
-            "--registry",
-            default=DEFAULT_REGISTRY,
-            help=f"Registry file (default: {DEFAULT_REGISTRY}).",
-        )
-        p_sub.add_argument("--json", action="store_true", help="Emit JSON.")
-
-    p_sections = sub.add_parser("sections", help="List the known config sections.")
-    p_sections.add_argument("--json", action="store_true", help="Emit JSON.")
-
-    p_path = sub.add_parser("path", help="Print this project's config path.")
-    p_path.add_argument(
-        "--start",
-        default=".",
-        help="Directory whose project root is resolved (default: CWD).",
-    )
-    p_path.add_argument("--json", action="store_true", help="Emit JSON.")
-
-    p_doctor = sub.add_parser("doctor", help="Audit the projects tree for rot.")
-    p_doctor.add_argument(
-        "--state-dir",
-        type=Path,
-        default=None,
-        help=f"Projects state dir (default: ${STATE_DIR_ENV} or {DEFAULT_STATE_DIR}).",
-    )
-    p_doctor.add_argument(
-        "--registry",
-        default=DEFAULT_REGISTRY,
-        help=f"Personal repo registry, scanned for legacy per-repo configs "
-        f"(default: {DEFAULT_REGISTRY}).",
-    )
-    p_doctor.add_argument("--json", action="store_true", help="Emit JSON.")
-
-    return parser.parse_args(argv)
+# CLI-parsing concern only (handlers take plain strings): the choice type Typer
+# validates section names against — usage error (exit 2) naming the valid set,
+# plus shell completion of the values. Members mirror SECTIONS; the assert below
+# turns any drift into an import-time failure every test run hits.
+class SectionName(str, Enum):
+    docs_index = "docs-index"
+    plans = "plans"
+    repo_links = "repo-links"
+    research = "research"
 
 
-def cmd_sections(args: argparse.Namespace) -> int:
-    if args.json:
+assert {member.value for member in SectionName} == set(SECTIONS)
+
+DESCRIPTION = (
+    "Create, inspect, and audit user-level .lightbridge project config "
+    "— plus the personal repo registry."
+)
+EPILOG = (
+    "Exit: 0 ok · 1 refused (doctor problems, would clobber, missing "
+    "config/section/name, unreadable file) · 2 usage. "
+    "Siblings (own their state, not wrapped here): plan_store.py (plans/), "
+    "handoff.py (handoffs/), repo_links.py ([repo-links] resolution), "
+    "docs-index ([docs-index] rendering). Spec: the lightbridge-config skill."
+)
+START_HELP = "Directory whose project root is resolved (default: CWD)."
+
+
+def cmd_sections(json_out: bool) -> int:
+    if json_out:
         print(json.dumps(SECTIONS, indent=2))
         return 0
     width = max(len(name) for name in SECTIONS)
@@ -609,17 +488,8 @@ def cmd_sections(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_init(args: argparse.Namespace) -> int:
-    unknown = [name for name in args.sections if name not in SECTIONS]
-    if unknown:  # argparse `choices` can't do this on 3.11 — see parse_args
-        print(
-            f"unknown section(s): {', '.join(unknown)} — "
-            f"known: {', '.join(sorted(SECTIONS))}",
-            file=sys.stderr,
-        )
-        return 2
-
-    start = Path(args.start).expanduser().resolve()
+def cmd_init(sections: list[str], start_dir: str, dry_run: bool, json_out: bool) -> int:
+    start = Path(start_dir).expanduser().resolve()
     root = repo_root(start)
     path = config_path(start)
 
@@ -632,17 +502,17 @@ def cmd_init(args: argparse.Namespace) -> int:
         return 1
 
     detected = detect_sections(root)
-    names = args.sections or detected
+    names = sections or detected
     text = render_config(root, names)
 
-    if args.dry_run:
+    if dry_run:
         print(text, end="")
         return 0
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
-    if args.json:
+    if json_out:
         print(
             bootstrap_json(
                 root, path, created=True, added=names, skipped=[], detected=detected
@@ -653,7 +523,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     print(row("created", str(path)))
     print(row("root", str(root)))
     if names:
-        why = "" if args.sections else "  ← detected"
+        why = "" if sections else "  ← detected"
         for name in names:
             print(row("sections", f"{describe(name)}{why}"))
     else:
@@ -664,8 +534,8 @@ def cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_add(args: argparse.Namespace) -> int:
-    start = Path(args.start).expanduser().resolve()
+def cmd_add(sections: list[str], start_dir: str, dry_run: bool, json_out: bool) -> int:
+    start = Path(start_dir).expanduser().resolve()
     root = repo_root(start)
     config, path, error = load_config(start)
 
@@ -680,10 +550,10 @@ def cmd_add(args: argparse.Namespace) -> int:
         return 1
 
     present = present_sections(config)
-    added = [name for name in args.sections if name not in present]
-    skipped = [name for name in args.sections if name in present]
+    added = [name for name in sections if name not in present]
+    skipped = [name for name in sections if name in present]
 
-    if args.dry_run:
+    if dry_run:
         print("".join(SECTIONS[name]["block"] for name in added), end="")
         return 0
 
@@ -692,7 +562,7 @@ def cmd_add(args: argparse.Namespace) -> int:
             append_sections(path.read_text(encoding="utf-8"), added), encoding="utf-8"
         )
 
-    if args.json:
+    if json_out:
         print(
             bootstrap_json(
                 root, path, created=False, added=added, skipped=skipped, detected=[]
@@ -719,65 +589,65 @@ def _refuse_missing(config: dict | None, path: Path, error: str | None) -> int |
     return None
 
 
-def cmd_show(args: argparse.Namespace) -> int:
-    start = Path(args.start).expanduser().resolve()
+def cmd_show(section: str | None, start_dir: str, json_out: bool) -> int:
+    start = Path(start_dir).expanduser().resolve()
     config, path, error = load_config(start)
 
     refused = _refuse_missing(config, path, error)
     if refused is not None:
         return refused
 
-    if args.section is None:
-        if args.json:
+    if section is None:
+        if json_out:
             print(json.dumps(config, indent=2))
         else:
             print(path.read_text(encoding="utf-8"), end="")
         return 0
 
-    if args.section not in config:
-        hint = f"\nAdd it: `add {args.section}`." if args.section in SECTIONS else ""
-        print(f"no [{args.section}] in this config: {path}{hint}", file=sys.stderr)
+    if section not in config:
+        hint = f"\nAdd it: `add {section}`." if section in SECTIONS else ""
+        print(f"no [{section}] in this config: {path}{hint}", file=sys.stderr)
         return 1
-    if args.json:
-        print(json.dumps({args.section: config[args.section]}, indent=2))
+    if json_out:
+        print(json.dumps({section: config[section]}, indent=2))
         return 0
-    block = slice_section(path.read_text(encoding="utf-8"), args.section)
+    block = slice_section(path.read_text(encoding="utf-8"), section)
     if block is None:  # keys exist but no literal [section] header (sub-tables only)
-        block = json.dumps({args.section: config[args.section]}, indent=2) + "\n"
+        block = json.dumps({section: config[section]}, indent=2) + "\n"
     print(block, end="")
     return 0
 
 
-def cmd_toggle(args: argparse.Namespace, value: bool) -> int:
-    start = Path(args.start).expanduser().resolve()
+def cmd_toggle(section: str, start_dir: str, json_out: bool, value: bool) -> int:
+    start = Path(start_dir).expanduser().resolve()
     root = repo_root(start)
     config, path, error = load_config(start)
 
     refused = _refuse_missing(config, path, error)
     if refused is not None:
         return refused
-    if args.section not in present_sections(config):
+    if section not in present_sections(config):
         print(
-            f"no [{args.section}] in this config: {path}\nAdd it: `add {args.section}`.",
+            f"no [{section}] in this config: {path}\nAdd it: `add {section}`.",
             file=sys.stderr,
         )
         return 1
 
-    changed = config[args.section].get("enabled", True) != value
+    changed = config[section].get("enabled", True) != value
     if changed:
         path.write_text(
-            set_enabled(path.read_text(encoding="utf-8"), args.section, value),
+            set_enabled(path.read_text(encoding="utf-8"), section, value),
             encoding="utf-8",
         )
 
-    if args.json:
+    if json_out:
         print(
             json.dumps(
                 {
                     "root": str(root),
                     "key": project_key(root),
                     "config": str(path),
-                    "section": args.section,
+                    "section": section,
                     "enabled": value,
                     "changed": changed,
                 },
@@ -786,15 +656,15 @@ def cmd_toggle(args: argparse.Namespace, value: bool) -> int:
         )
         return 0
     print(row("updated" if changed else "unchanged", str(path)))
-    print(row("section", f"[{args.section}]  enabled = {'true' if value else 'false'}"))
+    print(row("section", f"[{section}]  enabled = {'true' if value else 'false'}"))
     return 0
 
 
-def cmd_status(args: argparse.Namespace) -> int:
-    start = Path(args.start).expanduser().resolve()
+def cmd_status(start_dir: str, registry_file: str, json_out: bool) -> int:
+    start = Path(start_dir).expanduser().resolve()
     root = repo_root(start)
     config, path, error = load_config(start)
-    registry = Path(args.registry).expanduser()
+    registry = Path(registry_file).expanduser()
     legacy = legacy_config(start)
 
     sections = {
@@ -812,7 +682,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         "plans": len(list(project_dir.glob("plans/*.md"))),
     }
 
-    if args.json:
+    if json_out:
         print(
             json.dumps(
                 {
@@ -860,180 +730,348 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 1 if error else 0
 
 
-def cmd_repos(args: argparse.Namespace) -> int:
-    registry = Path(args.registry).expanduser()
+def _open_registry(registry_file: str) -> tuple[dict[str, str] | None, Path, str | None]:
+    """The shared repos preamble: expanded path + parsed registry (or its error)."""
+    registry = Path(registry_file).expanduser()
     repos, error = load_registry(registry)
-
     if error is not None:
         print(f"registry is unreadable: {registry}\n{error}", file=sys.stderr)
+    return repos, registry, error
+
+
+def cmd_repos_list(registry_file: str, json_out: bool) -> int:
+    repos, registry, error = _open_registry(registry_file)
+    if error is not None:
         return 1
 
-    if args.repos_command == "list":
-        if args.json:
-            print(
-                json.dumps(
-                    {
-                        "registry": str(registry),
-                        "repos": None
-                        if repos is None
-                        else {
-                            name: {
-                                "path": raw,
-                                "exists": Path(raw).expanduser().is_dir(),
-                            }
-                            for name, raw in sorted(repos.items())
-                        },
+    if json_out:
+        print(
+            json.dumps(
+                {
+                    "registry": str(registry),
+                    "repos": None
+                    if repos is None
+                    else {
+                        name: {
+                            "path": raw,
+                            "exists": Path(raw).expanduser().is_dir(),
+                        }
+                        for name, raw in sorted(repos.items())
                     },
-                    indent=2,
-                )
+                },
+                indent=2,
             )
-            return 0
-        if repos is None:
-            print(f"no registry: {registry}  (create it with `repos add NAME PATH`)")
-            return 0
-        if not repos:
-            print(f"{registry}: no repos registered  (add one: `repos add NAME PATH`)")
-            return 0
-        width = max(len(name) for name in repos)
-        for name, raw in sorted(repos.items()):
-            missing = "" if Path(raw).expanduser().is_dir() else "   ← MISSING on this machine"
-            print(f"{name:<{width}}  {raw}{missing}")
+        )
         return 0
-
-    if args.repos_command == "add":
-        if not _REPO_NAME.match(args.name):
-            print(
-                f"invalid repo name {args.name!r} — letters, digits, '-', '_' only.",
-                file=sys.stderr,
-            )
-            return 2
-        if repos is not None and args.name in repos:
-            print(
-                f"{args.name!r} is already registered → {repos[args.name]}\n"
-                f"`repos rm {args.name}` first, or pick another name.",
-                file=sys.stderr,
-            )
-            return 1
-        if repos is None:
-            registry.parent.mkdir(parents=True, exist_ok=True)
-            registry.write_text(
-                append_repo(REGISTRY_HEADER, args.name, args.path), encoding="utf-8"
-            )
-        else:
-            registry.write_text(
-                append_repo(registry.read_text(encoding="utf-8"), args.name, args.path),
-                encoding="utf-8",
-            )
-        if not Path(args.path).expanduser().is_dir():
-            print(
-                f"note: {args.path} does not exist on this machine (yet) — registered anyway.",
-                file=sys.stderr,
-            )
-        if args.json:
-            print(
-                json.dumps(
-                    {
-                        "registry": str(registry),
-                        "name": args.name,
-                        "path": args.path,
-                        "changed": True,
-                    },
-                    indent=2,
-                )
-            )
-            return 0
-        print(row("updated", str(registry)))
-        print(row("added", f'{args.name} = "{args.path}"'))
+    if repos is None:
+        print(f"no registry: {registry}  (create it with `repos add NAME PATH`)")
         return 0
+    if not repos:
+        print(f"{registry}: no repos registered  (add one: `repos add NAME PATH`)")
+        return 0
+    width = max(len(name) for name in repos)
+    for name, raw in sorted(repos.items()):
+        missing = "" if Path(raw).expanduser().is_dir() else "   ← MISSING on this machine"
+        print(f"{name:<{width}}  {raw}{missing}")
+    return 0
 
-    # rm
-    if repos is None or args.name not in repos:
-        print(f"{args.name!r} is not registered — see `repos list`.", file=sys.stderr)
+
+def cmd_repos_add(name: str, path_raw: str, registry_file: str, json_out: bool) -> int:
+    repos, registry, error = _open_registry(registry_file)
+    if error is not None:
         return 1
-    text = remove_repo(registry.read_text(encoding="utf-8"), args.name)
+
+    if not _REPO_NAME.match(name):
+        print(
+            f"invalid repo name {name!r} — letters, digits, '-', '_' only.",
+            file=sys.stderr,
+        )
+        return 2
+    if repos is not None and name in repos:
+        print(
+            f"{name!r} is already registered → {repos[name]}\n"
+            f"`repos rm {name}` first, or pick another name.",
+            file=sys.stderr,
+        )
+        return 1
+    if repos is None:
+        registry.parent.mkdir(parents=True, exist_ok=True)
+        registry.write_text(append_repo(REGISTRY_HEADER, name, path_raw), encoding="utf-8")
+    else:
+        registry.write_text(
+            append_repo(registry.read_text(encoding="utf-8"), name, path_raw),
+            encoding="utf-8",
+        )
+    if not Path(path_raw).expanduser().is_dir():
+        print(
+            f"note: {path_raw} does not exist on this machine (yet) — registered anyway.",
+            file=sys.stderr,
+        )
+    if json_out:
+        print(
+            json.dumps(
+                {
+                    "registry": str(registry),
+                    "name": name,
+                    "path": path_raw,
+                    "changed": True,
+                },
+                indent=2,
+            )
+        )
+        return 0
+    print(row("updated", str(registry)))
+    print(row("added", f'{name} = "{path_raw}"'))
+    return 0
+
+
+def cmd_repos_rm(name: str, registry_file: str, json_out: bool) -> int:
+    repos, registry, error = _open_registry(registry_file)
+    if error is not None:
+        return 1
+
+    if repos is None or name not in repos:
+        print(f"{name!r} is not registered — see `repos list`.", file=sys.stderr)
+        return 1
+    text = remove_repo(registry.read_text(encoding="utf-8"), name)
     if text is None:
         print(
-            f"couldn't find {args.name!r}'s line in {registry} — a key shape this tool "
+            f"couldn't find {name!r}'s line in {registry} — a key shape this tool "
             f"doesn't manage; edit the file directly.",
             file=sys.stderr,
         )
         return 1
     registry.write_text(text, encoding="utf-8")
-    if args.json:
+    if json_out:
         print(
-            json.dumps(
-                {"registry": str(registry), "name": args.name, "changed": True}, indent=2
-            )
+            json.dumps({"registry": str(registry), "name": name, "changed": True}, indent=2)
         )
         return 0
     print(row("updated", str(registry)))
-    print(row("removed", args.name))
+    print(row("removed", name))
     return 0
 
 
-def main(argv: list[str]) -> int:
-    args = parse_args(argv)
-
-    if args.command == "sections":
-        return cmd_sections(args)
-
-    if args.command == "init":
-        return cmd_init(args)
-
-    if args.command == "add":
-        return cmd_add(args)
-
-    if args.command == "show":
-        return cmd_show(args)
-
-    if args.command in ("enable", "disable"):
-        return cmd_toggle(args, args.command == "enable")
-
-    if args.command == "status":
-        return cmd_status(args)
-
-    if args.command == "repos":
-        return cmd_repos(args)
-
-    if args.command == "path":
-        start = Path(args.start).expanduser().resolve()
-        root = repo_root(start)
-        path = config_path(start)
-        legacy = legacy_config(start)
-        if args.json:
-            print(
-                json.dumps(
-                    {
-                        "root": str(root),
-                        "key": project_key(root),
-                        "config": str(path),
-                        "exists": path.is_file(),
-                        "legacy": str(legacy) if legacy else None,
-                    },
-                    indent=2,
-                )
+def cmd_path(start_dir: str, json_out: bool) -> int:
+    start = Path(start_dir).expanduser().resolve()
+    root = repo_root(start)
+    path = config_path(start)
+    legacy = legacy_config(start)
+    if json_out:
+        print(
+            json.dumps(
+                {
+                    "root": str(root),
+                    "key": project_key(root),
+                    "config": str(path),
+                    "exists": path.is_file(),
+                    "legacy": str(legacy) if legacy else None,
+                },
+                indent=2,
             )
-        else:
-            status = "exists" if path.is_file() else "absent — create it with `init`"
-            print(f"{path}  ({status})")
-            if legacy:
-                print(legacy_warning(legacy), file=sys.stderr)
-        return 0
-
-    # doctor
-    state_dir = (args.state_dir or default_state_dir()).expanduser()
-    registry = Path(args.registry).expanduser()
-    problems = doctor(state_dir, registry)
-    if args.json:
-        print(json.dumps({"state_dir": str(state_dir), "problems": problems}, indent=2))
-    elif not problems:
-        print(f"lightbridge doctor: {state_dir} — no problems.")
+        )
     else:
-        print(f"lightbridge doctor: {len(problems)} problem(s) in {state_dir}:")
+        status = "exists" if path.is_file() else "absent — create it with `init`"
+        print(f"{path}  ({status})")
+        if legacy:
+            print(legacy_warning(legacy), file=sys.stderr)
+    return 0
+
+
+def cmd_doctor(state_dir: Path | None, registry_file: str, json_out: bool) -> int:
+    state = (state_dir or default_state_dir()).expanduser()
+    registry = Path(registry_file).expanduser()
+    problems = doctor(state, registry)
+    if json_out:
+        print(json.dumps({"state_dir": str(state), "problems": problems}, indent=2))
+    elif not problems:
+        print(f"lightbridge doctor: {state} — no problems.")
+    else:
+        print(f"lightbridge doctor: {len(problems)} problem(s) in {state}:")
         for problem in problems:
             print(f"- [{problem['kind']}] {problem['path']}: {problem['detail']}")
     return 1 if problems else 0
 
 
+def main() -> None:
+    # typer stays a CLI-only import: sibling tools and hooks exec_module this file
+    # inside their own dependency-free PEP 723 envs, so module import must be
+    # stdlib-pure. The `# dependencies` header above is read only when this file
+    # is the `uv run` entrypoint — exactly the case that reaches main().
+    import typer
+
+    prog = Path(sys.argv[0]).stem  # `lb` when invoked through the short PATH shim
+    section_list = ", ".join(sorted(SECTIONS))
+
+    # rich_markup_mode=None keeps `--help` plain click text: no box-drawing or
+    # padding for a piped (agent) reader — the two-audience rule from the design doc.
+    app = typer.Typer(
+        help=DESCRIPTION,
+        epilog=EPILOG,
+        rich_markup_mode=None,
+        no_args_is_help=False,
+    )
+
+    def _version(value: bool) -> None:
+        if value:
+            print(f"{prog} {__version__}")
+            raise typer.Exit(0)
+
+    @app.callback()
+    def _root(
+        version: bool = typer.Option(
+            False,
+            "--version",
+            callback=_version,
+            is_eager=True,
+            help="Show the version and exit.",
+        ),
+    ) -> None:
+        pass
+
+    start_opt = typer.Option(".", "--start", metavar="DIR", help=START_HELP)
+    json_opt = typer.Option(False, "--json", help="Emit JSON.")
+    registry_opt = typer.Option(
+        DEFAULT_REGISTRY,
+        "--registry",
+        metavar="FILE",
+        help=f"Personal repo registry (default: {DEFAULT_REGISTRY}).",
+    )
+
+    @app.command(help="One-shot dashboard: config, sections, sibling state, registry.")
+    def status(
+        start: str = start_opt,
+        registry: str = registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_status(start, registry, json_out))
+
+    @app.command(help="Create this project's config (never clobbers).")
+    def init(
+        sections: list[SectionName] = typer.Argument(
+            None,
+            metavar="SECTION",
+            help=f"Section(s) to write: {section_list}. Omitted: detected from the repo layout.",
+        ),
+        start: str = start_opt,
+        dry_run: bool = typer.Option(False, "--dry-run", help="Print the config; write nothing."),
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(
+            cmd_init([s.value for s in sections or []], start, dry_run, json_out)
+        )
+
+    @app.command(help="Append section(s) to an existing config.")
+    def add(
+        sections: list[SectionName] = typer.Argument(
+            ...,
+            metavar="SECTION",
+            help=f"Section(s) to add: {section_list}.",
+        ),
+        start: str = start_opt,
+        dry_run: bool = typer.Option(
+            False, "--dry-run", help="Print what would be appended; write nothing."
+        ),
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(
+            cmd_add([s.value for s in sections], start, dry_run, json_out)
+        )
+
+    @app.command(help="Print the stored config, or one section's block, verbatim.")
+    def show(
+        section: str = typer.Argument(
+            None,
+            metavar="SECTION",
+            help="Only this section (any table present in the config).",
+        ),
+        start: str = start_opt,
+        json_out: bool = typer.Option(False, "--json", help="Emit JSON (parsed TOML)."),
+    ) -> None:
+        raise typer.Exit(cmd_show(section, start, json_out))
+
+    def _toggle_command(verb: str, sense: str, value: bool) -> None:
+        @app.command(name=verb, help=f"Set `enabled = {sense}` on a section, in place.")
+        def _toggle(
+            section: SectionName = typer.Argument(
+                ...,
+                metavar="SECTION",
+                help=f"Section to {verb}: {section_list}.",
+            ),
+            start: str = start_opt,
+            json_out: bool = json_opt,
+        ) -> None:
+            raise typer.Exit(cmd_toggle(section.value, start, json_out, value))
+
+    _toggle_command("enable", "true", True)
+    _toggle_command("disable", "false", False)
+
+    repos_app = typer.Typer(rich_markup_mode=None)
+    app.add_typer(
+        repos_app, name="repos", help="Manage the personal repo registry (never clobbers a name)."
+    )
+    repos_registry_opt = typer.Option(
+        DEFAULT_REGISTRY,
+        "--registry",
+        metavar="FILE",
+        help=f"Registry file (default: {DEFAULT_REGISTRY}).",
+    )
+
+    @repos_app.command(name="list", help="Every registered name → path; dead paths marked.")
+    def repos_list(
+        registry: str = repos_registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_repos_list(registry, json_out))
+
+    @repos_app.command(name="add", help="Register NAME → PATH (refuses an existing name).")
+    def repos_add(
+        name: str = typer.Argument(..., help="Logical repo name (a bare TOML key)."),
+        path: str = typer.Argument(
+            ..., help="Local path, ~-relative or absolute; stored as given."
+        ),
+        registry: str = repos_registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_repos_add(name, path, registry, json_out))
+
+    @repos_app.command(name="rm", help="Unregister NAME.")
+    def repos_rm(
+        name: str = typer.Argument(..., help="Registered repo name — see `repos list`."),
+        registry: str = repos_registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_repos_rm(name, registry, json_out))
+
+    @app.command(help="List the known config sections.")
+    def sections(json_out: bool = json_opt) -> None:
+        raise typer.Exit(cmd_sections(json_out))
+
+    @app.command(help="Print this project's config path.")
+    def path(start: str = start_opt, json_out: bool = json_opt) -> None:
+        raise typer.Exit(cmd_path(start, json_out))
+
+    @app.command(help="Audit the projects tree for rot.")
+    def doctor(
+        state_dir: Path | None = typer.Option(
+            None,
+            "--state-dir",
+            metavar="DIR",
+            help=f"Projects state dir (default: ${STATE_DIR_ENV} or {DEFAULT_STATE_DIR}).",
+        ),
+        registry: str = typer.Option(
+            DEFAULT_REGISTRY,
+            "--registry",
+            metavar="FILE",
+            help=f"Personal repo registry, scanned for legacy per-repo configs "
+            f"(default: {DEFAULT_REGISTRY}).",
+        ),
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_doctor(state_dir, registry, json_out))
+
+    app(prog_name=prog)
+
+
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    main()

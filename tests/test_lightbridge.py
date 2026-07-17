@@ -622,6 +622,23 @@ class ReposCliTest(unittest.TestCase):
             self.assertIsNone(json.loads(result.stdout)["repos"])
 
 
+class CliContractTest(unittest.TestCase):
+    """The parser-layer contracts the Typer migration must not drift on."""
+
+    def test_bare_invocation_is_usage_error(self):
+        """Design decision 5: bare `lb` → exit 2, not help-and-exit-0."""
+        result = subprocess.run([str(SCRIPT)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2, result.stderr)
+
+    def test_help_is_plain_text(self):
+        """Help stays plain click text (no rich box-drawing/padding) so a piped
+        agent reader pays no decoration tokens — the design doc's two-audience rule."""
+        result = subprocess.run([str(SCRIPT), "--help"], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("╭", result.stdout)
+        self.assertIn("Spec: the lightbridge-config skill.", result.stdout)
+
+
 class SectionsTest(unittest.TestCase):
     def test_sections_lists_every_known_section(self):
         result = subprocess.run(
