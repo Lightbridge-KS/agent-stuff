@@ -20,6 +20,7 @@ attribution footers) from this project:
 | `grilling` | `productivity` | `skills/productivity/grilling` |
 | `handoff` | `productivity` | `skills/productivity/handoff` |
 | `writing-great-skills` | `productivity` | `skills/productivity/writing-great-skills` |
+| `teach` | `productivity` | `skills/productivity/teach` |
 
 Each adapted `SKILL.md` also carries an inline attribution footer.
 
