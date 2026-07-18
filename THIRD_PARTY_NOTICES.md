@@ -21,6 +21,7 @@ attribution footers) from this project:
 | `handoff` | `productivity` | `skills/productivity/handoff` |
 | `writing-great-skills` | `productivity` | `skills/productivity/writing-great-skills` |
 | `teach` | `productivity` | `skills/productivity/teach` |
+| `wayfinder` | `productivity` | `skills/engineering/wayfinder` |
 
 Each adapted `SKILL.md` also carries an inline attribution footer.
 

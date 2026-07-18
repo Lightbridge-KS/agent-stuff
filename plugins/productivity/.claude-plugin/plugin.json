@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "productivity",
-  "description": "Agent-workflow and meta skills: blindspot passes, grilling sessions, conversation handoffs, skill authoring, and teaching workspaces.",
+  "description": "Agent-workflow and meta skills: blindspot passes, grilling sessions, conversation handoffs, skill authoring, teaching workspaces, and wayfinder maps.",
   "author": {
     "name": "Kittipos S.",
     "url": "https://github.com/Lightbridge-KS"
@@ -9,5 +9,5 @@
   "homepage": "https://github.com/Lightbridge-KS/agent-stuff",
   "repository": "https://github.com/Lightbridge-KS/agent-stuff",
   "license": "MIT",
-  "keywords": ["blindspot", "grilling", "handoff", "skills", "workflow", "teach", "learning"]
+  "keywords": ["blindspot", "grilling", "handoff", "skills", "workflow", "teach", "learning", "wayfinder", "planning"]
 }
