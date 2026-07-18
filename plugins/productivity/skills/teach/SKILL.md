@@ -2,7 +2,7 @@
 name: teach
 description: Turn the current directory into a stateful, multi-session learning workspace and teach the user one topic over time — mission-grounded lessons, high-trust resources, learning records. Use only when the user invokes it by name (/teach) inside a dedicated learning repo; not for one-off explanations.
 argument-hint: "What would you like to learn about?"
-disable-model-invocation: true
+disable-model-invocation: false
 metadata:
   version: "2026-07-18"
 ---
