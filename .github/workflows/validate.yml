@@ -30,9 +30,12 @@ jobs:
         run: uv run tests/test_research_kit.py
       - name: Run plan-store tests
         run: uv run tests/test_plan_store.py
+      - name: Run notebook-tools tests
+        run: uv run tests/test_notebook_tools.py
       - name: Syntax-check all Python (bin, scripts, hooks, tests)
         run: |
           uv run python -m py_compile \
             bin/install.py bin/validate.py bin/package.py \
             scripts/*/*.py hooks/*/*.py tests/*.py \
+            scripts/notebook-tools/notebook_tools/*.py \
             plugins/research/skills/research/scripts/research_kit.py
