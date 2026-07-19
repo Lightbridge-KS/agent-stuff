@@ -13,8 +13,8 @@ Predecessor: [`mvp.md`](mvp.md)
 
 ## Now
 
-Extract the proven v0.2 server and skill into a canonical dual-harness plugin and implement
-portable fail-closed roots for plugin mode.
+Install the canonical v0.3 plugin from the repo-local marketplace and test it in a fresh
+Codex task while retaining the direct MCP registration as the rollback path.
 
 ## Next
 
@@ -23,11 +23,11 @@ then remove direct MCP registration.
 
 ## Milestones
 
-- [x] Phase-3 design, ADR, and successor tracker landed before implementation — commit: pending
-- [ ] Canonical `plugins/notebook-tools` bundle and source migration — commit: pending
-- [ ] Codex and Claude manifests plus repo marketplace entries — commit: pending
-- [ ] Static/client/config root resolver and user roots CLI — commit: pending
-- [ ] Repository plugin validation and focused tests — commit: pending
+- [x] Phase-3 design, ADR, and successor tracker landed before implementation — commit: `ed9d54d`
+- [x] Canonical `plugins/notebook-tools` bundle and source migration — commit: `b894e00`
+- [x] Codex and Claude manifests plus repo marketplace entries — commit: `b894e00`
+- [x] Static/client/config root resolver and user roots CLI — commit: `b894e00`
+- [x] Repository plugin validation and focused tests — commit: `b894e00`
 - [ ] Installed-plugin discovery, root denial, and notebook live acceptance — commit: pending
 - [ ] Direct MCP registration removed after successful cutover — commit: pending
 - [ ] Full dry gates and final tracker reconciliation — commit: pending
@@ -40,6 +40,12 @@ then remove direct MCP registration.
 - Static roots remain authoritative in direct mode.
 - Plugin roots prefer MCP client roots, then explicit user config, then fail closed.
 - Public Plugin Directory submission, apps, hooks, and visual assets are deferred.
+
+## Acceptance evidence
+
+- Python 3.11 focused suite: 18 notebook/root tests and 4 packaging tests pass.
+- Repository validator and the official plugin validator accept the bundle.
+- Ruff check, Ruff format check, and `git diff --check` pass for the implementation milestone.
 
 ## Deferred
 
