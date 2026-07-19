@@ -6,23 +6,27 @@
 #   "mcp[cli]>=1.28,<2",
 #   "nbclient>=0.11,<1",
 #   "nbformat>=5.10,<6",
+#   "platformdirs>=4.3,<5",
 #   "pydantic>=2.12,<3",
 # ]
 # ///
-"""Behavioral contract tests for scripts/notebook-tools."""
+"""Behavioral contract tests for the packaged notebook-tools MCP server."""
 
 from __future__ import annotations
 
 import asyncio
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-TOOL_ROOT = REPO_ROOT / "scripts" / "notebook-tools"
+TOOL_ROOT = REPO_ROOT / "plugins" / "notebook-tools" / "mcp"
 sys.path.insert(0, str(TOOL_ROOT))
 
 from notebook_tools.contracts import (  # noqa: E402
@@ -35,6 +39,12 @@ from notebook_tools.contracts import (  # noqa: E402
 )
 from notebook_tools.errors import NotebookToolError  # noqa: E402
 from notebook_tools.filesystem import atomic_replace, revision_of  # noqa: E402
+from notebook_tools.roots import (  # noqa: E402
+    RootResolver,
+    ServiceRegistry,
+    read_config_roots,
+    write_config_roots,
+)
 from notebook_tools.server import SERVER_INSTRUCTIONS, create_server  # noqa: E402
 from notebook_tools.service import NotebookService  # noqa: E402
 
@@ -355,6 +365,131 @@ class McpCase(unittest.IsolatedAsyncioTestCase):
             result.structuredContent["error"]["code"], "NOTEBOOK_NOT_FOUND"
         )
         self.assertIn("Next:", result.content[0].text)
+
+        created = await self.server.call_tool(
+            "notebook_create",
+            {
+                "path": str(self.root / "access.ipynb"),
+                "cells": [{"cell_type": "markdown", "source": "# Access"}],
+            },
+        )
+        self.assertFalse(created.isError)
+        self.assertEqual(
+            created.structuredContent["data"]["access"],
+            {"root_source": "static", "root_count": 1},
+        )
+
+
+class RootResolverCase(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name).resolve()
+        self.config_path = self.root / "config.toml"
+
+    async def asyncTearDown(self) -> None:
+        self.tmp.cleanup()
+
+    @staticmethod
+    def context(*uris: str, failure: Exception | None = None) -> SimpleNamespace:
+        class Session:
+            async def list_roots(self):
+                if failure:
+                    raise failure
+                return SimpleNamespace(roots=[SimpleNamespace(uri=uri) for uri in uris])
+
+        return SimpleNamespace(session=Session())
+
+    async def test_static_roots_are_authoritative_and_cached(self) -> None:
+        resolver = RootResolver([self.root])
+        access = await resolver.resolve(self.context(failure=AssertionError("unused")))
+        self.assertEqual(access.source, "static")
+        self.assertEqual(access.roots, (self.root,))
+        registry = ServiceRegistry()
+        self.assertIs(registry.get(access.roots), registry.get(access.roots))
+
+    async def test_client_file_roots_resolve_symlinks_and_ignore_invalid(self) -> None:
+        linked = self.root.parent / f"{self.root.name}-link"
+        linked.symlink_to(self.root, target_is_directory=True)
+        self.addCleanup(linked.unlink)
+        resolver = RootResolver(use_client_roots=True, config_path=self.config_path)
+        access = await resolver.resolve(
+            self.context(
+                linked.as_uri(),
+                self.root.as_uri(),
+                "https://example.test/project",
+                "file://remotehost/tmp",
+                (self.root / "missing").as_uri(),
+            )
+        )
+        self.assertEqual(access.source, "client")
+        self.assertEqual(access.roots, (self.root,))
+
+    async def test_client_failure_falls_back_to_config(self) -> None:
+        write_config_roots((self.root,), self.config_path)
+        resolver = RootResolver(use_client_roots=True, config_path=self.config_path)
+        access = await resolver.resolve(
+            self.context(failure=RuntimeError("unsupported"))
+        )
+        self.assertEqual(access.source, "config")
+        self.assertEqual(access.roots, (self.root,))
+
+    async def test_no_roots_and_malformed_config_fail_closed(self) -> None:
+        resolver = RootResolver(use_client_roots=True, config_path=self.config_path)
+        with self.assertRaises(NotebookToolError) as caught:
+            await resolver.resolve(self.context())
+        self.assertEqual(caught.exception.code, "ROOT_CONFIGURATION_REQUIRED")
+
+        self.config_path.write_text(
+            "schema_version = 2\nroots = []\n", encoding="utf-8"
+        )
+        with self.assertRaises(NotebookToolError) as caught:
+            await resolver.resolve(self.context())
+        self.assertEqual(caught.exception.code, "ROOT_CONFIGURATION_REQUIRED")
+
+
+class RootCliCase(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name).resolve()
+        self.config_path = self.root / "settings" / "config.toml"
+        self.script = TOOL_ROOT / "notebook_roots.py"
+        self.env = {**os.environ, "NOTEBOOK_TOOLS_CONFIG": str(self.config_path)}
+        self.addCleanup(self.tmp.cleanup)
+
+    def run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["uv", "run", "--script", str(self.script), *args],
+            cwd=REPO_ROOT,
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    def test_path_add_list_remove_are_atomic_and_idempotent(self) -> None:
+        shown = self.run_cli("path")
+        self.assertEqual(shown.returncode, 0, shown.stderr)
+        self.assertEqual(Path(shown.stdout.strip()), self.config_path)
+
+        for _ in range(2):
+            added = self.run_cli("add", str(self.root))
+            self.assertEqual(added.returncode, 0, added.stderr)
+        self.assertEqual(read_config_roots(self.config_path), (self.root,))
+        self.assertEqual(list(self.config_path.parent.glob(".config.toml.tmp-*")), [])
+
+        listed = self.run_cli("list")
+        self.assertEqual(listed.stdout.strip(), str(self.root))
+        for _ in range(2):
+            removed = self.run_cli("remove", str(self.root))
+            self.assertEqual(removed.returncode, 0, removed.stderr)
+        self.assertEqual(read_config_roots(self.config_path), ())
+
+    def test_add_rejects_relative_and_missing_roots(self) -> None:
+        self.assertNotEqual(self.run_cli("add", "relative").returncode, 0)
+        self.assertNotEqual(
+            self.run_cli("add", str(self.root / "missing")).returncode,
+            0,
+        )
 
 
 class ExecutionCase(unittest.IsolatedAsyncioTestCase):

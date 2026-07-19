@@ -40,4 +40,5 @@ notebook import it.
 - Keep outputs bounded. Save important plots to files when they need visual inspection.
 
 If a path falls outside configured roots, surface the exact project root that needs adding
-instead of weakening the filesystem boundary.
+instead of weakening the filesystem boundary. For `ROOT_CONFIGURATION_REQUIRED`, open the
+project as the MCP client root or configure an explicit fallback with `notebook_roots.py`.

@@ -1,4 +1,4 @@
-"""Stable, agent-correctable errors for notebook operations."""
+"""Stable, agent-correctable errors for packaged notebook operations."""
 
 from __future__ import annotations
 

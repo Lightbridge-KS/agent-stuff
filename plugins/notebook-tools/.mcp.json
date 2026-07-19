@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "notebook-tools": {
+      "title": "Notebook Tools",
+      "description": "Cell-aware Jupyter notebook operations with fail-closed filesystem roots.",
+      "command": "uv",
+      "args": [
+        "run",
+        "--script",
+        "./mcp/notebook_mcp.py",
+        "--use-client-roots"
+      ],
+      "cwd": "."
+    }
+  }
+}

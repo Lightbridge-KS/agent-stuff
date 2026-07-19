@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "notebook-tools",
+  "version": "0.3.0",
+  "description": "Safe cell-aware Jupyter notebook creation, inspection, editing, and execution.",
+  "author": {
+    "name": "Kittipos S.",
+    "url": "https://github.com/Lightbridge-KS"
+  },
+  "homepage": "https://github.com/Lightbridge-KS/agent-stuff/tree/main/plugins/notebook-tools",
+  "repository": "https://github.com/Lightbridge-KS/agent-stuff",
+  "license": "MIT",
+  "keywords": ["jupyter", "notebook", "python", "mcp"]
+}

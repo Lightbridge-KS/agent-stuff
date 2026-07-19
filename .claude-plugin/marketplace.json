@@ -46,6 +46,14 @@
       "description": "Deep-research harness: plan conversationally, execute autonomously into a cited report with resumable file state and pluggable backends.",
       "category": "productivity",
       "tags": ["research", "deep-research", "citations", "pubmed"]
+    },
+    {
+      "name": "notebook-tools",
+      "displayName": "Notebook Tools",
+      "source": "./plugins/notebook-tools",
+      "description": "Safe cell-aware Jupyter notebook creation, inspection, editing, and clean-kernel execution.",
+      "category": "development",
+      "tags": ["jupyter", "notebook", "python", "mcp"]
     }
   ]
 }
