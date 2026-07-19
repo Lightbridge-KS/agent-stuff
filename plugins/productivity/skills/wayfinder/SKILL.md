@@ -2,7 +2,7 @@
 name: wayfinder
 description: Chart an effort too big and foggy for one session as a shared map of decision tickets — on GitHub Issues or docs/wayfinder/ — then resolve them one at a time until the way to the destination is clear. Use only when the user invokes it by name (/wayfinder).
 argument-hint: "Loose idea to chart, or a map (URL / effort name) to work"
-disable-model-invocation: true
+disable-model-invocation: false
 metadata:
   version: "2026-07-18"
 ---
