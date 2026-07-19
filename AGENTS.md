@@ -28,7 +28,7 @@ hooks/<hook>/                             # Claude Code event hooks
 bin/                                      # MACHINERY (not content): installer, validator,
   install.py  targets.toml                #   and the agent-target registry
   validate.py
-tests/                                    # test suite (test_install.py, test_hooks.py)
+tests/                                    # test suite (8 files; `just test` runs all)
 docs/architecture.md                      # how and why this repo is structured
 .github/workflows/validate.yml            # CI gate on every PR and push to main
 ```
@@ -144,9 +144,15 @@ Python, executed via [`uv`](https://docs.astral.sh/uv/) (self-contained scripts 
 - `uv run bin/package.py --list` — list packageable skills.
 - `uv run bin/package.py` — package every skill into `dist/` (one archive per skill).
 - `uv run bin/package.py <skill>` / `--domain <domain>` — package one skill or one domain.
-- `uv run tests/test_install.py` — installer guard + multi-agent tests.
-- `uv run tests/test_hooks.py` — hook opt-in gating tests.
-- `uv run tests/test_package.py` — packager layout + reproducibility tests.
+- `just test` — the whole `tests/` suite. Individually:
+  - `uv run tests/test_install.py` — installer guard + multi-agent tests.
+  - `uv run tests/test_hooks.py` — hook opt-in gating tests.
+  - `uv run tests/test_package.py` — packager layout + reproducibility tests.
+  - `uv run tests/test_lightbridge.py` — the canonical config resolver.
+  - `uv run tests/test_plan_store.py` — `plan-store` plus both plan hooks.
+  - `uv run tests/test_repo_links.py` — the `repo-links` resolver CLI and its hook.
+  - `uv run tests/test_handoff_hook.py` — the handoff split (pulled journal, pushed inbox).
+  - `uv run tests/test_research_kit.py` — the research skill's `research_kit.py`.
 
 Agent install targets live in `bin/targets.toml` — add an agent there (one block), no code
 change. A top-level `justfile` wraps the common recipes (`just validate`, `just package`,
