@@ -22,14 +22,14 @@ the final approval UX: reads do not prompt and create/edit/execute remain write-
 
 ## Milestones
 
-- [x] Approved design and progress tracker written before implementation — commit: pending
-- [x] Harness-neutral notebook model, validation, revision, root, and atomic-write layers — commit: pending
-- [x] `notebook_read`, `notebook_create`, and atomic batch `notebook_edit` — commit: pending
-- [x] Codex-oriented notebook skill and direct-registration runbook — commit: pending
-- [x] Focused domain, filesystem, MCP-contract, and mutation tests — commit: pending
-- [x] Clean-kernel `notebook_execute` with bounded results and guarded write-back — commit: pending
-- [x] Synthetic `_playground` tracer and STDIO MCP discovery — commit: pending
-- [x] `uv run bin/validate.py`, focused suite, `just test`, and diff checks green — commit: pending
+- [x] Approved design and progress tracker written before implementation — `32f7768`
+- [x] Harness-neutral notebook model, validation, revision, root, and atomic-write layers — `32f7768`
+- [x] `notebook_read`, `notebook_create`, and atomic batch `notebook_edit` — `32f7768`
+- [x] Codex-oriented notebook skill and direct-registration runbook — `32f7768`
+- [x] Focused domain, filesystem, MCP-contract, and mutation tests — `32f7768`
+- [x] Clean-kernel `notebook_execute` with bounded results and guarded write-back — `32f7768`
+- [x] Synthetic `_playground` tracer and STDIO MCP discovery — `32f7768`
+- [x] `uv run bin/validate.py`, focused suite, `just test`, and diff checks green — `32f7768`
 
 ## Verification evidence
 
