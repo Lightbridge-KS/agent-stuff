@@ -31,7 +31,7 @@ approvals; delegated acceptance could verify annotations and behavior but not di
 - [x] Repository plugin validation and focused tests — commit: `b894e00`
 - [x] Installed-plugin discovery, root denial, and notebook live acceptance — runtime: `2026-07-19`
 - [x] Direct MCP registration removed after successful cutover — runtime: `2026-07-19`
-- [x] Full dry gates and final tracker reconciliation — commit: pending
+- [x] Full dry gates and final tracker reconciliation — commit: `b4ed849`
 
 ## Confirmed contracts
 
