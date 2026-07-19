@@ -66,6 +66,7 @@ Add a new agent there and its `--<name>` flag appears automatically; no code cha
 /plugin install radiology@lightbridge-skills
 /plugin install lightbridge@lightbridge-skills
 /plugin install productivity@lightbridge-skills
+/plugin install research@lightbridge-skills
 ```
 
 `/plugin marketplace update lightbridge-skills` refreshes the catalog later.
@@ -78,10 +79,20 @@ Standalone CLIs an agent runs inside the project it's working in. Each is a self
 - **[`scripts/docs-index`](scripts/docs-index)** — print a compact, read-before-coding
   index of a repo's `docs/` from each file's frontmatter (`summary` / `read_when`). A
   Python+`uv` port of Peter Steinberger's `docs-list.ts`.
+- **[`scripts/lightbridge`](scripts/lightbridge)** — the canonical resolver and CLI for
+  user-level `.lightbridge` project config (`~/.lightbridge/projects/<key>/config.toml`).
+  Every other script and hook here reads its opt-in state through this one.
+- **[`scripts/handoff`](scripts/handoff)** — handoff storage for a repo: a pulled journal
+  and a pushed inbox, so one session (or a sibling repo) can leave the next one a note.
+- **[`scripts/plan-store`](scripts/plan-store)** — durable, project-keyed, status-bearing
+  plans; the filing system Claude Code's plan mode never had.
+- **[`scripts/repo-links`](scripts/repo-links)** — resolve a repo's declared cross-repo
+  links to verified local paths, so personal paths never get committed.
 
 ## Hooks
 
-`SessionStart` event hooks for **Claude Code and Codex**. Each is described by an
+Event hooks for **Claude Code and Codex** — `SessionStart` for the context injectors,
+`PreToolUse`/`PostToolUse(ExitPlanMode)` for the plan pair. Each is described by an
 agent-neutral [`hook.toml`](hooks/docs-index-inject/hook.toml); the installer renders it into
 every agent's registration form (Claude `settings.json`, Codex `hooks.json` / `config.toml`)
 with paths resolved. It only prints — it never edits settings:
@@ -97,13 +108,28 @@ uv run bin/install.py --hooks
   (`~/.lightbridge/projects/<key>/config.toml`), so repos with no docs —
   or a website `docs/` — are untouched. (Codex additionally requires trusting the hook via
   `/hooks`.)
+- **[`hooks/repo-links-inject`](hooks/repo-links-inject)** — a `SessionStart` hook that
+  injects the repo's resolved cross-repo links, pairing with `repo-links`. Dead links
+  surface as warnings; no registry on the machine means silence.
+- **[`hooks/handoff-inject`](hooks/handoff-inject)** — a `SessionStart` hook that announces
+  the handoffs pushed at this repo, pairing with `handoff`, so an agent learns a sibling
+  repo changed something it depends on *before* touching code.
+- **[`hooks/plan-capture`](hooks/plan-capture)** — `PostToolUse(ExitPlanMode)`; files the
+  **approved** plan into the project's plan store instead of Claude Code's flat
+  `~/.claude/plans/`. Pairs with `plan-store`.
+- **[`hooks/plan-gate`](hooks/plan-gate)** — `PreToolUse(ExitPlanMode)`; **opt-in**
+  auto-approve for the plan dialog. Silent unless `[plans].auto_approve = true`.
+
+All five are registered once in user settings and fail open and quiet when they have
+nothing to contribute. Four gate on a lightbridge config section (`[docs-index]`,
+`[repo-links]`, `[plans]`); `handoff-inject` needs no section — it stays silent until a
+handoff is actually pushed at the repo.
 
 ## Develop
 
 ```sh
 uv run bin/validate.py        # SKILL.md + manifests + scripts/hooks contracts
-uv run tests/test_install.py  # installer guards + multi-agent tests
-uv run tests/test_hooks.py    # hook opt-in gating
+just test                     # the whole tests/ suite (8 files)
 ```
 
 Editing guide and contracts: [`CLAUDE.md`](CLAUDE.md) (a.k.a. `AGENTS.md`). Design
