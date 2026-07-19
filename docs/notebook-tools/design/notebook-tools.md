@@ -4,6 +4,7 @@ read_when:
   - implementing or changing notebook-tools MCP schemas or behavior
   - changing notebook path safety, cell identity, revisions, or atomic saves
   - changing notebook execution, output handling, or Codex registration
+  - reviewing the base contract before native plugin packaging
 ---
 
 # Notebook Tools — Design
@@ -28,6 +29,10 @@ Notebook MCP adapter
 
 The MCP adapter owns schemas, annotations, and compact results. Notebook mutation and
 execution code do not depend on Codex or the MCP runtime.
+
+Native plugin packaging and dynamic root discovery extend this design in
+[`plugin-packaging.md`](plugin-packaging.md). The root-policy change is recorded in
+[`../adr/0001-dynamic-plugin-roots.md`](../adr/0001-dynamic-plugin-roots.md).
 
 ## Tool surface
 

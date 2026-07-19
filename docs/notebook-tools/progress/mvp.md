@@ -9,16 +9,17 @@ read_when:
 # Notebook Tools — Progress
 
 Design: [`../design/notebook-tools.md`](../design/notebook-tools.md)
+Successor: [`plugin-packaging.md`](plugin-packaging.md)
 
 ## Now
 
-The v0.2 direct-STDIO implementation, phase-2 execution, skill, tests, tracer, and local
-Codex registration are complete in the working tree.
+The v0.2 direct-STDIO implementation, phase-2 execution, skill, tests, registration, and
+post-restart live Codex acceptance are complete.
 
 ## Next
 
-Restart Codex so the already-running desktop task reloads MCP configuration, then confirm
-the final approval UX: reads do not prompt and create/edit/execute remain write-aware.
+Implement the approved native plugin successor tracked in `plugin-packaging.md`; retain
+direct registration until the installed plugin passes live acceptance.
 
 ## Milestones
 
@@ -47,10 +48,13 @@ the final approval UX: reads do not prompt and create/edit/execute remain write-
 - `uvx ruff check scripts/notebook-tools tests/test_notebook_tools.py` and
   `git diff --check`: passed.
 
-## Remaining live check
+## Live acceptance
 
-- [ ] After restarting Codex, confirm reads do not prompt and writes do prompt. The current
-  task cannot hot-reload a server registered after task startup.
+- [x] After restarting Codex, the registered MCP exposed all four tools in a new task;
+  create, prompt-free reads, guarded dry-run and commit edits, clean-kernel execution, and
+  write-back succeeded against `_tests/notebook-tools-live-test/live-test.ipynb`. Final
+  revision `5711fe645bef6a53cf22d2fdd534c0b254e0835c6bc23c8f94b5cbf6dd4083e6` passed
+  independent `nbformat.validate` with outputs `15` and `total=15`.
 
 ## Confirmed contracts
 
@@ -62,5 +66,5 @@ the final approval UX: reads do not prompt and create/edit/execute remain write-
 
 ## Deferred
 
-- Native `.codex-plugin` and marketplace packaging.
 - Stateful kernels, notebook rendering, rich image return, and conversion workflows.
+- Public Plugin Directory submission, apps, hooks, and visual assets.
