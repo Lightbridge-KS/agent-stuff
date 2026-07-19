@@ -1,17 +1,18 @@
-"""Thin FastMCP adapter for the notebook domain service."""
+"""Thin FastMCP adapter for the packaged notebook domain service."""
 
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from pydantic import Field
 
 from .contracts import CellInput, EditOperation, ToolEnvelope
 from .errors import NotebookToolError
-from .service import NotebookService
+from .roots import RootAccess, RootResolver, ServiceRegistry
 
 
 SERVER_INSTRUCTIONS = (
@@ -25,8 +26,18 @@ SERVER_INSTRUCTIONS = (
 ToolResult = Annotated[CallToolResult, ToolEnvelope]
 
 
-def create_server(roots: list[str]) -> FastMCP:
-    service = NotebookService(roots)
+def create_server(
+    roots: list[str] | None = None,
+    *,
+    use_client_roots: bool = False,
+    config_path: Path | None = None,
+) -> FastMCP:
+    resolver = RootResolver(
+        roots,
+        use_client_roots=use_client_roots,
+        config_path=config_path,
+    )
+    services = ServiceRegistry()
     mcp = FastMCP("Notebook Tools", instructions=SERVER_INSTRUCTIONS)
 
     @mcp.tool(
@@ -44,6 +55,7 @@ def create_server(roots: list[str]) -> FastMCP:
         structured_output=True,
     )
     async def notebook_read(
+        ctx: Context,
         path: Annotated[
             str,
             Field(description="Absolute .ipynb path beneath a configured root"),
@@ -58,8 +70,11 @@ def create_server(roots: list[str]) -> FastMCP:
         max_output_items: Annotated[int, Field(ge=0, le=5)] = 5,
         max_output_chars: Annotated[int, Field(ge=0, le=2_000)] = 2_000,
     ) -> ToolResult:
-        return await _sync_call(
-            service.read,
+        return await _resolved_sync_call(
+            resolver,
+            services,
+            ctx,
+            "read",
             path=path,
             mode=mode,
             cell_ids=cell_ids,
@@ -87,6 +102,7 @@ def create_server(roots: list[str]) -> FastMCP:
         structured_output=True,
     )
     async def notebook_create(
+        ctx: Context,
         path: Annotated[
             str,
             Field(description="Absolute new .ipynb path beneath a configured root"),
@@ -97,8 +113,11 @@ def create_server(roots: list[str]) -> FastMCP:
         language: str = "python",
         metadata: dict[str, Any] | None = None,
     ) -> ToolResult:
-        return await _sync_call(
-            service.create,
+        return await _resolved_sync_call(
+            resolver,
+            services,
+            ctx,
+            "create",
             path=path,
             cells=cells,
             kernel_name=kernel_name,
@@ -123,6 +142,7 @@ def create_server(roots: list[str]) -> FastMCP:
         structured_output=True,
     )
     async def notebook_edit(
+        ctx: Context,
         path: Annotated[str, Field(description="Absolute existing .ipynb path")],
         expected_revision: Annotated[
             str,
@@ -131,8 +151,11 @@ def create_server(roots: list[str]) -> FastMCP:
         operations: Annotated[list[EditOperation], Field(min_length=1, max_length=100)],
         dry_run: bool = False,
     ) -> ToolResult:
-        return await _sync_call(
-            service.edit,
+        return await _resolved_sync_call(
+            resolver,
+            services,
+            ctx,
+            "edit",
             path=path,
             expected_revision=expected_revision,
             operations=operations,
@@ -155,6 +178,7 @@ def create_server(roots: list[str]) -> FastMCP:
         structured_output=True,
     )
     async def notebook_execute(
+        ctx: Context,
         path: Annotated[str, Field(description="Absolute existing .ipynb path")],
         stop_after_cell_id: str | None = None,
         kernel_name: str | None = None,
@@ -164,6 +188,8 @@ def create_server(roots: list[str]) -> FastMCP:
         expected_revision: str | None = None,
     ) -> ToolResult:
         try:
+            access = await resolver.resolve(ctx)
+            service = services.get(access.roots)
             data = await service.execute(
                 path=path,
                 stop_after_cell_id=stop_after_cell_id,
@@ -173,6 +199,7 @@ def create_server(roots: list[str]) -> FastMCP:
                 write_back=write_back,
                 expected_revision=expected_revision,
             )
+            data["access"] = access.metadata()
             return _success(_execution_summary(data), data)
         except NotebookToolError as exc:
             return _error(exc)
@@ -190,9 +217,19 @@ def create_server(roots: list[str]) -> FastMCP:
     return mcp
 
 
-async def _sync_call(function, /, **kwargs: Any) -> CallToolResult:
+async def _resolved_sync_call(
+    resolver: RootResolver,
+    services: ServiceRegistry,
+    context: Context,
+    method_name: str,
+    /,
+    **kwargs: Any,
+) -> CallToolResult:
     try:
+        access = await resolver.resolve(context)
+        function = getattr(services.get(access.roots), method_name)
         data = await asyncio.to_thread(function, **kwargs)
+        _attach_access(data, access)
         return _success(_summary(data), data)
     except NotebookToolError as exc:
         return _error(exc)
@@ -204,6 +241,10 @@ async def _sync_call(function, /, **kwargs: Any) -> CallToolResult:
                 "Inspect the server diagnostics and retry after correcting the underlying environment.",
             )
         )
+
+
+def _attach_access(data: dict[str, Any], access: RootAccess) -> None:
+    data["access"] = access.metadata()
 
 
 def _success(summary: str, data: dict[str, Any]) -> CallToolResult:

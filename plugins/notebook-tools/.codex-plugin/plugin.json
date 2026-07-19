@@ -1,0 +1,28 @@
+{
+  "name": "notebook-tools",
+  "version": "0.3.0",
+  "description": "Safe cell-aware Jupyter notebook creation, inspection, editing, and execution for Codex.",
+  "author": {
+    "name": "Kittipos S.",
+    "url": "https://github.com/Lightbridge-KS"
+  },
+  "homepage": "https://github.com/Lightbridge-KS/agent-stuff/tree/main/plugins/notebook-tools",
+  "repository": "https://github.com/Lightbridge-KS/agent-stuff",
+  "license": "MIT",
+  "keywords": ["jupyter", "notebook", "python", "mcp"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Notebook Tools",
+    "shortDescription": "Safely create, edit, inspect, and run Jupyter notebooks.",
+    "longDescription": "Cell-aware notebook workflows with stable IDs, guarded revisions, atomic saves, bounded outputs, and clean-kernel execution.",
+    "developerName": "Lightbridge",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "Inspect this Jupyter notebook and summarize its cell structure.",
+      "Edit this notebook safely using a guarded cell-aware change.",
+      "Execute this notebook from a clean kernel and verify its outputs."
+    ]
+  }
+}

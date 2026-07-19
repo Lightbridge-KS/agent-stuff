@@ -32,6 +32,7 @@ test:
     uv run tests/test_research_kit.py
     uv run tests/test_plan_store.py
     uv run tests/test_notebook_tools.py
+    uv run tests/test_codex_plugin.py
 
 # Remove build artifacts
 clean:

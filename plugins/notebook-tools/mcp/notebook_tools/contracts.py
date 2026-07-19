@@ -1,4 +1,4 @@
-"""Typed public inputs and result envelope for MCP schema generation."""
+"""Typed notebook inputs and result envelope for MCP schema generation."""
 
 from __future__ import annotations
 

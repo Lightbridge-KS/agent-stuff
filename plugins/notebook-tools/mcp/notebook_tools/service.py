@@ -1,4 +1,4 @@
-"""Workflow-level notebook operations independent of the MCP transport."""
+"""Workflow-level notebook operations independent of MCP transport and harness."""
 
 from __future__ import annotations
 
