@@ -2,7 +2,7 @@
 name: handoff
 description: Compact the current conversation into a durable handoff document another agent (any harness, any repo) picks up later — or resume from the latest handoff.
 argument-hint: "What will the next session be used for?"
-disable-model-invocation: true
+disable-model-invocation: false
 metadata:
   version: "2026-07-12"
 ---
