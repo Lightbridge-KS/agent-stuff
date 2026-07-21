@@ -142,7 +142,7 @@ def index_files(
     """Index an explicit list of files (relative to `root`), in the given order.
 
     For root-level docs that live *outside* the docs dir — e.g. `CONTEXT.md` /
-    `CONTEXT-MAP.md`. Missing files are silently skipped, so a default list can name
+    `CONTEXT-MAP.md` / `VISION.md`. Missing files are silently skipped, so a default list can name
     conventional files without forcing every repo to have them. Each entry's `path`
     is the relative path as given.
     """
@@ -174,13 +174,13 @@ def render_human(
     docs_dir: Path,
     omitted: int = 0,
     extra: list[dict] | None = None,
-    extra_label: str = "Domain context (repo root)",
+    extra_label: str = "Charter docs (repo root)",
 ) -> str:
     """Render the index. `omitted` > 0 adds a footer counting docs that exist
     but were dropped from the listing (hook path drops unannotated docs), so
     the map never silently reads as complete when it isn't. `extra` is a second
     group of root-level files (indexed via `index_files`), rendered under
-    `extra_label` — used to surface `CONTEXT.md` / `CONTEXT-MAP.md`."""
+    `extra_label` — used to surface `CONTEXT.md` / `CONTEXT-MAP.md` / `VISION.md`."""
     if not entries and not extra:
         return f"No markdown docs found under {docs_dir}."
     lines: list[str] = []

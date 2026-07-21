@@ -23,16 +23,16 @@ Config (all keys optional except the section's presence):
     enabled = true            # optional; default true. Set false to disable.
     dir = "docs"              # docs directory, relative to repo root
     exclude = ["archive", "research"]
-    include = ["CONTEXT.md", "CONTEXT-MAP.md"]  # extra root-level files outside `dir`
+    include = ["CONTEXT.md", "CONTEXT-MAP.md", "VISION.md"]  # extra root-level files outside `dir`
 
 Config resolution (repo root via git toplevel, project-key encoding) is owned by
 `scripts/lightbridge/lightbridge.py`; the index logic by `scripts/docs-index/
 docs_index.py` — both imported, single source of truth. Unlike the CLI, this hook
 requires an explicit `summary` / `read_when` (no fallback to `description`) so website
 frontmatter is never surfaced. Besides the docs `dir` it also indexes the `include`
-files (default `CONTEXT.md` / `CONTEXT-MAP.md`), rendered as a separate "Domain
-context (repo root)" group; missing ones are skipped, so a repo with CONTEXT files but
-no docs dir still gets a map. It degrades silently: no config, no `[docs-index]`
+files (default `CONTEXT.md` / `CONTEXT-MAP.md` / `VISION.md`), rendered as a separate
+"Charter docs (repo root)" group; missing ones are skipped, so a repo with charter
+files but no docs dir still gets a map. It degrades silently: no config, no `[docs-index]`
 section, `enabled = false`, nothing annotated, or malformed config → emits nothing,
 exit 0. A stray pre-migration `<repo>/.lightbridge/config.toml` (no longer read) earns
 a one-line deprecation warning.
@@ -126,10 +126,10 @@ def main() -> int:
         documented = [e for e in entries if e["summary"]]
         omitted = len(entries) - len(documented)
 
-    # Extra root-level files outside the docs dir (default: CONTEXT.md / CONTEXT-MAP.md).
+    # Extra root-level charter files outside the docs dir.
     include = section.get("include")
     if not isinstance(include, list):
-        include = ["CONTEXT.md", "CONTEXT-MAP.md"]
+        include = ["CONTEXT.md", "CONTEXT-MAP.md", "VISION.md"]
     include = [str(item) for item in include]
     extra = module.index_files(repo_root, include, fallback_description=False)
     extra_documented = [e for e in extra if e["summary"]]

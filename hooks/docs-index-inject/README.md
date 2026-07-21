@@ -27,9 +27,9 @@ SessionStart → cwd
   read [docs-index] section              no section / enabled=false → exit 0, silent
   build index of <repo>/<dir>            (skipped if the dir is missing)
     (explicit summary/read_when only — no description fallback)
-  index the `include` files at repo root (default CONTEXT.md / CONTEXT-MAP.md; missing skipped)
+  index the `include` files at repo root (default CONTEXT.md / CONTEXT-MAP.md / VISION.md; missing skipped)
   nothing annotated at all?              → exit 0, silent
-  else → emit additionalContext with the docs map + a "Domain context (repo root)" group
+  else → emit additionalContext with the docs map + a "Charter docs (repo root)" group
          (docs without a summary are dropped from the listing but counted
           in a footer line, so the map never silently reads as complete)
   a stray pre-migration <repo>/.lightbridge/config.toml (no longer read)
@@ -101,12 +101,13 @@ root = "/abs/path/to/repo"  # staleness marker for `lightbridge doctor`
 enabled = true            # optional; default true. Set false to disable without deleting.
 dir = "docs"              # docs directory, relative to repo root
 exclude = ["archive", "research"]
-include = ["CONTEXT.md", "CONTEXT-MAP.md"]  # extra root-level files (this is the default)
+include = ["CONTEXT.md", "CONTEXT-MAP.md", "VISION.md"]  # extra root-level files (this is the default)
 ```
 
 `include` lists files **outside** `dir` (relative to the repo root) to index too. It
-defaults to `["CONTEXT.md", "CONTEXT-MAP.md"]` — the domain-modeling glossary and context
-map — so they surface with no extra config when present. Set `include = []` to suppress them.
+defaults to `["CONTEXT.md", "CONTEXT-MAP.md", "VISION.md"]` — the domain-modeling glossary
+and context map, plus the project vision — so they surface with no extra config when
+present. Set `include = []` to suppress them.
 
 If a repo's `docs/` is a website, point `dir` at your agent-facing docs instead
 (e.g. `dir = "agent-docs"`), or simply omit the `[docs-index]` section.
