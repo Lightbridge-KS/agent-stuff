@@ -62,7 +62,7 @@ class NotebookPluginCase(unittest.TestCase):
                 "--version",
             ],
             cwd=REPO_ROOT,
-            text=True,
+            text=True, encoding="utf-8",
             capture_output=True,
             check=False,
         )

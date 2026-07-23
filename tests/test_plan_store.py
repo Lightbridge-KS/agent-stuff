@@ -26,6 +26,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -33,6 +34,23 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STORE = REPO_ROOT / "scripts" / "plan-store" / "plan_store.py"
+
+
+def script_argv(script: Path, *args: str) -> list[str]:
+    """argv launching a PEP 723 script the way its real consumer does.
+
+    POSIX execs the file directly, keeping the executable bit and the `uv run`
+    shebang under test. Windows CreateProcess cannot launch a shebang script at all
+    (WinError 193), so go through Git Bash — the shell Claude Code registers these
+    hooks with there — via `exec`, the one form that still lets the shebang choose
+    the interpreter. (`bash <script>` would be wrong: bash reads the Python as
+    shell.) With no bash, fall back to `uv run`, losing only the shebang assertion.
+    """
+    if os.name != "nt":
+        return [str(script), *args]
+    if shutil.which("bash"):
+        return ["bash", "-c", 'exec "$0" "$@"', str(script), *args]
+    return ["uv", "run", str(script), *args]
 CAPTURE_HOOK = REPO_ROOT / "hooks" / "plan-capture" / "hook.py"
 GATE_HOOK = REPO_ROOT / "hooks" / "plan-gate" / "hook.py"
 
@@ -60,7 +78,9 @@ class PlanStoreCase(unittest.TestCase):
         key = ps.project_key(ps.repo_root(self.project))
         target = self.state / key / "config.toml"
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(f'root = "{self.project}"\n\n{body}', encoding="utf-8")
+        target.write_text(
+            f"root = {ps._lb.toml_str(str(self.project))}\n\n{body}", encoding="utf-8"
+        )
 
     def payload(self, **over) -> dict:
         base = {
@@ -168,8 +188,8 @@ class PlanStoreCase(unittest.TestCase):
         ps.capture(self.payload(), self.state)
         env = {**os.environ, ps.STATE_DIR_ENV: str(self.state)}
         proc = subprocess.run(
-            [str(STORE), "status", "latest", "landed"],
-            cwd=self.project, capture_output=True, text=True, env=env, timeout=60,
+            script_argv(STORE, "status", "latest", "landed"),
+            cwd=self.project, capture_output=True, text=True, encoding="utf-8", env=env, timeout=60,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("approved → landed", proc.stdout)
@@ -182,8 +202,8 @@ class PlanStoreCase(unittest.TestCase):
         ps.capture(self.payload(), self.state)
         env = {**os.environ, ps.STATE_DIR_ENV: str(self.state)}
         proc = subprocess.run(
-            [str(STORE), "status", "latest", "shipped"],
-            cwd=self.project, capture_output=True, text=True, env=env, timeout=60,
+            script_argv(STORE, "status", "latest", "shipped"),
+            cwd=self.project, capture_output=True, text=True, encoding="utf-8", env=env, timeout=60,
         )
         self.assertEqual(proc.returncode, 1)
         self.assertIn("unknown state", proc.stderr)
@@ -193,8 +213,8 @@ class PlanStoreCase(unittest.TestCase):
         ps.capture(self.payload(), self.state)
         env = {**os.environ, ps.STATE_DIR_ENV: str(self.state)}
         proc = subprocess.run(
-            [str(STORE), "list", "--json"],
-            cwd=self.project, capture_output=True, text=True, env=env, timeout=60,
+            script_argv(STORE, "list", "--json"),
+            cwd=self.project, capture_output=True, text=True, encoding="utf-8", env=env, timeout=60,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         rows = json.loads(proc.stdout)
@@ -218,13 +238,15 @@ class PlanGateCase(unittest.TestCase):
         key = ps.project_key(ps.repo_root(self.project))
         target = self.state / key / "config.toml"
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(f'root = "{self.project}"\n\n{body}', encoding="utf-8")
+        target.write_text(
+            f"root = {ps._lb.toml_str(str(self.project))}\n\n{body}", encoding="utf-8"
+        )
 
     def run_gate(self, payload: str) -> subprocess.CompletedProcess:
         env = {**os.environ, ps.STATE_DIR_ENV: str(self.state)}
         return subprocess.run(
-            [str(GATE_HOOK)], input=payload, cwd=self.project,
-            capture_output=True, text=True, env=env, timeout=60,
+            script_argv(GATE_HOOK), input=payload, cwd=self.project,
+            capture_output=True, text=True, encoding="utf-8", env=env, timeout=60,
         )
 
     def payload(self) -> str:
@@ -296,14 +318,21 @@ class BackfillCase(unittest.TestCase):
         key = ps.project_key(ps.repo_root(self.project))
         target = self.state / key / "config.toml"
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(f'root = "{self.project}"\n\n{body}', encoding="utf-8")
+        target.write_text(
+            f"root = {ps._lb.toml_str(str(self.project))}\n\n{body}", encoding="utf-8"
+        )
 
     def transcript(self, *, approved: bool, source: Path | None = None) -> None:
         """A minimal two-record transcript: the ExitPlanMode call, then its result."""
         source = source or self.plan_file
         # Claude Code's OWN key encoding — underscores collapsed to dashes. Deliberately
         # NOT lightbridge's encoding, so a dir-name-decoding implementation would fail.
-        cc_key = str(self.project).replace("/", "-").replace("_", "-")
+        # The drive colon and native separator go too, or the "key" would be a nested
+        # path rather than one flat directory name on Windows.
+        cc_key = str(self.project)
+        if len(cc_key) > 1 and cc_key[1] == ":":  # Windows drive letter
+            cc_key = cc_key[0] + cc_key[2:]
+        cc_key = cc_key.replace(os.sep, "-").replace("/", "-").replace("_", "-")
         d = self.projects / cc_key
         d.mkdir(parents=True, exist_ok=True)
         result = (
@@ -405,9 +434,12 @@ class BackfillCase(unittest.TestCase):
         self.transcript(approved=True)
         gone = self.base / "vanished"
         raw = (self.projects).glob("*/sess-1.jsonl")
+        # The transcript is JSON, so paths sit there escaped — on Windows that means
+        # doubled separators. Swap the encoded forms, not the raw ones.
+        old, new = json.dumps(str(self.project))[1:-1], json.dumps(str(gone))[1:-1]
         for f in raw:
             f.write_text(
-                f.read_text(encoding="utf-8").replace(str(self.project), str(gone)),
+                f.read_text(encoding="utf-8").replace(old, new),
                 encoding="utf-8",
             )
         result = self.run_backfill()
@@ -448,8 +480,8 @@ class MessagingCase(unittest.TestCase):
 
     def run_store(self, *args: str) -> subprocess.CompletedProcess:
         return subprocess.run(
-            [str(STORE), *args], cwd=self.elsewhere,
-            capture_output=True, text=True, timeout=60,
+            script_argv(STORE, *args), cwd=self.elsewhere,
+            capture_output=True, text=True, encoding="utf-8", timeout=60,
         )
 
     def test_list_names_the_project(self) -> None:
@@ -468,7 +500,7 @@ class FailOpenCase(unittest.TestCase):
 
     def run_hook(self, hook: Path, payload: str) -> subprocess.CompletedProcess:
         return subprocess.run(
-            [str(hook)], input=payload, capture_output=True, text=True, timeout=60
+            script_argv(hook), input=payload, capture_output=True, text=True, encoding="utf-8", timeout=60
         )
 
     def test_hooks_survive_garbage(self) -> None:

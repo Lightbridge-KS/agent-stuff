@@ -100,7 +100,7 @@ def make_session(
 
 def run_kit(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["uv", "run", str(SCRIPT), *args], capture_output=True, text=True
+        ["uv", "run", str(SCRIPT), *args], capture_output=True, text=True, encoding="utf-8"
     )
 
 

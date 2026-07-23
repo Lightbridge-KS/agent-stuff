@@ -59,7 +59,7 @@ def run_package(repo: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(repo / "bin" / "package.py"), *args],
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
     )
 
 

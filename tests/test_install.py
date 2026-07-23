@@ -75,7 +75,7 @@ def run_install(repo: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(repo / "bin" / "install.py"), *args],
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
     )
 
 
@@ -162,8 +162,11 @@ class InstallTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             out = result.stdout
-            # The command path is resolved for this checkout's hook folder.
-            self.assertIn(str((hook_dir / "hook.py").resolve()), out)
+            # The command path is resolved for this checkout's hook folder. It is
+            # embedded in JSON, so compare against the JSON-encoded form — on Windows
+            # the separators come back escaped (C:\\Users\\...), on POSIX unchanged.
+            encoded = json.dumps(str((hook_dir / "hook.py").resolve()))[1:-1]
+            self.assertIn(encoded, out)
             self.assertIn("SessionStart", out)
             # All three destinations are surfaced.
             self.assertIn("~/.claude/settings.json", out)

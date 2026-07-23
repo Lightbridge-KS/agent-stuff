@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -35,6 +36,34 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOK = REPO_ROOT / "hooks" / "repo-links-inject" / "hook.py"
 SCRIPT = REPO_ROOT / "scripts" / "repo-links" / "repo_links.py"
+
+
+def script_argv(script: Path, *args: str) -> list[str]:
+    """argv launching a PEP 723 script the way its real consumer does.
+
+    POSIX execs the file directly, keeping the executable bit and the `uv run`
+    shebang under test. Windows CreateProcess cannot launch a shebang script at all
+    (WinError 193), so go through Git Bash — the shell Claude Code registers these
+    hooks with there — via `exec`, the one form that still lets the shebang choose
+    the interpreter. (`bash <script>` would be wrong: bash reads the Python as
+    shell.) With no bash, fall back to `uv run`, losing only the shebang assertion.
+    """
+    if os.name != "nt":
+        return [str(script), *args]
+    if shutil.which("bash"):
+        return ["bash", "-c", 'exec "$0" "$@"', str(script), *args]
+    return ["uv", "run", str(script), *args]
+
+
+def home_vars(home: Path) -> dict[str, str]:
+    """Env that redirects `~` to `home` on both platforms.
+
+    POSIX expanduser reads $HOME; Windows reads %USERPROFILE% and ignores HOME
+    entirely — set only HOME there and every subprocess quietly resolves `~` to the
+    REAL home, reading (and writing) the developer's own ~/.lightbridge.
+    """
+    return {"HOME": str(home), "USERPROFILE": str(home)}
+
 
 # Resolved against the REAL home before tests override HOME, so uv's environment
 # cache stays warm across the fake-HOME subprocesses.
@@ -58,28 +87,31 @@ REGISTRY_OK = '[repos]\nexample-service = "~/work/example-service"\n'
 
 
 def project_key(path: Path) -> str:
-    """Mirror of the lightbridge encoding (resolved absolute path, separators → '-')."""
-    return str(path.resolve()).replace(os.sep, "-").replace("/", "-")
+    """Mirror of the lightbridge encoding (resolved path, drive colon dropped, separators → '-')."""
+    text = str(path.resolve())
+    if len(text) > 1 and text[1] == ":":  # Windows drive letter
+        text = text[0] + text[2:]
+    return text.replace(os.sep, "-").replace("/", "-")
 
 
 def run_hook(cwd: Path, home: Path) -> subprocess.CompletedProcess:
-    # Execute the file directly (not `sys.executable hook.py`) — the same path as
-    # Claude Code's /bin/sh registration, so +x and the uv shebang are under test.
+    # Execute the file the way Claude Code's registration does, so +x and the uv
+    # shebang stay under test — see script_argv for the Windows equivalent.
     return subprocess.run(
-        [str(HOOK)],
+        script_argv(HOOK),
         input=json.dumps({"cwd": str(cwd), "hook_event_name": "SessionStart"}),
         capture_output=True,
-        text=True,
-        env={**os.environ, "HOME": str(home), "UV_CACHE_DIR": UV_CACHE_DIR},
+        text=True, encoding="utf-8",
+        env={**os.environ, **home_vars(home), "UV_CACHE_DIR": UV_CACHE_DIR},
     )
 
 
 def run_cli(args: list[str], home: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [str(SCRIPT), *args],
+        script_argv(SCRIPT, *args),
         capture_output=True,
-        text=True,
-        env={**os.environ, "HOME": str(home), "UV_CACHE_DIR": UV_CACHE_DIR},
+        text=True, encoding="utf-8",
+        env={**os.environ, **home_vars(home), "UV_CACHE_DIR": UV_CACHE_DIR},
     )
 
 
