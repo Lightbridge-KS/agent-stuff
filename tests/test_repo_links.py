@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import tempfile
 import unittest
@@ -43,15 +42,15 @@ def script_argv(script: Path, *args: str) -> list[str]:
 
     POSIX execs the file directly, keeping the executable bit and the `uv run`
     shebang under test. Windows CreateProcess cannot launch a shebang script at all
-    (WinError 193), so go through Git Bash — the shell Claude Code registers these
-    hooks with there — via `exec`, the one form that still lets the shebang choose
-    the interpreter. (`bash <script>` would be wrong: bash reads the Python as
-    shell.) With no bash, fall back to `uv run`, losing only the shebang assertion.
+    (WinError 193), so go through `uv run` — the very interpreter the shebang names.
+
+    Deliberately NOT bare `bash`: on Windows that name is ambiguous, and
+    CreateProcess resolves it to WSL's System32\bash.exe at least as often as to
+    Git Bash, which then fails with a UTF-16 diagnostic and exit 1 regardless of
+    what shutil.which() reported.
     """
     if os.name != "nt":
         return [str(script), *args]
-    if shutil.which("bash"):
-        return ["bash", "-c", 'exec "$0" "$@"', str(script), *args]
     return ["uv", "run", str(script), *args]
 
 
