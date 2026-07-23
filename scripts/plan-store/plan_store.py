@@ -612,6 +612,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def main(argv: list[str]) -> int:
+    _lb.use_utf8_console()  # CLI-only: hooks importing this module own their own stdout
     args = parse_args(argv)
     return args.func(args)
 

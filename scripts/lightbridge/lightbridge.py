@@ -202,6 +202,22 @@ def legacy_warning(legacy: Path) -> str:
     )
 
 
+def toml_str(value: str) -> str:
+    """Serialize `value` as a TOML string — correct for Windows paths.
+
+    A basic string ("...") processes escapes, so a Windows path written naively
+    (`root = "C:\\Users\\me"`) makes `\\U` an invalid unicode escape and the whole
+    file stops parsing. A literal string ('...') processes nothing, which is what a
+    path wants, so it is the default. Fall back to an escaped basic string only for
+    the values a literal cannot hold: those containing a single quote or a control
+    character. POSIX paths come out identical either way.
+    """
+    if "'" not in value and not any(ch < " " or ch == "\x7f" for ch in value):
+        return f"'{value}'"
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
 # ── bootstrap ───────────────────────────────────────────────────────────────
 
 
@@ -217,7 +233,7 @@ def present_sections(config: dict) -> set[str]:
 
 def render_config(root: Path, names: list[str]) -> str:
     """A whole config file: header, the `root` staleness marker, then each section."""
-    parts = [CONFIG_HEADER, f'root = "{root}"\n']
+    parts = [CONFIG_HEADER, f"root = {toml_str(str(root))}\n"]
     parts += [SECTIONS[name]["block"] for name in names]
     return "\n".join(parts)
 
@@ -347,7 +363,7 @@ def append_repo(text: str, name: str, path: str) -> str:
     Lands before the block's trailing blank lines; a registry with no `[repos]` header
     gains one at EOF.
     """
-    line = f'{name} = "{path}"\n'
+    line = f"{name} = {toml_str(path)}\n"
     span = section_span(text, "repos")
     if span is None:
         base = text if text.endswith("\n") else text + "\n"
@@ -893,12 +909,36 @@ def cmd_doctor(state_dir: Path | None, registry_file: str, json_out: bool) -> in
     return 1 if problems else 0
 
 
+def use_utf8_console() -> None:
+    """Let this CLI's own output survive a legacy Windows console.
+
+    Windows defaults stdout to the ANSI codepage (cp1252), which cannot encode the
+    box-drawing and arrow glyphs this tool prints — so `init`/`status` died on a
+    UnicodeEncodeError mid-render, after having already written the config. POSIX
+    is UTF-8 already, so this is a no-op there.
+
+    Entry-point only, for the same reason typer is: hooks and sibling tools
+    exec_module this file and own their own stdout (a JSON contract on it), and
+    reconfiguring at import time would reach into theirs.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue  # not a TextIOWrapper (captured/wrapped) — leave it alone
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            pass  # already detached or non-reconfigurable; printing is best-effort
+
+
 def main() -> None:
     # typer stays a CLI-only import: sibling tools and hooks exec_module this file
     # inside their own dependency-free PEP 723 envs, so module import must be
     # stdlib-pure. The `# dependencies` header above is read only when this file
     # is the `uv run` entrypoint — exactly the case that reaches main().
     import typer
+
+    use_utf8_console()
 
     prog = Path(sys.argv[0]).stem  # `lb` when invoked through the short PATH shim
     section_list = ", ".join(sorted(SECTIONS))

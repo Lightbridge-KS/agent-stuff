@@ -346,7 +346,26 @@ def install_one(
     print(f"{prefix} {name} -> {target}")
 
 
+def use_utf8_console() -> None:
+    """Keep this CLI's own output printable on a legacy Windows console.
+
+    Windows defaults stdout to the ANSI codepage (cp1252), which cannot encode the
+    arrows in the `--hooks` registration banner — printing one raised
+    UnicodeEncodeError and took the whole command down. POSIX is UTF-8 already, so
+    this is a no-op there.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue  # not a TextIOWrapper (captured/wrapped) — leave it alone
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            pass  # already detached or non-reconfigurable; printing is best-effort
+
+
 def main(argv: list[str]) -> int:
+    use_utf8_console()
     registry = load_targets()
     args = parse_args(argv, registry)
     skills = available_skills()

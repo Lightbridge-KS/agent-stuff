@@ -20,6 +20,7 @@ import importlib.util
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import tomllib
@@ -28,6 +29,23 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "lightbridge" / "lightbridge.py"
+
+
+def script_argv(script: Path, *args: str) -> list[str]:
+    """argv launching a PEP 723 script the way its real consumer does.
+
+    POSIX execs the file directly, keeping the executable bit and the `uv run`
+    shebang under test. Windows CreateProcess cannot launch a shebang script at all
+    (WinError 193), so go through Git Bash — the shell Claude Code registers these
+    hooks with there — via `exec`, the one form that still lets the shebang choose
+    the interpreter. (`bash <script>` would be wrong: bash reads the Python as
+    shell.) With no bash, fall back to `uv run`, losing only the shebang assertion.
+    """
+    if os.name != "nt":
+        return [str(script), *args]
+    if shutil.which("bash"):
+        return ["bash", "-c", 'exec "$0" "$@"', str(script), *args]
+    return ["uv", "run", str(script), *args]
 
 _spec = importlib.util.spec_from_file_location("lightbridge", SCRIPT)
 lb = importlib.util.module_from_spec(_spec)
@@ -43,7 +61,7 @@ def write_config(state: Path, root: Path, body: str = "", *, key: str | None = N
     cfg_dir = state / (key or lb.project_key(root))
     cfg_dir.mkdir(parents=True, exist_ok=True)
     config = cfg_dir / "config.toml"
-    config.write_text(f'root = "{root}"\n{body}')
+    config.write_text(f"root = {lb.toml_str(str(root))}\n{body}")
     return config
 
 
@@ -53,9 +71,17 @@ class ResolverTest(unittest.TestCase):
             proj = Path(d) / "my_repo"
             proj.mkdir()
             key = lb.project_key(proj)
-            self.assertEqual(key, str(proj.resolve()).replace("/", "-"))
-            self.assertTrue(key.startswith("-"))
+            text = str(proj.resolve())
+            if os.name == "nt":
+                # Windows drops the drive colon: C:\a\b -> C-a-b (see project_key).
+                expected = (text[0] + text[2:]).replace(os.sep, "-").replace("/", "-")
+                self.assertNotIn(":", key)
+            else:
+                expected = text.replace("/", "-")
+                self.assertTrue(key.startswith("-"))
+            self.assertEqual(key, expected)
             self.assertNotIn("/", key)
+            self.assertNotIn(os.sep, key)
 
     def test_repo_root_git_toplevel_from_subdir(self):
         with tempfile.TemporaryDirectory() as d:
@@ -126,9 +152,9 @@ class ResolverTest(unittest.TestCase):
 
 class DoctorTest(unittest.TestCase):
     def run_doctor(self, state: Path, registry: Path | None = None) -> subprocess.CompletedProcess:
-        args = [str(SCRIPT), "doctor", "--state-dir", str(state), "--json"]
+        args = script_argv(SCRIPT, "doctor", "--state-dir", str(state), "--json")
         args += ["--registry", str(registry or (state / "no-registry.toml"))]
-        return subprocess.run(args, capture_output=True, text=True)
+        return subprocess.run(args, capture_output=True, text=True, encoding="utf-8")
 
     def problems_of(self, result: subprocess.CompletedProcess) -> list[dict]:
         return json.loads(result.stdout)["problems"]
@@ -197,7 +223,7 @@ class DoctorTest(unittest.TestCase):
             state = Path(d) / "state"
             state.mkdir()
             registry = Path(d) / "repos.toml"
-            registry.write_text(f'[repos]\nrepo = "{proj}"\n')
+            registry.write_text(f"[repos]\nrepo = {lb.toml_str(str(proj))}\n")
             result = self.run_doctor(state, registry)
             self.assertEqual(result.returncode, 1)
             (problem,) = self.problems_of(result)
@@ -211,9 +237,9 @@ class PathCliTest(unittest.TestCase):
             proj.mkdir()
             state = Path(d) / "state"
             result = subprocess.run(
-                [str(SCRIPT), "path", "--start", str(proj), "--json"],
+                script_argv(SCRIPT, "path", "--start", str(proj), "--json"),
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8",
                 env={**os.environ, lb.STATE_DIR_ENV: str(state)},
             )
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -230,9 +256,9 @@ class CliHarness(unittest.TestCase):
 
     def run_cli(self, state: Path, *args: str) -> subprocess.CompletedProcess:
         return subprocess.run(
-            [str(SCRIPT), *args],
+            script_argv(SCRIPT, *args),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             env={**os.environ, lb.STATE_DIR_ENV: str(state)},
         )
 
@@ -375,14 +401,14 @@ class BootstrapCliTest(CliHarness):
             self.run_cli(state, "init", "--start", str(proj))
             self.run_cli(state, "add", "research", "repo-links", "--start", str(proj))
             result = subprocess.run(
-                [
-                    str(SCRIPT), "doctor",
+                script_argv(
+                    SCRIPT, "doctor",
                     "--state-dir", str(state),
                     "--registry", str(state / "no-registry.toml"),
                     "--json",
-                ],
+                ),
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8",
             )
             self.assertEqual(result.returncode, 0, result.stdout)
             self.assertEqual(json.loads(result.stdout)["problems"], [])
@@ -556,9 +582,9 @@ class StatusCliTest(CliHarness):
 class ReposCliTest(unittest.TestCase):
     def run_repos(self, registry: Path, *args: str) -> subprocess.CompletedProcess:
         return subprocess.run(
-            [str(SCRIPT), "repos", *args, "--registry", str(registry)],
+            script_argv(SCRIPT, "repos", *args, "--registry", str(registry)),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
         )
 
     def test_add_creates_registry_then_lists(self):
@@ -627,13 +653,15 @@ class CliContractTest(unittest.TestCase):
 
     def test_bare_invocation_is_usage_error(self):
         """Design decision 5: bare `lb` → exit 2, not help-and-exit-0."""
-        result = subprocess.run([str(SCRIPT)], capture_output=True, text=True)
+        result = subprocess.run(script_argv(SCRIPT), capture_output=True, text=True, encoding="utf-8")
         self.assertEqual(result.returncode, 2, result.stderr)
 
     def test_help_is_plain_text(self):
         """Help stays plain click text (no rich box-drawing/padding) so a piped
         agent reader pays no decoration tokens — the design doc's two-audience rule."""
-        result = subprocess.run([str(SCRIPT), "--help"], capture_output=True, text=True)
+        result = subprocess.run(
+            script_argv(SCRIPT, "--help"), capture_output=True, text=True, encoding="utf-8"
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("╭", result.stdout)
         self.assertIn("Spec: the lightbridge-config skill.", result.stdout)
@@ -642,7 +670,7 @@ class CliContractTest(unittest.TestCase):
 class SectionsTest(unittest.TestCase):
     def test_sections_lists_every_known_section(self):
         result = subprocess.run(
-            [str(SCRIPT), "sections", "--json"], capture_output=True, text=True
+            script_argv(SCRIPT, "sections", "--json"), capture_output=True, text=True, encoding="utf-8"
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(set(json.loads(result.stdout)), set(lb.SECTIONS))

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -36,6 +37,23 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOK = REPO_ROOT / "hooks" / "handoff-inject" / "hook.py"
 SCRIPT = REPO_ROOT / "scripts" / "handoff" / "handoff.py"
+
+
+def script_argv(script: Path, *args: str) -> list[str]:
+    """argv launching a PEP 723 script the way its real consumer does.
+
+    POSIX execs the file directly, keeping the executable bit and the `uv run`
+    shebang under test. Windows CreateProcess cannot launch a shebang script at all
+    (WinError 193), so go through Git Bash — the shell Claude Code registers these
+    hooks with there — via `exec`, the one form that still lets the shebang choose
+    the interpreter. (`bash <script>` would be wrong: bash reads the Python as
+    shell.) With no bash, fall back to `uv run`, losing only the shebang assertion.
+    """
+    if os.name != "nt":
+        return [str(script), *args]
+    if shutil.which("bash"):
+        return ["bash", "-c", 'exec "$0" "$@"', str(script), *args]
+    return ["uv", "run", str(script), *args]
 
 # Pushed by a sibling repo. Origin recorded in `from:`; impact in top-level `breaking`.
 CROSS_REPO = """\
@@ -95,7 +113,11 @@ MALFORMED = "no frontmatter at all, just prose\n"
 
 
 def project_key(path: Path) -> str:
-    return str(path.resolve()).replace(os.sep, "-").replace("/", "-")
+    """Mirror of the lightbridge encoding (resolved path, drive colon dropped, separators → '-')."""
+    text = str(path.resolve())
+    if len(text) > 1 and text[1] == ":":  # Windows drive letter
+        text = text[0] + text[2:]
+    return text.replace(os.sep, "-").replace("/", "-")
 
 
 def make_state(
@@ -115,22 +137,22 @@ def make_state(
 
 
 def run_hook(cwd: Path, state: Path) -> subprocess.CompletedProcess:
-    # Execute the file directly — the same path as the agent's /bin/sh registration, so the
-    # executable bit and the uv shebang are under test too.
+    # Execute the file the way the agent's registration does, so the executable bit
+    # and the uv shebang are under test too — see script_argv for Windows.
     return subprocess.run(
-        [str(HOOK)],
+        script_argv(HOOK),
         input=json.dumps({"cwd": str(cwd), "hook_event_name": "SessionStart"}),
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         env={**os.environ, "LIGHTBRIDGE_STATE_DIR": str(state)},
     )
 
 
 def run_script(state: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [str(SCRIPT), *args],
+        script_argv(SCRIPT, *args),
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         env={**os.environ, "LIGHTBRIDGE_STATE_DIR": str(state)},
     )
 

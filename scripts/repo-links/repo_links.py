@@ -282,6 +282,7 @@ def main(argv: list[str]) -> int:
     if lb is None:
         print(f"repo-links: resolver not found at {LIGHTBRIDGE}.", file=sys.stderr)
         return 2
+    lb.use_utf8_console()  # CLI-only: the hook importing this module owns its stdout
 
     config, config_path, error = lb.load_config(start)
     legacy = lb.legacy_config(start)
