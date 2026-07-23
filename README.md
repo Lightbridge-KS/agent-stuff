@@ -1,6 +1,6 @@
 # agent-stuff
 
-[![85% Vibe_Coded](https://img.shields.io/badge/85%25-Vibe_Coded-ff69b4?style=for-the-badge&logo=claude&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)
+[![86% Vibe_Coded](https://img.shields.io/badge/86%25-Vibe_Coded-ff69b4?style=for-the-badge&logo=claude&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)
 
 Reusable building blocks for AI coding agents — **skills**, standalone **scripts**, and
 **hooks** — written once and shared everywhere.
