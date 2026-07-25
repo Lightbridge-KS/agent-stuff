@@ -60,19 +60,20 @@ Carried over from v0.4 unless noted:
 
 ## Deferred (out of v0.5)
 
-- `scripts/repo-links/repo_links.py` keeps its own `load_registry`, whose semantics differ
+- **[#17](https://github.com/Lightbridge-KS/agent-stuff/issues/17)** — `mv`'s idempotent
+  re-run does not cover a parent-dir move. Re-running `mv PARENT_OLD PARENT_NEW` after it
+  succeeded exits 1 with "nothing in lightbridge references PARENT_OLD" instead of the
+  clean no-op. Cause: the verified-noop check in `plan_mv` looks for
+  `state_dir/project_key(new)/config.toml`, but a parent dir has no config of its own —
+  the configs belong to the repos *beneath* it. **Pre-existing: reproduced identically
+  against v0.4 (`18891f0`) in a worktree**, so it is not a regression from this refactor,
+  and fixing it is a behavior change. The [`mv` design](../lightbridge-mv.md) advertises a
+  verifiable idempotent re-run; for prefix moves it does not hold.
+- **[#18](https://github.com/Lightbridge-KS/agent-stuff/issues/18)** —
+  `scripts/repo-links/repo_links.py` keeps its own `load_registry`, whose semantics differ
   from `lb_registry`'s (errors on a missing `[repos]` table; no non-string filtering).
   Reconciling them changes `repo-links-inject` behavior, so it is out of scope for a
-  no-behavior-change refactor. Worth a follow-up: two registry readers is exactly the
-  duplication the one-implementation rule forbids.
-- **`mv`'s idempotent re-run does not cover a parent-dir move.** Re-running
-  `mv PARENT_OLD PARENT_NEW` after it succeeded exits 1 with "nothing in lightbridge
-  references PARENT_OLD" instead of the clean no-op. Cause: the verified-noop check in
-  `plan_mv` looks for `state_dir/project_key(new)/config.toml`, but a parent dir has no
-  config of its own — the configs belong to the repos *beneath* it. **Pre-existing:
-  reproduced identically against v0.4 (`18891f0`) in a worktree**, so it is not a
-  regression from this refactor and fixing it would be a behavior change. Worth a v0.6
-  ticket — the [`mv` design](../lightbridge-mv.md) advertises a verifiable idempotent
-  re-run, and for prefix moves it does not hold.
+  no-behavior-change refactor. Two registry readers is exactly the duplication the
+  one-implementation rule forbids.
 - Unchanged from v0.4: `doctor --fix`; `lb relocate` / multi-machine re-keying, owned by
   [multi-machine sync](../multi-machine-sync.md).
