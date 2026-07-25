@@ -50,6 +50,12 @@ To **add a domain**: create `plugins/<domain>/.claude-plugin/plugin.json` and a 
 entry in `marketplace.json`. To **add a skill**: create
 `plugins/<domain>/skills/<name>/SKILL.md`.
 
+**The `experiment` domain is the castle's antechamber** — candidate skills in active use
+but not yet reviewed (in-place authored, or being made ours). Same contracts and validation
+as every domain, plus a graduation rule: a skill here either passes review and moves to a
+proper domain, or gets deleted — it never becomes permanent by inertia. (Contrast the
+`~/.agents/skills/` shelf, which stages *third-party* copies with no ownership claim.)
+
 ## SKILL.md contract
 
 ```yaml
