@@ -45,7 +45,6 @@ import argparse
 import importlib.util
 import json
 import sys
-import tomllib
 from pathlib import Path
 
 LIGHTBRIDGE = Path(__file__).resolve().parents[1] / "lightbridge" / "lb_resolve.py"
@@ -101,26 +100,6 @@ def parse_links(section: dict) -> tuple[list[dict], list[str]]:
             {"name": name, "role": _as_str(entry.get("role")), "note": _as_str(entry.get("note"))}
         )
     return links, warnings
-
-
-def load_registry(path: Path) -> tuple[dict | None, str | None]:
-    """Read the personal name→path registry.
-
-    Returns (registry, error): (None, None) when the file is absent — the
-    machine has not opted in, callers stay silent; (None, reason) when the file
-    exists but is unusable — that can only happen on the owner's machine, so
-    the reason is worth surfacing; ({name: raw_path}, None) otherwise.
-    """
-    if not path.is_file():
-        return None, None
-    try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (tomllib.TOMLDecodeError, OSError) as exc:
-        return None, f"unreadable ({exc})"
-    repos = data.get("repos")
-    if not isinstance(repos, dict):
-        return None, "missing a [repos] table"
-    return repos, None
 
 
 def find_aliases(registry: dict, relevant: set[str] | None = None) -> list[str]:
@@ -310,7 +289,7 @@ def main(argv: list[str]) -> int:
 
     links, config_warnings = parse_links(section)
     registry_path = Path(args.registry).expanduser()
-    registry, registry_error = load_registry(registry_path)
+    registry, registry_error = lb.load_registry(registry_path)
 
     if registry is None and registry_error is None:
         resolved: list[dict] = [

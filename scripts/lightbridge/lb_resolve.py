@@ -117,6 +117,49 @@ def legacy_warning(legacy: Path) -> str:
     )
 
 
+def load_registry(registry: Path) -> tuple[dict[str, str] | None, str | None]:
+    """Read the personal name→path repo registry, `~/.lightbridge/repos.toml`.
+
+    The one implementation (issue #18): `repo_links.py` path-loads this module, and
+    `lb repos`/`doctor`/`mv` import it, so the registry is read one way everywhere.
+
+    Returns (repos, error):
+
+    * `(None, None)` — the file is absent. This machine has not opted in; callers stay
+      silent, since a registry can only exist on the owner's machine.
+    * `(None, reason)` — the file exists but is unusable. Two distinct causes, both worth
+      surfacing: bad TOML, or **root-level keys with no `[repos]` table** — the
+      hand-authoring mistake where names were written without the header. That case must
+      not be reported as "nothing registered": the names are sitting in the file, plainly
+      visible, and appending a `[repos]` table below them would strand them for good.
+    * `({name: raw_path}, None)` — usable. `{}` when the table is missing *and* the file
+      holds nothing else, which is the benign "nothing registered yet" state `repos add`
+      can fix by creating the header. Values that are not non-blank strings are dropped:
+      a non-path cannot be a repo path, and every caller would otherwise re-check.
+
+    Paths are returned exactly as written — expansion and resolution belong to callers,
+    so a hand-authored `~` spelling survives (`lb mv` depends on this).
+    """
+    if not registry.is_file():
+        return None, None
+    try:
+        data = tomllib.loads(registry.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError) as exc:
+        return None, f"unreadable ({exc})"
+
+    repos = data.get("repos")
+    if not isinstance(repos, dict):
+        stranded = [key for key, value in data.items() if not isinstance(value, dict)]
+        if stranded:
+            names = ", ".join(sorted(stranded)[:3]) + ("…" if len(stranded) > 3 else "")
+            return None, (
+                f"missing a [repos] table (found {len(stranded)} root-level key(s): "
+                f"{names} — indent them under a [repos] header)"
+            )
+        return {}, None
+    return {k: v for k, v in repos.items() if isinstance(v, str) and v.strip()}, None
+
+
 def toml_str(value: str) -> str:
     """Serialize `value` as a TOML string — correct for Windows paths.
 

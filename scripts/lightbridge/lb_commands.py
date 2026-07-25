@@ -26,16 +26,11 @@ from lb_catalog import (
 )
 from lb_doctor import doctor
 from lb_mv import apply_mv, plan_mv
-from lb_registry import (
-    REGISTRY_HEADER,
-    REPO_NAME,
-    append_repo,
-    load_registry,
-    remove_repo,
-)
+from lb_registry import REGISTRY_HEADER, REPO_NAME, append_repo, remove_repo
 from lb_resolve import (
     DEFAULT_REGISTRY,
     config_path,
+    load_registry,
     default_state_dir,
     legacy_config,
     legacy_warning,
@@ -100,7 +95,7 @@ def _open_registry(registry_file: str) -> tuple[dict[str, str] | None, Path, str
     registry = Path(registry_file).expanduser()
     repos, error = load_registry(registry)
     if error is not None:
-        print(f"registry is unreadable: {registry}\n{error}", file=sys.stderr)
+        print(f"registry is unusable: {registry}\n{error}", file=sys.stderr)
     return repos, registry, error
 
 

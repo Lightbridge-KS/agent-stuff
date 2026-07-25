@@ -52,6 +52,7 @@ Carried over from v0.4 unless noted:
   `config_path`, `load_config` (3-tuple), `legacy_config`, `legacy_warning`,
   `default_state_dir`, `DEFAULT_STATE_DIR`, `STATE_DIR_ENV`, `toml_str`,
   `use_utf8_console`. `SECTIONS` leaves the importer API — nothing imported it.
+  *Since v0.6 (#18) `load_registry` joined it* — see [ADR 0001](../adr/0001-modular-lightbridge.md) point 3.
 - **`import typer` stays inside `main()`** — now in `lightbridge.py`, for the same reason.
 - Surface frozen: verbs, flag spellings, epilog, every application-level message, exit
   taxonomy 0/1/2, JSON shapes, plain click help, bare `lb` → 2.
@@ -69,11 +70,12 @@ Carried over from v0.4 unless noted:
   against v0.4 (`18891f0`) in a worktree**, so it is not a regression from this refactor,
   and fixing it is a behavior change. The [`mv` design](../lightbridge-mv.md) advertises a
   verifiable idempotent re-run; for prefix moves it does not hold.
-- **[#18](https://github.com/Lightbridge-KS/agent-stuff/issues/18)** —
-  `scripts/repo-links/repo_links.py` keeps its own `load_registry`, whose semantics differ
-  from `lb_registry`'s (errors on a missing `[repos]` table; no non-string filtering).
-  Reconciling them changes `repo-links-inject` behavior, so it is out of scope for a
-  no-behavior-change refactor. Two registry readers is exactly the duplication the
-  one-implementation rule forbids.
+- ~~**[#18](https://github.com/Lightbridge-KS/agent-stuff/issues/18)** — two registry
+  readers.~~ **Done in v0.6:** one `load_registry` in `lb_resolve.py`. The two semantic
+  differences were not what the issue said — the value-filtering one was not real
+  (`resolve_links` already guarded), and the missing-`[repos]` one was a deliberate,
+  tested diagnostic that the issue would have deleted. The shared reader distinguishes a
+  table-less-but-empty registry (benign `{}`) from one with **misplaced root-level keys**
+  (an error naming them and the fix), which is the discriminator neither reader had.
 - Unchanged from v0.4: `doctor --fix`; `lb relocate` / multi-machine re-keying, owned by
   [multi-machine sync](../multi-machine-sync.md).

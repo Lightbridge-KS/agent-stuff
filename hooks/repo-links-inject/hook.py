@@ -103,7 +103,7 @@ def main() -> int:
         return 0  # nothing declared — stay quiet
 
     registry_path = Path(module.DEFAULT_REGISTRY).expanduser()
-    registry, registry_error = module.load_registry(registry_path)
+    registry, registry_error = lb.load_registry(registry_path)
     if registry is None and registry_error is None:
         if warning:
             emit(warning)

@@ -1,17 +1,21 @@
 """The personal repo registry document — `~/.lightbridge/repos.toml`.
 
 A name → path map, per machine, never committed anywhere; its presence is this machine's
-opt-in for `[repo-links]` resolution. This module owns reading it and the three targeted
-line edits that mutate it (`repos add`, `repos rm`, and `mv`'s path re-spelling), all built
-on `lb_tomledit`'s span primitives so comments, ordering, and quoting style survive.
+opt-in for `[repo-links]` resolution.
+
+**Write path.** This module owns the three targeted line edits that mutate the registry
+(`repos add`, `repos rm`, and `mv`'s path re-spelling), all built on `lb_tomledit`'s span
+primitives so comments, ordering, and quoting style survive. *Reading* is
+`lb_resolve.load_registry` — it has to live there because `repo_links.py` path-loads that
+module, and one registry reader is the point of issue #18.
 """
 
 from __future__ import annotations
 
 import re
-import tomllib
 from pathlib import Path
 
+from lb_resolve import load_registry
 from lb_tomledit import rewrite_path, section_span, toml_str
 
 REGISTRY_HEADER = """\
@@ -27,24 +31,6 @@ _REPO_LINE = re.compile(
     r"""^(\s*(?:(?P<bare>[A-Za-z0-9][A-Za-z0-9_-]*)|"(?P<quoted>[^"]+)")\s*=\s*)"""
     r"""(?P<q>['"])(?P<val>.*?)(?P=q)"""
 )
-
-
-def load_registry(registry: Path) -> tuple[dict[str, str] | None, str | None]:
-    """The registry's `[repos]` name→path map.
-
-    Returns (repos, error): (dict, None) on success — `{}` when the table is missing or
-    empty; (None, None) when the file is absent; (None, reason) when it is unreadable.
-    """
-    if not registry.is_file():
-        return None, None
-    try:
-        data = tomllib.loads(registry.read_text(encoding="utf-8"))
-    except (tomllib.TOMLDecodeError, OSError) as exc:
-        return None, str(exc)
-    repos = data.get("repos")
-    if not isinstance(repos, dict):
-        return {}, None
-    return {k: v for k, v in repos.items() if isinstance(v, str) and v.strip()}, None
 
 
 def registry_paths(registry: Path) -> list[Path]:
