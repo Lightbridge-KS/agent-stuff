@@ -12,7 +12,7 @@ read_when:
 # lightbridge CLI — Surface & AX Design (v0.2 proposal)
 
 > Source: `scripts/lightbridge/lightbridge.py` v0.1.0 + this design conversation · Date: 2026-07-16 · Mode: Design · Surface: CLI
-> See also: [`lb mv` design (v0.4)](./lightbridge-mv.md) · [multi-machine sync (deferred)](./multi-machine-sync.md) · canonical spec: `plugins/lightbridge/skills/lightbridge-config/references/catalog.md`
+> See also: [`lb mv` design (v0.4)](./lightbridge-mv.md) · [module layout ADR (v0.5)](./adr/0001-modular-lightbridge.md) · [multi-machine sync (deferred)](./multi-machine-sync.md) · canonical spec: `plugins/lightbridge/skills/lightbridge-config/references/catalog.md`
 
 Two users, one surface: KS at a terminal, and an AI coding agent in a non-interactive
 shell. The agent is the *more* constrained user — it learns the tool only from `--help`,
@@ -51,6 +51,13 @@ sibling state dirs to `ls`. v0.2 closes that with read verbs and makes `lb` the
 
 The user is (a) KS bootstrapping or debugging a project's config, and (b) an agent
 executing the `lightbridge-config` skill or answering config questions mid-session.
+
+> **Implementation note (v0.5).** Everything below describes the *surface*, which is frozen
+> and unchanged. The implementation is no longer one file: v0.5 split it into eight flat
+> sibling modules under `scripts/lightbridge/`, with `lb_resolve.py` as the only module
+> hooks and sibling scripts path-load, and `lightbridge.py` reduced to a non-importable
+> entrypoint. See [ADR 0001](./adr/0001-modular-lightbridge.md) before adding a verb — it
+> says which module a new function belongs in.
 
 ## 2. Surface Map
 
