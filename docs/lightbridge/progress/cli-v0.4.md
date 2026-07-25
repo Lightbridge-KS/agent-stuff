@@ -18,18 +18,25 @@ re-run. Branch: `feat/lb-mv`.
 ## Milestones
 
 - [x] Design doc `lightbridge-mv.md` + amendments (cli-design cheat sheet, §8-4 note,
-  Non-goals exception, See-also; multi-machine-sync relocate note) + this tracker
-- [ ] `lightbridge.py`: module-level helpers — `set_root`, `rename_registry_paths`,
-  `plan_mv`, `cmd_mv` (injectable `ask`, `--yes`/`--dry-run`/`--json`)
-- [ ] `lightbridge.py`: Typer wiring for `mv` in `main()`; `--yes` help text carries the
-  agent warning
-- [ ] `lightbridge.py`: doctor `stale`/`key-mismatch` messages teach `lb mv`
-- [ ] Tests: `MvCliTest` + helper tests (mode matrix, guard, prefix, collisions,
-  idempotence, style-preserving rewrites)
-- [ ] Skill/catalog sync: SKILL.md verb line + "Moving or renaming a repo" section +
-  version bump; catalog.md verb list + moved-repo trade-off text
-- [ ] Gates: `bin/validate.py` + all suites green
-- [ ] E2E smoke in scratch dirs (move, parent-prefix move, idempotent re-run)
+  Non-goals exception, See-also; multi-machine-sync relocate note) + this tracker — `2baef19`
+- [x] `lightbridge.py`: module-level helpers — `set_root`, `rename_registry_paths`,
+  `plan_mv`, `cmd_mv` (injectable `ask`, `--yes`/`--dry-run`/`--json`) — `ab4975e`
+- [x] `lightbridge.py`: Typer wiring for `mv` in `main()`; `--yes` help text carries the
+  agent warning — `ab4975e`
+- [x] `lightbridge.py`: doctor `stale` message teaches `mv`. (Deviation from plan:
+  `key-mismatch` keeps its message — `mv` matches on `root`, which is *correct* in a
+  key-mismatch, so `mv` cannot repair that rot; only `stale` names it.) — `ab4975e`
+- [x] Tests: `MvHelperTest` + `MvCliTest` (20 tests: mode matrix, guard, prefix,
+  collisions, idempotence, style-preserving rewrites). The case-rename test caught a
+  real bug — on case-insensitive APFS the *state-dir* re-key is itself case-only and
+  read as a config collision; fixed with a samefile guard in plan + execute — `ab4975e`
+- [x] Skill/catalog sync: SKILL.md verb line + "Moving or renaming a repo" section +
+  version bump; catalog.md verb list + moved-repo trade-off text; tool README;
+  AGENTS.qmd brief (agent-instruction `c0d0fdb`) — `e7444b1`
+- [x] Gates: `bin/validate.py` + all 10 suites green (213 tests, 2026-07-25)
+- [x] E2E smoke in scratch dirs: single move (dry-run → non-TTY refusal → --yes →
+  doctor clean → idempotent re-run exit 0) and parent-prefix move re-keying 2 projects +
+  2 registry entries; `/var` vs `/private/var` symlink spellings matched via resolve
 - [ ] Draft PR opened
 
 ## Confirmed contracts
