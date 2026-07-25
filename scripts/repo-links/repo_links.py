@@ -48,7 +48,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-LIGHTBRIDGE = Path(__file__).resolve().parents[1] / "lightbridge" / "lightbridge.py"
+LIGHTBRIDGE = Path(__file__).resolve().parents[1] / "lightbridge" / "lb_resolve.py"
 DEFAULT_REGISTRY = "~/.lightbridge/repos.toml"
 REMINDER = (
     "When a task involves a linked repo, work with it at the absolute path above."

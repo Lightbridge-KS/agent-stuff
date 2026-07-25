@@ -28,7 +28,7 @@ import json
 import sys
 from pathlib import Path
 
-_LIGHTBRIDGE = Path(__file__).resolve().parents[2] / "scripts" / "lightbridge" / "lightbridge.py"
+_LIGHTBRIDGE = Path(__file__).resolve().parents[2] / "scripts" / "lightbridge" / "lb_resolve.py"
 SECTION = "plans"
 
 

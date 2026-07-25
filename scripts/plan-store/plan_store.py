@@ -61,7 +61,7 @@ STATES = ("approved", "executing", "landed", "abandoned", "superseded")
 # whole ~/.lightbridge tree. Loaded by path, with NO third-party imports, because several
 # dep-free `uv run --script` readers (including two SessionStart hooks that must fail open
 # fast) exec this module into their own interpreter.
-_LIGHTBRIDGE = Path(__file__).resolve().parents[1] / "lightbridge" / "lightbridge.py"
+_LIGHTBRIDGE = Path(__file__).resolve().parents[1] / "lightbridge" / "lb_resolve.py"
 _spec = importlib.util.spec_from_file_location("lightbridge", _LIGHTBRIDGE)
 _lb = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_lb)

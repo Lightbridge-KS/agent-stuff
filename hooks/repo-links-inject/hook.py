@@ -18,7 +18,7 @@ When both are present, each link is resolved and VERIFIED: the agent gets a comp
 "Linked repos" map with absolute paths, and any dead name or stale path surfaces as
 a WARNING line — the rot detector hand-maintained `CLAUDE.local.md` paths never had.
 
-Config resolution is owned by `scripts/lightbridge/lightbridge.py`; the link logic by
+Config resolution is owned by `scripts/lightbridge/lb_resolve.py`; the link logic by
 `scripts/repo-links/repo_links.py` — both imported, single source of truth. It
 degrades silently: no config, malformed config, no `[repo-links]` section,
 `enabled = false`, zero declared links, or no registry on this machine → emits
@@ -41,7 +41,7 @@ from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 REPO_LINKS = SCRIPTS / "repo-links" / "repo_links.py"
-LIGHTBRIDGE = SCRIPTS / "lightbridge" / "lightbridge.py"
+LIGHTBRIDGE = SCRIPTS / "lightbridge" / "lb_resolve.py"
 
 
 def load_module(name: str, path: Path):

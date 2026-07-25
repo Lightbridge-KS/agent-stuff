@@ -21,23 +21,23 @@ file must be `exec_module`-safe — not the whole tool.
 
 ## Milestones
 
-- [ ] ADR `0001-modular-lightbridge.md` + this tracker + `lightbridge-cli-design.md`
+- [x] ADR `0001-modular-lightbridge.md` + this tracker + `lightbridge-cli-design.md`
   multi-module note
-- [ ] 78-case behavioral baseline captured at `18891f0` (every verb × `--json`/human ×
+- [x] 78-case behavioral baseline captured at `18891f0` (every verb × `--json`/human ×
   refusal paths, `--help` for root + all 11 verbs + 3 `repos` subcommands, doctor's 4
   problem kinds, the `mv` apply path with resulting tree/config/registry)
-- [ ] `lb_resolve.py` — resolution, `toml_str`, `use_utf8_console`, consts
-- [ ] `lb_tomledit.py` — the scattered TOML line-surgery engine, gathered
-- [ ] `lb_catalog.py` + `lb_registry.py`
-- [ ] `lb_doctor.py` + `lb_mv.py` (incl. `apply_mv` extracted from `cmd_mv`)
-- [ ] `lb_commands.py` (incl. the deduped `{root, key, config}` JSON preamble)
-- [ ] `lightbridge.py` trimmed to Typer wiring + `main()`
-- [ ] 6 consumers migrated to `lb_resolve.py`
-- [ ] Tests: per-consumer loading strategy + 2 new invariant guards
-- [ ] Doc/skill sync + `__version__` → 0.5.0
-- [ ] Gates: `bin/validate.py` + all suites green
-- [ ] Behavioral diff sweep vs `18891f0` — zero diffs except `--version`
-- [ ] Hooks fired by hand + `lb` through the PATH symlink + `lb mv` E2E smoke
+- [x] `lb_resolve.py` — resolution, `toml_str`, `use_utf8_console`, consts
+- [x] `lb_tomledit.py` — the scattered TOML line-surgery engine, gathered
+- [x] `lb_catalog.py` + `lb_registry.py`
+- [x] `lb_doctor.py` + `lb_mv.py` (incl. `apply_mv` extracted from `cmd_mv`)
+- [x] `lb_commands.py` (incl. the deduped `{root, key, config}` JSON preamble)
+- [x] `lightbridge.py` trimmed to Typer wiring + `main()`
+- [x] 6 consumers migrated to `lb_resolve.py`
+- [x] Tests: per-consumer loading strategy + 2 new invariant guards
+- [x] Doc/skill sync + `__version__` → 0.5.0
+- [x] Gates: `bin/validate.py` + all suites green
+- [x] Behavioral diff sweep vs `18891f0` — zero diffs except `--version`
+- [x] Hooks fired by hand + `lb` through the PATH symlink + `lb mv` E2E smoke
 - [ ] Draft PR opened
 
 ## Confirmed contracts
@@ -65,5 +65,14 @@ Carried over from v0.4 unless noted:
   Reconciling them changes `repo-links-inject` behavior, so it is out of scope for a
   no-behavior-change refactor. Worth a follow-up: two registry readers is exactly the
   duplication the one-implementation rule forbids.
+- **`mv`'s idempotent re-run does not cover a parent-dir move.** Re-running
+  `mv PARENT_OLD PARENT_NEW` after it succeeded exits 1 with "nothing in lightbridge
+  references PARENT_OLD" instead of the clean no-op. Cause: the verified-noop check in
+  `plan_mv` looks for `state_dir/project_key(new)/config.toml`, but a parent dir has no
+  config of its own — the configs belong to the repos *beneath* it. **Pre-existing:
+  reproduced identically against v0.4 (`18891f0`) in a worktree**, so it is not a
+  regression from this refactor and fixing it would be a behavior change. Worth a v0.6
+  ticket — the [`mv` design](../lightbridge-mv.md) advertises a verifiable idempotent
+  re-run, and for prefix moves it does not hold.
 - Unchanged from v0.4: `doctor --fix`; `lb relocate` / multi-machine re-keying, owned by
   [multi-machine sync](../multi-machine-sync.md).

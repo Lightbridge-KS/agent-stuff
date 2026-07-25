@@ -82,7 +82,7 @@ the user to migrate deliberately. Design: `docs/lightbridge/lightbridge-mv.md` (
 When the user and I design a new `.lightbridge` feature, follow
 [`references/extending.md`](references/extending.md): build the reader (resolving config
 through `scripts/lightbridge`), register it in `catalog.md`, add its template block to
-`SECTIONS` in `scripts/lightbridge/lightbridge.py`, sync the one-line brief in
+`SECTIONS` in `scripts/lightbridge/lb_catalog.py`, sync the one-line brief in
 `agent-instruction/AGENTS.qmd`, bump `metadata.version`, and validate.
 
 ## Source of truth

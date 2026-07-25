@@ -5,29 +5,50 @@
 # ///
 """Behavioral tests for scripts/lightbridge — the canonical config resolver.
 
-Library functions (project_key, repo_root, config_path, load_config, legacy_config)
-are tested by importing the module the same way the hooks do (importlib from file
-path). The CLI (`status` · `init` · `add` · `show` · `enable`/`disable` · `path` ·
-`repos` · `doctor`) is driven as a subprocess, executing the file directly — the same
-path as an agent's `uv run`, so the shebang is under test.
+Each module is loaded the way its real consumer loads it (ADR 0001):
+
+* **`lb_resolve.py`** is the one module hooks and sibling scripts path-load, so
+  `ResolveModuleContractTest` exercises that protocol explicitly — `exec_module` inside a
+  fresh `dependencies = []` PEP 723 env, where a sibling import genuinely cannot resolve.
+  It also AST-checks the two properties that make the whole layout safe. The library tests
+  below then use a plain import, so there is exactly one module object in play.
+* **CLI-side modules** (`lb_tomledit`, `lb_catalog`, `lb_registry`, `lb_commands`) are
+  reached by plain `import` from the entrypoint's directory — which is what `uv run
+  --script` puts on `sys.path[0]` — so the tests import them the same way.
+* **The CLI** (`status` · `init` · `add` · `show` · `enable`/`disable` · `path` · `repos` ·
+  `mv` · `doctor`) is driven as a subprocess, executing `lightbridge.py` directly — the
+  same path as an agent's `uv run`, so the shebang is under test.
 
     uv run tests/test_lightbridge.py
 """
 
 from __future__ import annotations
 
-import importlib.util
+import ast
 import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import tomllib
 import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / "scripts" / "lightbridge" / "lightbridge.py"
+LIGHTBRIDGE_DIR = REPO_ROOT / "scripts" / "lightbridge"
+SCRIPT = LIGHTBRIDGE_DIR / "lightbridge.py"
+RESOLVE = LIGHTBRIDGE_DIR / "lb_resolve.py"
+
+# The entrypoint's own protocol: `uv run --script` puts this directory on sys.path[0],
+# so the CLI-side modules are plain imports. Tests do exactly what lightbridge.py does.
+sys.path.insert(0, str(LIGHTBRIDGE_DIR))
+
+import lb_catalog  # noqa: E402
+import lb_commands  # noqa: E402
+import lb_registry  # noqa: E402
+import lb_resolve as lb  # noqa: E402  — the read path; `lb` keeps the historic name
+import lb_tomledit  # noqa: E402
 
 
 def script_argv(script: Path, *args: str) -> list[str]:
@@ -45,11 +66,6 @@ def script_argv(script: Path, *args: str) -> list[str]:
     if os.name != "nt":
         return [str(script), *args]
     return ["uv", "run", str(script), *args]
-
-_spec = importlib.util.spec_from_file_location("lightbridge", SCRIPT)
-lb = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(lb)
-
 
 def git_init(path: Path) -> None:
     subprocess.run(["git", "init", "-q", str(path)], check=True, capture_output=True)
@@ -651,22 +667,22 @@ class MvHelperTest(unittest.TestCase):
     """`mv`'s pure helpers — rewrite spelling, root line edit — via module import."""
 
     def test_rewrite_path_preserves_tilde_style(self):
-        old, new = lb._norm("~/proj/alpha"), lb._norm("~/proj/beta")
-        self.assertEqual(lb._rewrite_path("~/proj/alpha", old, new), os.path.join("~", "proj", "beta"))
+        old, new = lb_tomledit.norm("~/proj/alpha"), lb_tomledit.norm("~/proj/beta")
+        self.assertEqual(lb_tomledit.rewrite_path("~/proj/alpha", old, new), os.path.join("~", "proj", "beta"))
         self.assertEqual(
-            lb._rewrite_path("~/proj/alpha/sub", old, new),
+            lb_tomledit.rewrite_path("~/proj/alpha/sub", old, new),
             os.path.join("~", "proj", "beta", "sub"),
         )
 
     def test_rewrite_path_absolute_stays_absolute(self):
-        old, new = lb._norm("~/proj/alpha"), lb._norm("~/proj/beta")
-        raw = str(lb._norm("~/proj/alpha/sub"))
-        self.assertEqual(lb._rewrite_path(raw, old, new), str(lb._norm("~/proj/beta/sub")))
+        old, new = lb_tomledit.norm("~/proj/alpha"), lb_tomledit.norm("~/proj/beta")
+        raw = str(lb_tomledit.norm("~/proj/alpha/sub"))
+        self.assertEqual(lb_tomledit.rewrite_path(raw, old, new), str(lb_tomledit.norm("~/proj/beta/sub")))
 
     def test_rewrite_path_unrelated_is_none(self):
-        old, new = lb._norm("~/proj/alpha"), lb._norm("~/proj/beta")
-        self.assertIsNone(lb._rewrite_path("~/elsewhere", old, new))
-        self.assertIsNone(lb._rewrite_path("~/proj/alphabet", old, new))  # not a prefix match
+        old, new = lb_tomledit.norm("~/proj/alpha"), lb_tomledit.norm("~/proj/beta")
+        self.assertIsNone(lb_tomledit.rewrite_path("~/elsewhere", old, new))
+        self.assertIsNone(lb_tomledit.rewrite_path("~/proj/alphabet", old, new))  # not a prefix match
 
     def test_rename_registry_paths_line_edit_comments_survive(self):
         text = (
@@ -674,8 +690,8 @@ class MvHelperTest(unittest.TestCase):
             "one = '~/proj/alpha'  # trailing comment\n"
             'two = "~/elsewhere"\n'
         )
-        new_text, changed = lb.rename_registry_paths(
-            text, lb._norm("~/proj/alpha"), lb._norm("~/proj/beta")
+        new_text, changed = lb_registry.rename_registry_paths(
+            text, lb_tomledit.norm("~/proj/alpha"), lb_tomledit.norm("~/proj/beta")
         )
         self.assertEqual(changed, {"one": os.path.join("~", "proj", "beta")})
         self.assertIn("# header comment", new_text)
@@ -685,7 +701,7 @@ class MvHelperTest(unittest.TestCase):
 
     def test_set_root_targets_top_level_only(self):
         text = "# comment\nroot = '/old/path'  # marker\n\n[section]\nroot = '/decoy'\n"
-        out = lb.set_root(text, Path("/new/path"))
+        out = lb_tomledit.set_root(text, Path("/new/path"))
         self.assertIn("root = '/new/path'", out)
         self.assertIn("root = '/decoy'", out)  # the section's key is untouched
         self.assertIn("# comment", out)
@@ -710,7 +726,7 @@ class MvHelperTest(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(
                 io.StringIO()
             ):
-                code = lb.cmd_mv(
+                code = lb_commands.cmd_mv(
                     str(old), str(new), yes=False, dry_run=False, json_out=False,
                     state_dir=state, registry_file=str(base / "repos.toml"), ask=deny,
                 )
@@ -731,7 +747,7 @@ class MvHelperTest(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(
                 io.StringIO()
             ):
-                code = lb.cmd_mv(
+                code = lb_commands.cmd_mv(
                     str(old), str(new), yes=False, dry_run=False, json_out=False,
                     state_dir=state, registry_file=str(base / "repos.toml"),
                     ask=lambda prompt: True,
@@ -942,6 +958,125 @@ class MvCliTest(CliHarness):
             self.assertTrue(config.is_file())
 
 
+class ResolveModuleContractTest(unittest.TestCase):
+    """ADR 0001's load-bearing invariants. If any of these breaks, every hook breaks.
+
+    `lb_resolve.py` is the one module path-loaded via `exec_module` from inside
+    `dependencies = []` PEP 723 envs, which means it may import stdlib only and no
+    siblings (relative/sibling imports do not resolve under `exec_module`). The
+    entrypoint, conversely, must never be imported by anyone.
+    """
+
+    # The frozen importer API (ADR 0001, point 3). Narrowed from v0.3: SECTIONS left.
+    FROZEN_API = (
+        "project_key",
+        "repo_root",
+        "config_path",
+        "load_config",
+        "legacy_config",
+        "legacy_warning",
+        "default_state_dir",
+        "DEFAULT_STATE_DIR",
+        "STATE_DIR_ENV",
+        "toml_str",
+        "use_utf8_console",
+    )
+
+    def test_path_loads_in_a_dependency_free_env(self):
+        """The real consumer protocol, reproduced exactly.
+
+        Runs in a `uv run --script` subprocess with `dependencies = []`, from a directory
+        that is NOT scripts/lightbridge — so a sibling import genuinely cannot resolve and
+        a non-stdlib import genuinely is not installed. In-process this would pass
+        vacuously, because the test harness has already put the folder on sys.path.
+        """
+        probe = (
+            "#!/usr/bin/env -S uv run --script\n"
+            "# /// script\n"
+            '# requires-python = ">=3.11"\n'
+            "# dependencies = []\n"
+            "# ///\n"
+            "import importlib.util, json, sys\n"
+            f"spec = importlib.util.spec_from_file_location('lightbridge', {str(RESOLVE)!r})\n"
+            "mod = importlib.util.module_from_spec(spec)\n"
+            "spec.loader.exec_module(mod)\n"
+            f"print(json.dumps([n for n in {list(self.FROZEN_API)!r} if not hasattr(mod, n)]))\n"
+        )
+        with tempfile.TemporaryDirectory() as d:
+            script = Path(d) / "probe.py"
+            script.write_text(probe, encoding="utf-8")
+            result = subprocess.run(
+                ["uv", "run", "--script", str(script)],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                cwd=d,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            json.loads(result.stdout.strip()),
+            [],
+            "lb_resolve.py lost a name from the frozen importer API — every hook and "
+            "sibling script path-loads this module (see ADR 0001).",
+        )
+
+    def test_imports_are_stdlib_and_sibling_free(self):
+        """Static guard: names the offending import rather than only failing somewhere.
+
+        A *sibling* import is caught here with a readable message. A *non-stdlib* import
+        usually kills this harness's own import chain first (it runs `dependencies = []`
+        too), so the suite goes red via a ModuleNotFoundError before reaching this test —
+        red either way, but the message is worse. The AST check earns its keep on the
+        sibling case and on any import that happens to be installed locally but is absent
+        from a hook's env.
+        """
+        siblings = {p.stem for p in LIGHTBRIDGE_DIR.glob("*.py")} - {"lb_resolve"}
+        tree = ast.parse(RESOLVE.read_text(encoding="utf-8"))
+        offenders = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                if node.level:
+                    offenders.append(f"relative import (level {node.level})")
+                    continue
+                roots = [node.module or ""]
+            elif isinstance(node, ast.Import):
+                roots = [alias.name for alias in node.names]
+            else:
+                continue
+            for name in roots:
+                root = name.split(".")[0]
+                if root in siblings:
+                    offenders.append(f"sibling import: {name}")
+                elif root not in sys.stdlib_module_names:
+                    offenders.append(f"non-stdlib import: {name}")
+        self.assertEqual(
+            offenders,
+            [],
+            "lb_resolve.py must import stdlib only and no siblings — it is path-loaded "
+            "via exec_module inside dependency-free envs (see ADR 0001, point 1).",
+        )
+
+    def test_no_consumer_path_loads_the_entrypoint(self):
+        """`lightbridge.py` is the entrypoint, not a library (ADR 0001, point 2).
+
+        It imports typer and its siblings at module scope, so path-loading it from a
+        hook's dependency-free env would crash. Consumers must target lb_resolve.py.
+        """
+        offenders = []
+        for folder in ("hooks", "scripts"):
+            for source in sorted((REPO_ROOT / folder).rglob("*.py")):
+                if source.parent == LIGHTBRIDGE_DIR:
+                    continue  # the tool's own modules import each other by design
+                if '"lightbridge.py"' in source.read_text(encoding="utf-8"):
+                    offenders.append(str(source.relative_to(REPO_ROOT)))
+        self.assertEqual(
+            offenders,
+            [],
+            "these files reference lightbridge.py as a loadable path — point them at "
+            "scripts/lightbridge/lb_resolve.py instead (see ADR 0001, point 2).",
+        )
+
+
 class CliContractTest(unittest.TestCase):
     """The parser-layer contracts the Typer migration must not drift on."""
 
@@ -967,7 +1102,7 @@ class SectionsTest(unittest.TestCase):
             script_argv(SCRIPT, "sections", "--json"), capture_output=True, text=True, encoding="utf-8"
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(set(json.loads(result.stdout)), set(lb.SECTIONS))
+        self.assertEqual(set(json.loads(result.stdout)), set(lb_catalog.SECTIONS))
 
     def test_sections_match_catalog(self):
         """The anti-drift guard: the CLI's emittable templates and the catalog's prose
@@ -980,8 +1115,8 @@ class SectionsTest(unittest.TestCase):
         documented = set(re.findall(r"^### `\[([^\]]+)\]`", catalog, flags=re.MULTILINE))
         self.assertEqual(
             documented,
-            set(lb.SECTIONS),
-            "catalog.md and lightbridge.SECTIONS disagree — a section was added to one "
+            set(lb_catalog.SECTIONS),
+            "catalog.md and lb_catalog.SECTIONS disagree — a section was added to one "
             "and not the other (see references/extending.md).",
         )
 

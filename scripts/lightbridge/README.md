@@ -23,9 +23,10 @@ project-key = repo_root with path separators → "-"
 config      = <state-dir>/<project-key>/config.toml
 ```
 
-Readers (`hooks/docs-index-inject`, `scripts/repo-links`, `scripts/handoff`) **import this
-module** (path-relative `importlib`, like the hooks already load their scripts) — nothing
-reimplements root/key/config resolution. `$LIGHTBRIDGE_STATE_DIR` overrides the default
+Readers (`hooks/docs-index-inject`, `scripts/repo-links`, `scripts/handoff`) **import
+`lb_resolve.py`** (path-relative `importlib`, like the hooks already load their scripts) —
+nothing reimplements root/key/config resolution. That module is the *only* one they load;
+see "Module layout" below. `$LIGHTBRIDGE_STATE_DIR` overrides the default
 `~/.lightbridge/projects` (used by the tests).
 
 Every config carries a top-level `root = "/abs/path"` key. The key encoding is lossy and a
@@ -108,7 +109,7 @@ on a TTY; non-interactive runs need `--yes` (agents: only under explicit human
 instruction); `--dry-run` previews the blast radius; a completed move re-runs as a clean
 no-op. Full contract: `docs/lightbridge/lightbridge-mv.md`.
 
-**Sections.** The emittable templates live in `SECTIONS` (in `lightbridge.py`); what each
+**Sections.** The emittable templates live in `SECTIONS` (in `lb_catalog.py`); what each
 key *means* is the `lightbridge-config` skill's `references/catalog.md`, the canonical spec.
 A test asserts the two describe the same set of sections, so neither can grow alone.
 
@@ -120,3 +121,33 @@ plus `legacy` — a pre-migration `<repo>/.lightbridge/config.toml` found under 
 Exit codes: `0` ok, including an idempotent no-op · `1` refused (`doctor` found problems,
 `init`/`repos add` would clobber, the config/section/name a verb needs is absent or
 unreadable) · `2` usage.
+
+## Module layout
+
+Since v0.5 this tool is eight flat sibling modules rather than one file. The boundary is
+**the library is the read path; the CLI owns the write path** — decision and rationale in
+[`docs/lightbridge/adr/0001-modular-lightbridge.md`](../../docs/lightbridge/adr/0001-modular-lightbridge.md).
+
+| file | holds |
+|---|---|
+| `lb_resolve.py` | **the read path** — resolution, `toml_str`, `use_utf8_console` |
+| `lb_tomledit.py` | surgical TOML line edits (comments and layout survive) |
+| `lb_catalog.py` | `SECTIONS`, `SectionName`, config-document assembly |
+| `lb_registry.py` | `~/.lightbridge/repos.toml` |
+| `lb_doctor.py` | the tree audit |
+| `lb_mv.py` | `plan_mv` + `apply_mv` |
+| `lb_commands.py` | the `cmd_*` verb handlers |
+| `lightbridge.py` | Typer wiring + `main()` — **the entrypoint, not importable** |
+
+Two rules, both enforced by `tests/test_lightbridge.py::ResolveModuleContractTest`:
+
+1. **`lb_resolve.py` is the only module a reader path-loads**, so it imports stdlib only and
+   no siblings — hooks `exec_module` it inside `dependencies = []` PEP 723 envs where
+   neither would resolve.
+2. **`lightbridge.py` is never imported.** It pulls in typer and its siblings at module
+   scope; path-loading it from a hook would crash.
+
+Sibling imports work because `uv run --script` puts the *symlink-resolved* script directory
+on `sys.path[0]` — so they hold through the `~/.local/bin/lb` shim too. The `lb_` filename
+prefix is deliberate: these names become real `sys.modules` keys in a repo where several
+tools path-load modules under generic names.
