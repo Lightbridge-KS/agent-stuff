@@ -22,7 +22,7 @@ file must be `exec_module`-safe — not the whole tool.
 ## Milestones
 
 - [x] ADR `0001-modular-lightbridge.md` + this tracker + `lightbridge-cli-design.md`
-  multi-module note
+  multi-module note — `10b9a8c`
 - [x] 78-case behavioral baseline captured at `18891f0` (every verb × `--json`/human ×
   refusal paths, `--help` for root + all 11 verbs + 3 `repos` subcommands, doctor's 4
   problem kinds, the `mv` apply path with resulting tree/config/registry)
@@ -31,14 +31,14 @@ file must be `exec_module`-safe — not the whole tool.
 - [x] `lb_catalog.py` + `lb_registry.py`
 - [x] `lb_doctor.py` + `lb_mv.py` (incl. `apply_mv` extracted from `cmd_mv`)
 - [x] `lb_commands.py` (incl. the deduped `{root, key, config}` JSON preamble)
-- [x] `lightbridge.py` trimmed to Typer wiring + `main()`
+- [x] `lightbridge.py` trimmed to Typer wiring + `main()` — split landed as `e145759`
 - [x] 6 consumers migrated to `lb_resolve.py`
 - [x] Tests: per-consumer loading strategy + 2 new invariant guards
 - [x] Doc/skill sync + `__version__` → 0.5.0
 - [x] Gates: `bin/validate.py` + all suites green
 - [x] Behavioral diff sweep vs `18891f0` — zero diffs except `--version`
 - [x] Hooks fired by hand + `lb` through the PATH symlink + `lb mv` E2E smoke
-- [ ] Draft PR opened
+- [x] Draft PR opened — [#16](https://github.com/Lightbridge-KS/agent-stuff/pull/16)
 
 ## Confirmed contracts
 
