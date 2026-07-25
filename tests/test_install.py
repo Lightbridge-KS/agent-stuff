@@ -261,6 +261,36 @@ class InstallTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("--target cannot be combined", result.stderr)
 
+    def test_root_installs_from_foreign_content_tree(self):
+        """The REAL installer serves a second content-only tree via --root."""
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            content = base / "private" / "plugins" / "demo" / "skills" / "sample"
+            content.mkdir(parents=True)
+            (content / "SKILL.md").write_text(SKILL_MD)
+            dest = base / "dest"
+
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--root", str(base / "private"),
+                 "--target", str(dest)],
+                capture_output=True, text=True, encoding="utf-8",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((dest / "sample" / "SKILL.md").exists())
+
+    def test_root_empty_tree_names_the_root(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            (base / "empty").mkdir()
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--root", str(base / "empty"),
+                 "--target", str(base / "dest")],
+                capture_output=True, text=True, encoding="utf-8",
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn(str(base / "empty"), result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

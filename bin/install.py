@@ -23,6 +23,7 @@ gets a matching `--<name>` flag here, and several may be combined in one run.
     uv run bin/install.py --claude mech                # one subagent, same addressing
     uv run bin/install.py --claude --domain coding     # a whole plugin/domain
     uv run bin/install.py --all --dry-run              # preview, no writes
+    uv run bin/install.py --root ../agent-stuff-private --codex   # a second content-only tree
 
 Skills and subagents share one address space: `<domain>/<name>`, or the bare
 `<name>` when it is unambiguous.
@@ -59,6 +60,8 @@ def load_targets() -> dict[str, dict[str, Path | None]]:
         data = tomllib.load(fh)
     targets: dict[str, dict[str, Path | None]] = {}
     for name, entry in data.items():
+        if name == "root":
+            sys.exit("error: targets.toml: 'root' is reserved (collides with --root)")
         skills = entry.get("skills") if isinstance(entry, dict) else None
         if not isinstance(skills, str) or not skills.strip():
             sys.exit(f"error: targets.toml: '{name}' is missing a string `skills` path")
@@ -171,20 +174,20 @@ def same_real_path(left: Path, right: Path) -> bool:
         return False
 
 
-def available_skills() -> dict[str, Path]:
+def available_skills(plugins_root: Path = PLUGINS_ROOT) -> dict[str, Path]:
     """Map `<domain>/<skill>` -> source folder for every discovered skill."""
     found: dict[str, Path] = {}
-    for skill_md in sorted(PLUGINS_ROOT.glob("*/skills/*/SKILL.md")):
+    for skill_md in sorted(plugins_root.glob("*/skills/*/SKILL.md")):
         folder = skill_md.parent
         domain = folder.parent.parent.name
         found[f"{domain}/{folder.name}"] = folder
     return found
 
 
-def available_subagents() -> dict[str, Path]:
+def available_subagents(plugins_root: Path = PLUGINS_ROOT) -> dict[str, Path]:
     """Map `<domain>/<name>` -> source .md file for every discovered subagent."""
     found: dict[str, Path] = {}
-    for agent_md in sorted(PLUGINS_ROOT.glob("*/agents/*.md")):
+    for agent_md in sorted(plugins_root.glob("*/agents/*.md")):
         domain = agent_md.parent.parent.name
         found[f"{domain}/{agent_md.stem}"] = agent_md
     return found
@@ -244,6 +247,14 @@ def parse_args(argv: list[str], registry: dict[str, dict]) -> argparse.Namespace
         help="Skills/subagents to install as <domain>/<name> or bare <name> (default: all).",
     )
     parser.add_argument("--domain", help="Install everything in this plugin/domain.")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=REPO_ROOT,
+        metavar="DIR",
+        help="Content tree to install from (default: this repo). Serves a second "
+        "content-only tree with the same plugins/ shape (e.g. agent-stuff-private).",
+    )
     parser.add_argument(
         "--target", help="Install into a custom directory (cannot combine with agents)."
     )
@@ -368,8 +379,9 @@ def main(argv: list[str]) -> int:
     use_utf8_console()
     registry = load_targets()
     args = parse_args(argv, registry)
-    skills = available_skills()
-    subagents = available_subagents()
+    plugins_root = args.root.expanduser().resolve() / "plugins"
+    skills = available_skills(plugins_root)
+    subagents = available_subagents(plugins_root)
     # One address space; the validator forbids a skill and a subagent sharing
     # a `<domain>/<name>` key, so a plain merge is safe.
     available = {**skills, **subagents}
@@ -391,7 +403,8 @@ def main(argv: list[str]) -> int:
 
     if not available:
         print(
-            "No plugins/*/skills/*/SKILL.md or plugins/*/agents/*.md files found.",
+            f"No plugins/*/skills/*/SKILL.md or plugins/*/agents/*.md files found "
+            f"under {plugins_root.parent}.",
             file=sys.stderr,
         )
         return 1

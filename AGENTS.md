@@ -144,6 +144,10 @@ Python, executed via [`uv`](https://docs.astral.sh/uv/) (self-contained scripts 
 (`tomllib` for the target registry).
 
 - `uv run bin/validate.py` — enforce the SKILL.md + manifest + scripts/hooks contracts.
+- `--root DIR` (on `validate.py`, `install.py`, `package.py`) — serve a **second
+  content-only tree** with the same `plugins/` shape (the private castle,
+  `../agent-stuff-private`): validate it (content mode when it has no marketplace.json),
+  install from it, package from it. Machinery lives here only; content repos stay thin.
 - `uv run bin/install.py --list` — list skills and detected agents.
 - `uv run bin/install.py --all` — install all skills into every agent present on the machine.
 - `uv run bin/install.py --claude --codex --pi` — install into specific agents.
