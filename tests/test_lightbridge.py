@@ -594,6 +594,52 @@ class StatusCliTest(CliHarness):
             self.assertTrue(json.loads(result.stdout)["registry"])
 
 
+class LoadRegistryTest(unittest.TestCase):
+    """The one registry reader (issue #18), which `repo_links.py` path-loads too.
+
+    Five states, and the two that look alike are the point: a registry with no `[repos]`
+    table is *benign* when the file is otherwise empty (nothing is registered yet, and
+    `repos add` can create the header), but an *error* when root-level keys are present —
+    that is the hand-authoring mistake where the names were written without the table, so
+    the data is visible in the file yet unreachable. Reporting those names as "not
+    registered" would be maddening, and appending a `[repos]` table below them would
+    strand them.
+    """
+
+    def read(self, text: str | None) -> tuple[dict | None, str | None]:
+        with tempfile.TemporaryDirectory() as d:
+            registry = Path(d) / "repos.toml"
+            if text is not None:
+                registry.write_text(text, encoding="utf-8")
+            return lb.load_registry(registry)
+
+    def test_absent_file_is_not_an_error(self):
+        self.assertEqual(self.read(None), (None, None))
+
+    def test_bad_toml_is_an_error(self):
+        repos, error = self.read("not toml [[[\n")
+        self.assertIsNone(repos)
+        self.assertIn("unreadable", error)
+
+    def test_no_table_with_root_level_keys_is_an_error(self):
+        repos, error = self.read('example-service = "~/work/example-service"\n')
+        self.assertIsNone(repos)
+        self.assertIn("[repos]", error)
+        self.assertIn("indent", error)  # the message teaches the fix
+
+    def test_no_table_and_nothing_else_is_empty_not_an_error(self):
+        for text in ("", "# just a comment\n", "[other]\nx = 1\n"):
+            with self.subTest(text=text):
+                self.assertEqual(self.read(text), ({}, None))
+
+    def test_table_present_filters_non_string_and_blank_values(self):
+        repos, error = self.read(
+            '[repos]\ngood = "/tmp/a"\nnumeric = 1\nblank = "   "\nempty = ""\n'
+        )
+        self.assertIsNone(error)
+        self.assertEqual(repos, {"good": "/tmp/a"})
+
+
 class ReposCliTest(unittest.TestCase):
     def run_repos(self, registry: Path, *args: str) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -614,6 +660,51 @@ class ReposCliTest(unittest.TestCase):
             result = self.run_repos(registry, "list", "--json")
             payload = json.loads(result.stdout)
             self.assertEqual(payload["repos"]["svc"], {"path": str(target), "exists": True})
+
+    MISPLACED = '# my registry\nexample-service = "~/work/example-service"\n'
+
+    def test_add_refuses_misplaced_keys_leaving_the_file_untouched(self):
+        """Issue #18: appending `[repos]` below root-level keys would strand them —
+        the file would parse, and the user's entries would be silently dead."""
+        with tempfile.TemporaryDirectory() as d:
+            registry = Path(d) / "repos.toml"
+            registry.write_text(self.MISPLACED, encoding="utf-8")
+            before = registry.read_bytes()
+            result = self.run_repos(registry, "add", "svc", str(d))
+            self.assertEqual(result.returncode, 1, result.stdout)
+            self.assertIn("[repos]", result.stderr)
+            self.assertEqual(registry.read_bytes(), before)  # nothing stranded
+
+    def test_list_refuses_misplaced_keys(self):
+        with tempfile.TemporaryDirectory() as d:
+            registry = Path(d) / "repos.toml"
+            registry.write_text(self.MISPLACED, encoding="utf-8")
+            result = self.run_repos(registry, "list")
+            self.assertEqual(result.returncode, 1, result.stdout)
+            self.assertIn("[repos]", result.stderr)
+
+    def test_unreadable_registry_refuses_on_every_repos_verb(self):
+        """The shared `_open_registry` refusal. Says "unusable", not "unreadable", since
+        #18 the same path also reports a misplaced-keys registry, which parses fine."""
+        with tempfile.TemporaryDirectory() as d:
+            registry = Path(d) / "repos.toml"
+            registry.write_text("not toml [[[\n", encoding="utf-8")
+            before = registry.read_bytes()
+            for args in (["list"], ["add", "svc", str(d)], ["rm", "svc"]):
+                with self.subTest(verb=args[0]):
+                    result = self.run_repos(registry, *args)
+                    self.assertEqual(result.returncode, 1, result.stdout)
+                    self.assertIn("registry is unusable", result.stderr)
+            self.assertEqual(registry.read_bytes(), before)
+
+    def test_list_empty_registry_is_informational(self):
+        """A table-less but otherwise empty file registers nothing — not a fault."""
+        with tempfile.TemporaryDirectory() as d:
+            registry = Path(d) / "repos.toml"
+            registry.write_text("# nothing here yet\n", encoding="utf-8")
+            result = self.run_repos(registry, "list")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("no repos registered", result.stdout)
 
     def test_add_duplicate_name_exits_1_untouched(self):
         with tempfile.TemporaryDirectory() as d:
@@ -1036,6 +1127,7 @@ class ResolveModuleContractTest(unittest.TestCase):
         "default_state_dir",
         "DEFAULT_STATE_DIR",
         "STATE_DIR_ENV",
+        "load_registry",  # joined in v0.6 (issue #18) — repo_links.py path-loads it
         "toml_str",
         "use_utf8_console",
     )

@@ -219,6 +219,23 @@ class RepoLinksHookTest(unittest.TestCase):
             ctx = self.context_of(run_hook(proj, home))
             self.assertIn("WARNING", ctx)
             self.assertIn("[repos]", ctx)
+            # Since #18 the message names the stranded key and the fix, so the reader is
+            # not left hunting for why a name they can see in the file did not resolve.
+            self.assertIn("example-service", ctx)
+            self.assertIn("indent", ctx)
+
+    def test_empty_registry_reports_per_link_not_a_file_error(self):
+        """A table-less but otherwise empty registry registers nothing — that is not a
+        malformed file (issue #18). It used to collapse to one file-level WARNING; now
+        each declared link is named, with the fix, which is what the reader can act on."""
+        for registry in ("", "# nothing yet\n", "[repos]\n"):
+            with self.subTest(registry=registry), tempfile.TemporaryDirectory() as d:
+                home = make_home(Path(d), registry=registry)
+                proj = make_project(Path(d), config=ONE_LINK, home=home)
+                ctx = self.context_of(run_hook(proj, home))
+                self.assertIn("example-service", ctx)
+                self.assertIn("not registered", ctx)
+                self.assertNotIn("missing a [repos] table", ctx)
 
     # --- resolution ---------------------------------------------------------
 

@@ -82,11 +82,19 @@ Binding consequences of that shape:
    asserts no file under `hooks/` or `scripts/` path-loads it.
 3. **The frozen importer API narrows to resolution only:** `project_key`, `repo_root`,
    `config_path`, `load_config` (3-tuple), `legacy_config`, `legacy_warning`,
-   `default_state_dir`, `DEFAULT_STATE_DIR`, `STATE_DIR_ENV`, `toml_str`,
-   `use_utf8_console`. This amends v0.3's Confirmed contracts, which also listed
-   `SECTIONS` — verified that no hook or script imports it; only
+   `default_state_dir`, `DEFAULT_STATE_DIR`, `STATE_DIR_ENV`, `load_registry`,
+   `toml_str`, `use_utf8_console`. This amends v0.3's Confirmed contracts, which also
+   listed `SECTIONS` — verified that no hook or script imports it; only
    `tests/test_lightbridge.py` did. Keeping catalog data in the path-loaded module would
    have forced a vaguer name and left the catalog-driven config assembly homeless.
+
+   *Amended v0.6 ([#18](https://github.com/Lightbridge-KS/agent-stuff/issues/18)):*
+   `load_registry` joined the list. It is read path by the same test the rest of the
+   module passes — stdlib-only, sibling-free — and `repo_links.py`, which path-loads this
+   module, had been carrying a second implementation of it. The registry's *write* path
+   (`append_repo`, `remove_repo`, `rename_registry_paths`) stays in `lb_registry.py`,
+   where its `lb_tomledit` dependency belongs; splitting read from write is what let the
+   duplicate go.
 4. **The `lb_` filename prefix is load-bearing.** CLI-side modules are reached by plain
    `import`, so their filenames become real `sys.modules` keys — and this repo path-loads
    modules under generic names throughout (`"lightbridge"`, `"repo_links"`,

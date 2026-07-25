@@ -22,8 +22,8 @@ import shutil
 import tomllib
 from pathlib import Path
 
-from lb_registry import load_registry, rename_registry_paths
-from lb_resolve import CONFIG_NAME, project_key
+from lb_registry import rename_registry_paths
+from lb_resolve import CONFIG_NAME, load_registry, project_key
 from lb_tomledit import norm, rewrite_path, set_root
 
 
