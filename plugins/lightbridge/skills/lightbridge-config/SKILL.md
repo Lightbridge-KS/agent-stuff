@@ -2,7 +2,7 @@
 name: lightbridge-config
 description: Bootstrap and manage the personal .lightbridge namespace — per-project config at ~/.lightbridge/projects/<project-key>/config.toml (docs-index, repo-links, research, plans, …) and the rest of the user-level ~/.lightbridge/ tree (handoffs, plans, repos.toml). Use when setting up lightbridge config for a repo, enabling or adding a config section, asking what .lightbridge supports, wiring a new config feature, or locating user-level lightbridge state.
 metadata:
-  version: "2026-07-16"
+  version: "2026-07-25"
 ---
 
 # .lightbridge config
@@ -42,6 +42,7 @@ lb enable|disable NAME   # flip a section's `enabled` in place (idempotent)
 lb sections              # what can go in a config, and who reads it
 lb path                  # where this project's config lives (+ exists?)
 lb repos list|add|rm     # manage ~/.lightbridge/repos.toml (add never clobbers a name)
+lb mv OLD NEW            # move/rename a repo (or parent dir) + repair all bookkeeping
 lb doctor                # audit the whole tree (stale roots, legacy files)
 ```
 
@@ -60,6 +61,21 @@ one-line version.)
 `lb add <name>` appends a section; `lb enable <name>` / `lb disable <name>` toggle one in
 place (a line edit — comments survive). Never delete a block just to disable it, and don't
 hand-edit `enabled` — the CLI owns that key.
+
+## Moving or renaming a repo
+
+Everything in `~/.lightbridge` is keyed by repo path, so a move/rename breaks config
+silently. **One command repairs everything** — whether the user is about to move
+("I'm moving X to Y") or already did ("I moved X to Y"):
+
+    lb mv OLD NEW            # OLD still exists → performs the move too; OLD gone → repair only
+
+It re-keys `projects/<key>/` (config + handoffs + plans travel), rewrites `root`, and
+fixes matching `repos.toml` paths — parent-dir moves re-key every project beneath in one
+shot. Never hand-edit these files. Preview with `--dry-run`. Non-interactive runs need
+`--yes` — **pass it only when the user explicitly instructed this move.** A note about
+`~/.claude/projects/<old-key>` (Claude Code session state) may print — that is left for
+the user to migrate deliberately. Design: `docs/lightbridge/lightbridge-mv.md` (agent-stuff).
 
 ## Invent a NEW section (how this skill grows)
 

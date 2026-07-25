@@ -647,6 +647,301 @@ class ReposCliTest(unittest.TestCase):
             self.assertIsNone(json.loads(result.stdout)["repos"])
 
 
+class MvHelperTest(unittest.TestCase):
+    """`mv`'s pure helpers — rewrite spelling, root line edit — via module import."""
+
+    def test_rewrite_path_preserves_tilde_style(self):
+        old, new = lb._norm("~/proj/alpha"), lb._norm("~/proj/beta")
+        self.assertEqual(lb._rewrite_path("~/proj/alpha", old, new), os.path.join("~", "proj", "beta"))
+        self.assertEqual(
+            lb._rewrite_path("~/proj/alpha/sub", old, new),
+            os.path.join("~", "proj", "beta", "sub"),
+        )
+
+    def test_rewrite_path_absolute_stays_absolute(self):
+        old, new = lb._norm("~/proj/alpha"), lb._norm("~/proj/beta")
+        raw = str(lb._norm("~/proj/alpha/sub"))
+        self.assertEqual(lb._rewrite_path(raw, old, new), str(lb._norm("~/proj/beta/sub")))
+
+    def test_rewrite_path_unrelated_is_none(self):
+        old, new = lb._norm("~/proj/alpha"), lb._norm("~/proj/beta")
+        self.assertIsNone(lb._rewrite_path("~/elsewhere", old, new))
+        self.assertIsNone(lb._rewrite_path("~/proj/alphabet", old, new))  # not a prefix match
+
+    def test_rename_registry_paths_line_edit_comments_survive(self):
+        text = (
+            "# header comment\n[repos]\n"
+            "one = '~/proj/alpha'  # trailing comment\n"
+            'two = "~/elsewhere"\n'
+        )
+        new_text, changed = lb.rename_registry_paths(
+            text, lb._norm("~/proj/alpha"), lb._norm("~/proj/beta")
+        )
+        self.assertEqual(changed, {"one": os.path.join("~", "proj", "beta")})
+        self.assertIn("# header comment", new_text)
+        self.assertIn("# trailing comment", new_text)
+        self.assertIn('two = "~/elsewhere"', new_text)  # untouched line byte-identical
+        self.assertIn("one = '" + os.path.join("~", "proj", "beta") + "'", new_text)
+
+    def test_set_root_targets_top_level_only(self):
+        text = "# comment\nroot = '/old/path'  # marker\n\n[section]\nroot = '/decoy'\n"
+        out = lb.set_root(text, Path("/new/path"))
+        self.assertIn("root = '/new/path'", out)
+        self.assertIn("root = '/decoy'", out)  # the section's key is untouched
+        self.assertIn("# comment", out)
+
+    def test_cmd_mv_ask_declined_aborts(self):
+        """The TTY-prompt branch, unit-level via the injectable `ask`."""
+        import contextlib
+        import io
+
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            old, new = base / "alpha", base / "beta"
+            old.mkdir()
+            state = base / "state"
+            write_config(state, old)
+            answers = {"asked": 0}
+
+            def deny(prompt: str) -> bool:
+                answers["asked"] += 1
+                return False
+
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(
+                io.StringIO()
+            ):
+                code = lb.cmd_mv(
+                    str(old), str(new), yes=False, dry_run=False, json_out=False,
+                    state_dir=state, registry_file=str(base / "repos.toml"), ask=deny,
+                )
+            self.assertEqual(code, 1)
+            self.assertEqual(answers["asked"], 1)
+            self.assertTrue(old.is_dir())  # nothing moved
+
+    def test_cmd_mv_ask_accepted_proceeds(self):
+        import contextlib
+        import io
+
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            old, new = base / "alpha", base / "beta"
+            old.mkdir()
+            state = base / "state"
+            write_config(state, old)
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(
+                io.StringIO()
+            ):
+                code = lb.cmd_mv(
+                    str(old), str(new), yes=False, dry_run=False, json_out=False,
+                    state_dir=state, registry_file=str(base / "repos.toml"),
+                    ask=lambda prompt: True,
+                )
+            self.assertEqual(code, 0)
+            self.assertFalse(old.exists())
+            self.assertTrue(new.is_dir())
+
+
+class MvCliTest(CliHarness):
+    """`mv` — move/rename repair, driven as a subprocess (stdin is a pipe → non-TTY,
+    so the --yes guard is exercised exactly as an agent hits it)."""
+
+    def run_mv(self, state: Path, registry: Path, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            script_argv(SCRIPT, "mv", *args, "--registry", str(registry)),
+            capture_output=True,
+            text=True, encoding="utf-8",
+            stdin=subprocess.DEVNULL,
+            env={**os.environ, lb.STATE_DIR_ENV: str(state)},
+        )
+
+    def seeded(self, base: Path) -> tuple[Path, Path, Path, Path]:
+        """A repo at alpha with config + registry entry; returns (state, registry, old, new)."""
+        old, new = base / "ws" / "alpha", base / "ws" / "beta"
+        old.mkdir(parents=True)
+        state = base / "state"
+        write_config(state, old.resolve())
+        registry = base / "repos.toml"
+        registry.write_text(
+            f"# my registry\n[repos]\nalpha = {lb.toml_str(str(old.resolve()))}  # note\n"
+        )
+        return state, registry, old.resolve(), new.resolve()
+
+    def test_mv_non_tty_without_yes_exits_1_untouched(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, registry, old, new = self.seeded(Path(d))
+            before = registry.read_bytes()
+            result = self.run_mv(state, registry, str(old), str(new))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("--yes", result.stderr)
+            self.assertTrue(old.is_dir())
+            self.assertEqual(registry.read_bytes(), before)
+
+    def test_mv_move_mode_moves_rekeys_and_rewrites(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, registry, old, new = self.seeded(Path(d))
+            (state / lb.project_key(old) / "handoffs").mkdir()
+            result = self.run_mv(state, registry, str(old), str(new), "--yes")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(old.exists())
+            self.assertTrue(new.is_dir())
+            self.assertFalse((state / lb.project_key(old)).exists())
+            config = state / lb.project_key(new) / "config.toml"
+            self.assertTrue(config.is_file())
+            self.assertEqual(tomllib.loads(config.read_text())["root"], str(new))
+            self.assertTrue((state / lb.project_key(new) / "handoffs").is_dir())  # state travels
+            text = registry.read_text()
+            self.assertIn("# my registry", text)
+            self.assertIn("# note", text)
+            self.assertEqual(tomllib.loads(text)["repos"]["alpha"], str(new))
+
+    def test_mv_repair_mode_after_manual_move(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, registry, old, new = self.seeded(Path(d))
+            old.rename(new)  # the manual move lb mv must repair
+            result = self.run_mv(state, registry, str(old), str(new), "--yes")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            config = state / lb.project_key(new) / "config.toml"
+            self.assertEqual(tomllib.loads(config.read_text())["root"], str(new))
+            self.assertEqual(tomllib.loads(registry.read_text())["repos"]["alpha"], str(new))
+
+    def test_mv_parent_prefix_rekeys_multiple_projects(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            ws_old, ws_new = base / "ws", base / "workspace"
+            for name in ("p1", "p2"):
+                (ws_old / name).mkdir(parents=True)
+            state = base / "state"
+            for name in ("p1", "p2"):
+                write_config(state, (ws_old / name).resolve())
+            registry = base / "repos.toml"
+            registry.write_text(
+                f"[repos]\np1 = {lb.toml_str(str((ws_old / 'p1').resolve()))}\n"
+                f"p2 = {lb.toml_str(str((ws_old / 'p2').resolve()))}\n"
+            )
+            result = self.run_mv(state, registry, str(ws_old), str(ws_new), "--yes")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            for name in ("p1", "p2"):
+                moved = (ws_new / name).resolve()
+                self.assertTrue(moved.is_dir())
+                config = state / lb.project_key(moved) / "config.toml"
+                self.assertEqual(tomllib.loads(config.read_text())["root"], str(moved))
+                self.assertEqual(tomllib.loads(registry.read_text())["repos"][name], str(moved))
+
+    def test_mv_both_exist_exits_1_untouched(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, registry, old, new = self.seeded(Path(d))
+            new.mkdir()
+            before = registry.read_bytes()
+            result = self.run_mv(state, registry, str(old), str(new), "--yes")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("both paths exist", result.stderr)
+            self.assertTrue(old.is_dir())
+            self.assertEqual(registry.read_bytes(), before)
+
+    def test_mv_neither_exists_exits_1(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            result = self.run_mv(
+                base / "state", base / "repos.toml", str(base / "gone"), str(base / "also-gone"), "--yes"
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("neither path exists", result.stderr)
+
+    def test_mv_unknown_old_exits_1(self):
+        """OLD exists on disk but lightbridge knows nothing about it — typo protection."""
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            (base / "untracked").mkdir()
+            result = self.run_mv(
+                base / "state", base / "repos.toml", str(base / "untracked"), str(base / "dest"), "--yes"
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("nothing in lightbridge references", result.stderr)
+            self.assertTrue((base / "untracked").is_dir())  # untracked repo not moved
+
+    def test_mv_rerun_after_completion_exits_0(self):
+        """Verified idempotence: the same command after success is a clean no-op."""
+        with tempfile.TemporaryDirectory() as d:
+            state, registry, old, new = self.seeded(Path(d))
+            self.assertEqual(self.run_mv(state, registry, str(old), str(new), "--yes").returncode, 0)
+            result = self.run_mv(state, registry, str(old), str(new), "--yes")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("already consistent", result.stdout)
+
+    def test_mv_state_only_collision_merges(self):
+        """State written at the new key before the repair ran (the late-repair flow)."""
+        with tempfile.TemporaryDirectory() as d:
+            state, registry, old, new = self.seeded(Path(d))
+            old.rename(new)
+            stray = state / lb.project_key(new) / "handoffs"
+            stray.mkdir(parents=True)
+            (stray / "2026-07-25_note.md").write_text("fresh handoff\n")
+            old_side = state / lb.project_key(old) / "plans"
+            old_side.mkdir()
+            (old_side / "plan.md").write_text("old plan\n")
+            result = self.run_mv(state, registry, str(old), str(new), "--yes")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            merged = state / lb.project_key(new)
+            self.assertTrue((merged / "handoffs" / "2026-07-25_note.md").is_file())
+            self.assertTrue((merged / "plans" / "plan.md").is_file())
+            self.assertTrue((merged / "config.toml").is_file())
+            self.assertFalse((state / lb.project_key(old)).exists())
+
+    def test_mv_config_collision_exits_1_untouched(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, registry, old, new = self.seeded(Path(d))
+            old.rename(new)
+            write_config(state, new)  # a second config already claims the new key
+            before = registry.read_bytes()
+            result = self.run_mv(state, registry, str(old), str(new), "--yes")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("two configs claim", result.stderr)
+            self.assertEqual(registry.read_bytes(), before)
+            self.assertTrue((state / lb.project_key(old) / "config.toml").is_file())
+
+    def test_mv_dry_run_changes_nothing_exits_0(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, registry, old, new = self.seeded(Path(d))
+            before = registry.read_bytes()
+            result = self.run_mv(state, registry, str(old), str(new), "--dry-run")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("dry-run", result.stdout)
+            self.assertIn(lb.project_key(old), result.stdout)  # blast radius shown
+            self.assertTrue(old.is_dir())
+            self.assertEqual(registry.read_bytes(), before)
+
+    def test_mv_json_shape(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, registry, old, new = self.seeded(Path(d))
+            result = self.run_mv(state, registry, str(old), str(new), "--yes", "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            self.assertEqual(data["mode"], "move")
+            self.assertTrue(data["applied"])
+            self.assertEqual(len(data["projects"]), 1)
+            self.assertEqual(data["projects"][0]["new_key"], lb.project_key(new))
+            self.assertIn("alpha", data["repos"])
+
+    @unittest.skipUnless(os.name != "nt", "POSIX rename semantics")
+    def test_mv_case_only_rename_when_fs_case_insensitive(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            old = base / "Alpha"
+            old.mkdir()
+            if not (base / "alpha").exists():
+                self.skipTest("filesystem is case-sensitive — samefile branch unreachable")
+            new = base / "alpha"
+            state = base / "state"
+            write_config(state, old.resolve())
+            registry = base / "repos.toml"
+            registry.write_text(f"[repos]\nalpha = {lb.toml_str(str(old.resolve()))}\n")
+            result = self.run_mv(state, registry, str(old), str(new), "--yes")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("alpha", [p.name for p in base.iterdir()])  # renamed on disk
+            config = state / lb.project_key(new) / "config.toml"
+            self.assertTrue(config.is_file())
+
+
 class CliContractTest(unittest.TestCase):
     """The parser-layer contracts the Typer migration must not drift on."""
 
