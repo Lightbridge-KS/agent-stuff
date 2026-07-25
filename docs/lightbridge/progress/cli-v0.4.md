@@ -37,7 +37,7 @@ re-run. Branch: `feat/lb-mv`.
 - [x] E2E smoke in scratch dirs: single move (dry-run → non-TTY refusal → --yes →
   doctor clean → idempotent re-run exit 0) and parent-prefix move re-keying 2 projects +
   2 registry entries; `/var` vs `/private/var` symlink spellings matched via resolve
-- [ ] Draft PR opened
+- [x] Draft PR opened — [#15](https://github.com/Lightbridge-KS/agent-stuff/pull/15)
 
 ## Confirmed contracts
 
