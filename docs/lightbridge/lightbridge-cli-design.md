@@ -12,7 +12,7 @@ read_when:
 # lightbridge CLI — Surface & AX Design (v0.2 proposal)
 
 > Source: `scripts/lightbridge/lightbridge.py` v0.1.0 + this design conversation · Date: 2026-07-16 · Mode: Design · Surface: CLI
-> See also: [multi-machine sync (deferred)](./multi-machine-sync.md) · canonical spec: `plugins/lightbridge/skills/lightbridge-config/references/catalog.md`
+> See also: [`lb mv` design (v0.4)](./lightbridge-mv.md) · [multi-machine sync (deferred)](./multi-machine-sync.md) · canonical spec: `plugins/lightbridge/skills/lightbridge-config/references/catalog.md`
 
 Two users, one surface: KS at a terminal, and an AI coding agent in a non-interactive
 shell. The agent is the *more* constrained user — it learns the tool only from `--help`,
@@ -32,6 +32,7 @@ lb sections               # what can go in a config, and who reads it
 lb path                   # config path only (scripting primitive; status supersedes it for humans)
 lb doctor                 # audit the whole tree; exit 1 on problems
 lb repos list|add|rm      # NEW — manage ~/.lightbridge/repos.toml
+lb mv OLD NEW             # NEW (v0.4) — move/rename a repo + repair all bookkeeping (own design doc)
 ```
 
 Every verb keeps `--json`; `init`/`add`/`show`/`enable`/`disable`/`path`/`status` take
@@ -170,7 +171,8 @@ All five settled with the recommended option:
 4. **`doctor --fix` deferred.** The only safe auto-fix is `key-mismatch` (folder rename);
    `stale` needs the multi-machine `relocate`/`not-on-this-machine` nuance from the
    [sync design](./multi-machine-sync.md), and building half of that now risks
-   contradicting it.
+   contradicting it. (Since v0.4: `stale`/`key-mismatch` messages teach
+   [`lb mv`](./lightbridge-mv.md) as the explicit repair — `--fix` stays out.)
 5. **Bare `lb` stays a usage error** (exit 2 — argparse `required=True` in v0.2; Typer's
    missing-command default in v0.3, locked by a test). The usage line already
    lists every verb — adequate self-documentation; full-help-on-bare is cosmetic.
@@ -183,4 +185,7 @@ All five settled with the recommended option:
 - Colors, tables, interactive prompts — two-audience rule: nothing that needs a TTY.
   (v0.3's Typer port keeps this: `rich_markup_mode=None` forces plain click help — the
   default rich panels emit box-drawing padded to 80 columns even when piped, a per-read
-  token tax on the agent. Locked by a test.)
+  token tax on the agent. Locked by a test.) **One exception since v0.4:** `lb mv`, the
+  CLI's first destructive verb, confirms on a TTY — its non-TTY path stays fully
+  functional via `--yes`, so the agent's experience is unchanged
+  (see [`lb mv` design](./lightbridge-mv.md), Decision 2).

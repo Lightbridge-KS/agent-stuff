@@ -55,6 +55,8 @@ repos live at the **same paths** — same `/Users/kittipos` home, same workspace
 All-Mac, same-username, mirrored layout → keys transfer verbatim, zero re-setup. If a
 machine ever diverges (Linux home, different username), build `lightbridge relocate`:
 re-key an entry by consulting its `root`. Do not build it before that machine exists.
+(Since CLI v0.4, [`lb mv`](./lightbridge-mv.md) owns the re-keying mechanics for
+same-machine moves — `relocate`, when built, becomes sugar over those internals.)
 
 ## Flows
 
