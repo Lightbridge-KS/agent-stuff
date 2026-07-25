@@ -147,7 +147,7 @@ feature owns a subtree **or file** registered here.
   - `lightbridge` resolver (agent-stuff `scripts/lightbridge`) — the canonical
     root/key/config resolution every reader imports, plus the CLI that writes, inspects,
     and audits configs (`status` · `init` · `add` · `show` · `enable`/`disable` ·
-    `sections` · `path` · `repos` · `doctor`; linked onto PATH as `lb`).
+    `sections` · `path` · `repos` · `mv` · `doctor`; linked onto PATH as `lb`).
   - `handoff` skill (agent-stuff `plugins/productivity`) — writes
     `projects/<key>/handoffs/<YYYY-MM-DD_HHMM>_<slug>.md`. The filename/frontmatter contract
     lives in that skill, not re-documented here.
@@ -155,9 +155,10 @@ feature owns a subtree **or file** registered here.
     resolves the names declared in a project's `[repo-links]` section against
     `repos.toml`. File absent → readers stay silent.
 - **Trade-off (accepted):** nothing in the repo means nothing travels with a clone —
-  config does not follow the repo to another machine, and a moved/renamed repo orphans
-  its entry (run `lightbridge doctor`). Sync `projects/*/config.toml` via private
-  dotfiles if it must roam; `handoffs/` is conversation-derived — keep it local.
+  config does not follow the repo to another machine. A moved/renamed repo is repaired
+  with `lb mv OLD NEW` (`lightbridge doctor` detects the orphan and names the fix).
+  Sync `projects/*/config.toml` via private dotfiles if it must roam; `handoffs/` is
+  conversation-derived — keep it local.
 - **Hygiene:** never committed anywhere; may hold conversation-derived content, so treat the
   tree as private. No secrets or PHI regardless.
 - **Growth:** a new user-level feature registers its subtree in this list and keeps its

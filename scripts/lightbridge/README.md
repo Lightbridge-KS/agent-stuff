@@ -68,12 +68,13 @@ lightbridge path --start DIR        # another project's
 lightbridge repos list              # manage ~/.lightbridge/repos.toml
 lightbridge repos add NAME PATH     # register a repo — never clobbers a name
 lightbridge repos rm NAME
+lightbridge mv OLD NEW              # move/rename a repo (or parent dir) + repair all bookkeeping
 lightbridge doctor                  # audit the whole tree; exit 1 on problems
 ```
 
 Every verb takes `--json`; the project-scoped verbs (`status` / `init` / `add` / `show` /
-`enable` / `disable` / `path`) take `--start DIR`; `status`, `repos`, and `doctor` take
-`--registry FILE`.
+`enable` / `disable` / `path`) take `--start DIR`; `status`, `repos`, `mv`, and `doctor`
+take `--registry FILE`.
 
 **Status** is the read path — one bounded dashboard instead of a `path → cat → parse → ls`
 chain: root, key, config, each present section with its `enabled` state (unknown tables
@@ -98,6 +99,14 @@ layout survive. Toggling is idempotent (`unchanged`, exit 0); a missing section 
 committed): `add` creates the file on first use and refuses to overwrite an existing name
 (exit 1 — `rm` first); a path that doesn't exist yet registers with a note (pre-clone is
 legitimate); `list` marks dead paths instead of hiding them.
+
+**Mv** repairs what a repo move/rename breaks (everything here is keyed by path): re-keys
+`projects/<key>/` with its state, rewrites the `root` marker, and fixes matching
+`repos.toml` paths — prefix-matched, so a parent-dir move re-keys every project beneath.
+OLD still on disk → it performs the move too; already moved → bookkeeping only. Confirms
+on a TTY; non-interactive runs need `--yes` (agents: only under explicit human
+instruction); `--dry-run` previews the blast radius; a completed move re-runs as a clean
+no-op. Full contract: `docs/lightbridge/lightbridge-mv.md`.
 
 **Sections.** The emittable templates live in `SECTIONS` (in `lightbridge.py`); what each
 key *means* is the `lightbridge-config` skill's `references/catalog.md`, the canonical spec.
