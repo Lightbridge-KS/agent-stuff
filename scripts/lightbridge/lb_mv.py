@@ -8,6 +8,11 @@ touching it, so the same plan drives `--dry-run`, the confirmation display, `--j
 the execution. `apply_mv` performs exactly what the plan describes and nothing else. The
 CLI handler owns only the guard, the display, and the exit code — which is what makes the
 destructive path testable without a TTY.
+
+The completion check behind the idempotent re-run (`_settled_under`) is **prefix-aware**:
+it looks at everything at or under NEW, not at NEW's own key, because a parent directory
+has no config of its own. Checking NEW itself made a completed prefix move re-run as a
+typo error (issue #17).
 """
 
 from __future__ import annotations
@@ -47,6 +52,39 @@ def _merge_move(src: Path, dst: Path) -> None:
     src.rmdir()
 
 
+def _settled_under(state_dir: Path, registry: Path, new: Path) -> list[str]:
+    """Evidence that a move to `new` already landed — the basis of the idempotent re-run.
+
+    Prefix-aware by necessity (issue #17): a parent directory has no config of its own, so
+    checking `new`'s own key only ever verified repo-root moves and made a completed
+    prefix move re-run as a typo error. Everything at or under `new` counts, which makes
+    the repo-root case a strict subset.
+
+    A config counts only when it is **correctly keyed** — that is what proves the
+    re-keying ran, rather than merely that repos happen to live there. Registry entries
+    count on their own, since a repo may be tracked in `repos.toml` with no config at all.
+    Unreadable and root-less configs are skipped: doctor's problem, not mv's.
+    """
+    found: list[str] = []
+    for config in sorted(state_dir.glob(f"*/{CONFIG_NAME}")):
+        try:
+            data = tomllib.loads(config.read_text(encoding="utf-8"))
+        except (tomllib.TOMLDecodeError, OSError):
+            continue
+        root = data.get("root")
+        if not isinstance(root, str) or not root.strip():
+            continue
+        root_path = norm(root)
+        if root_path.is_relative_to(new) and project_key(root_path) == config.parent.name:
+            found.append(str(root_path))
+
+    repos, _error = load_registry(registry)
+    for name, raw in sorted((repos or {}).items()):
+        if norm(raw).is_relative_to(new):
+            found.append(f"{name} → {raw}")
+    return found
+
+
 def plan_mv(old_raw: str, new_raw: str, state_dir: Path, registry: Path) -> dict:
     """The full mv plan — mode, blast radius, collisions — without changing anything.
 
@@ -62,6 +100,7 @@ def plan_mv(old_raw: str, new_raw: str, state_dir: Path, registry: Path) -> dict
         "projects": [],
         "repos": {},
         "claude": [],
+        "settled": [],  # non-empty only in `noop` mode: what proved the move landed
         "errors": [],
     }
 
@@ -141,16 +180,17 @@ def plan_mv(old_raw: str, new_raw: str, state_dir: Path, registry: Path) -> dict
             plan["repos"][name] = {"old": raw, "new": new_raw_value}
 
     if not plan["projects"] and not plan["repos"]:
-        done = state_dir / project_key(new) / CONFIG_NAME
-        if plan["mode"] == "repair" and done.is_file():
-            try:
-                data = tomllib.loads(done.read_text(encoding="utf-8"))
-            except (tomllib.TOMLDecodeError, OSError):
-                data = {}
-            root = data.get("root")
-            if isinstance(root, str) and norm(root) == new:
-                plan["mode"] = "noop"  # verified complete — the idempotent re-run
-                return plan
+        # Nothing references OLD. Either the move already completed, or OLD is a typo —
+        # in repair mode those are indistinguishable from the final state alone, since
+        # OLD's record is gone. Settled references under NEW are the tiebreaker; see the
+        # Re-run contract in docs/lightbridge/lightbridge-mv.md for the accepted trade.
+        settled = (
+            _settled_under(state_dir, registry, new) if plan["mode"] == "repair" else []
+        )
+        if settled:
+            plan["mode"] = "noop"  # verified complete — the idempotent re-run
+            plan["settled"] = settled
+            return plan
         plan["errors"].append(
             f"nothing in lightbridge references {old} — no project config, no registry "
             "entry.\nA typo? For an untracked repo, plain `mv` is all you need."

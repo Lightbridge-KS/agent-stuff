@@ -110,9 +110,26 @@ stays a deliberate human/agent step. Escape-valve flag only if this ever bites.
 ## Re-run contract
 
 Idempotent success (exit 0, "already consistent") **only when the completed target state
-is verifiable**: NEW exists and a config with `root == NEW` sits under the correct key.
-OLD entirely unknown to lightbridge — no config, no registry entry, nothing at NEW's
-key — is a hard error (typo protection, consistent with the no-heuristics rule).
+is verifiable**: no lightbridge reference to OLD remains, **and** at least one correctly
+keyed config — or a registry entry — sits **at or under NEW**. OLD entirely unknown to
+lightbridge, with nothing settled under NEW, is a hard error (typo protection, consistent
+with the no-heuristics rule).
+
+"At or under" rather than "at", because Decision 4's uniform prefix semantics demand it: a
+parent directory has no config of its own — its repos' configs live one level down — so
+checking NEW's own key verified repo-root moves only, and made a *completed* prefix move
+re-run as a typo error ([#17](https://github.com/Lightbridge-KS/agent-stuff/issues/17)).
+The correctly-keyed requirement is what proves the re-keying ran, rather than merely that
+repos happen to live under NEW.
+
+**The limit, accepted deliberately.** In repair mode OLD is gone from both the filesystem
+and lightbridge, so a completed move and a typo'd OLD against a populated NEW are
+*indistinguishable from the final state alone* — the information needed to tell them apart
+no longer exists. Widening the evidence therefore widens false no-ops. The trade is bounded
+and was taken knowingly: it applies to repair mode only (every other refusal — OLD present
+but untracked, neither path exists, both exist and differ — is unaffected), and a false
+no-op **mutates nothing**; the cost is a wrong exit 0. The message names how many
+references were found, so a typo is visible in the output rather than silent.
 
 ## Decisions (resolved 2026-07-25, KS — grilling session)
 
@@ -135,7 +152,11 @@ key — is a hard error (typo protection, consistent with the no-heuristics rule
 7. **Note-only for `~/.claude/projects`** — another tool's contract-less namespace;
    one `if exists` check, zero write risk.
 8. **Verified idempotence** — exit 0 only on provable completion, so agent retry loops
-   terminate and typos still surface as errors.
+   terminate and typos still surface as errors. *Amended (#17):* proof is prefix-aware —
+   anything correctly keyed at or under NEW, not NEW's own key — because the original
+   wording silently excluded the parent-dir moves Decision 4 requires. Perfect
+   discrimination is impossible once OLD is gone; see the Re-run contract for the bounded
+   trade that buys.
 
 ## Non-goals
 
