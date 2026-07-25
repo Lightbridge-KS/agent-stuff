@@ -54,6 +54,14 @@
       "description": "Safe cell-aware Jupyter notebook creation, inspection, editing, and clean-kernel execution.",
       "category": "development",
       "tags": ["jupyter", "notebook", "python", "mcp"]
+    },
+    {
+      "name": "experiment",
+      "displayName": "Experiment",
+      "source": "./plugins/experiment",
+      "description": "Experimental — candidate skills under consideration for adoption, not yet reviewed; may change, move to a proper domain, or vanish.",
+      "category": "productivity",
+      "tags": ["experimental", "candidate"]
     }
   ]
 }

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "experiment",
+  "description": "Experimental — candidate skills under consideration for adoption, not yet reviewed through the castle gate; may change, move to a proper domain, or vanish.",
+  "author": {
+    "name": "Kittipos S.",
+    "url": "https://github.com/Lightbridge-KS"
+  },
+  "homepage": "https://github.com/Lightbridge-KS/agent-stuff",
+  "repository": "https://github.com/Lightbridge-KS/agent-stuff",
+  "license": "MIT",
+  "keywords": ["experimental", "incubator", "candidate", "unreviewed"]
+}
