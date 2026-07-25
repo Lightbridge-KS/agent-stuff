@@ -559,7 +559,13 @@ def cmd_mv(
         if json_out:
             print(json.dumps({**plan, "applied": False}, indent=2))
         else:
-            print(row("unchanged", f"already consistent — {plan['new']} is fully re-keyed"))
+            print(
+                row(
+                    "unchanged",
+                    f"already consistent — {len(plan['settled'])} reference(s) under "
+                    f"{plan['new']} are keyed to it",
+                )
+            )
         return 0
     if not json_out:
         _print_mv_plan(plan)

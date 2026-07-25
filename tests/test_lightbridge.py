@@ -820,20 +820,32 @@ class MvCliTest(CliHarness):
             self.assertEqual(tomllib.loads(config.read_text())["root"], str(new))
             self.assertEqual(tomllib.loads(registry.read_text())["repos"]["alpha"], str(new))
 
-    def test_mv_parent_prefix_rekeys_multiple_projects(self):
-        with tempfile.TemporaryDirectory() as d:
-            base = Path(d)
-            ws_old, ws_new = base / "ws", base / "workspace"
-            for name in ("p1", "p2"):
-                (ws_old / name).mkdir(parents=True)
-            state = base / "state"
+    def seeded_parent(
+        self, base: Path, *, configs: bool = True
+    ) -> tuple[Path, Path, Path, Path]:
+        """Two repos under a shared parent — the prefix-move fixture.
+
+        `configs=False` leaves them tracked in `repos.toml` only, which is the shape that
+        proves registry entries count as completion evidence on their own.
+        """
+        ws_old, ws_new = base / "ws", base / "workspace"
+        for name in ("p1", "p2"):
+            (ws_old / name).mkdir(parents=True)
+        state = base / "state"
+        state.mkdir(exist_ok=True)
+        if configs:
             for name in ("p1", "p2"):
                 write_config(state, (ws_old / name).resolve())
-            registry = base / "repos.toml"
-            registry.write_text(
-                f"[repos]\np1 = {lb.toml_str(str((ws_old / 'p1').resolve()))}\n"
-                f"p2 = {lb.toml_str(str((ws_old / 'p2').resolve()))}\n"
-            )
+        registry = base / "repos.toml"
+        registry.write_text(
+            f"[repos]\np1 = {lb.toml_str(str((ws_old / 'p1').resolve()))}\n"
+            f"p2 = {lb.toml_str(str((ws_old / 'p2').resolve()))}\n"
+        )
+        return state, registry, ws_old, ws_new
+
+    def test_mv_parent_prefix_rekeys_multiple_projects(self):
+        with tempfile.TemporaryDirectory() as d:
+            state, registry, ws_old, ws_new = self.seeded_parent(Path(d))
             result = self.run_mv(state, registry, str(ws_old), str(ws_new), "--yes")
             self.assertEqual(result.returncode, 0, result.stderr)
             for name in ("p1", "p2"):
@@ -842,6 +854,52 @@ class MvCliTest(CliHarness):
                 config = state / lb.project_key(moved) / "config.toml"
                 self.assertEqual(tomllib.loads(config.read_text())["root"], str(moved))
                 self.assertEqual(tomllib.loads(registry.read_text())["repos"][name], str(moved))
+
+    def test_mv_parent_prefix_rerun_exits_0(self):
+        """Regression, issue #17: verified idempotence must hold for a PREFIX move.
+
+        A parent dir has no config of its own — its repos' configs live one level down —
+        so the completion check has to look at everything under NEW, not at NEW itself.
+        Before the fix this exited 1 with "nothing in lightbridge references OLD", which
+        reads as though the move never happened.
+        """
+        with tempfile.TemporaryDirectory() as d:
+            state, registry, ws_old, ws_new = self.seeded_parent(Path(d))
+            self.assertEqual(
+                self.run_mv(state, registry, str(ws_old), str(ws_new), "--yes").returncode, 0
+            )
+            for attempt in (1, 2):  # stable, not alternating
+                result = self.run_mv(state, registry, str(ws_old), str(ws_new), "--yes")
+                self.assertEqual(result.returncode, 0, f"attempt {attempt}: {result.stderr}")
+                self.assertIn("already consistent", result.stdout)
+
+    def test_mv_parent_prefix_rerun_evidence_is_registry_only(self):
+        """A repo tracked only in repos.toml still proves completion — no config needed."""
+        with tempfile.TemporaryDirectory() as d:
+            state, registry, ws_old, ws_new = self.seeded_parent(Path(d), configs=False)
+            self.assertEqual(
+                self.run_mv(state, registry, str(ws_old), str(ws_new), "--yes").returncode, 0
+            )
+            result = self.run_mv(state, registry, str(ws_old), str(ws_new), "--yes")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("already consistent", result.stdout)
+
+    def test_mv_rerun_reports_the_evidence_it_found(self):
+        """The message carries the count, so a typo'd OLD against a populated NEW — which
+        is indistinguishable from a completed move — is at least visible in the output."""
+        with tempfile.TemporaryDirectory() as d:
+            state, registry, ws_old, ws_new = self.seeded_parent(Path(d))
+            self.run_mv(state, registry, str(ws_old), str(ws_new), "--yes")
+            result = self.run_mv(state, registry, str(ws_old), str(ws_new), "--yes")
+            self.assertIn("4 reference(s)", result.stdout)  # 2 configs + 2 registry entries
+            payload = json.loads(
+                self.run_mv(
+                    state, registry, str(ws_old), str(ws_new), "--yes", "--json"
+                ).stdout
+            )
+            self.assertEqual(payload["mode"], "noop")
+            self.assertEqual(payload["applied"], False)
+            self.assertEqual(len(payload["settled"]), 4)
 
     def test_mv_both_exist_exits_1_untouched(self):
         with tempfile.TemporaryDirectory() as d:
