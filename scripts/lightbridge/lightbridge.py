@@ -37,6 +37,7 @@ original path to detect staleness. Readers ignore `root`.
     lightbridge path                 # this project's config path (+ exists?)
     lightbridge path --start DIR     # another project's
     lightbridge repos list           # manage ~/.lightbridge/repos.toml (add NAME PATH · rm NAME)
+    lightbridge mv OLD NEW           # move/rename a repo (or parent dir) + repair all bookkeeping
     lightbridge doctor               # audit the whole tree; exit 1 on problems
     lightbridge doctor --json
 
@@ -53,12 +54,13 @@ import json
 from enum import Enum
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 DEFAULT_STATE_DIR = "~/.lightbridge/projects"
 STATE_DIR_ENV = "LIGHTBRIDGE_STATE_DIR"  # override; exists so readers are testable in isolation
@@ -434,7 +436,7 @@ def doctor(state_dir: Path, registry: Path) -> list[dict]:
                     "kind": "stale",
                     "path": str(config),
                     "detail": f"root {root_path} no longer exists — repo moved or deleted; "
-                    "re-key the folder or remove it",
+                    f"moved: `mv {root_path} NEW` repairs everything; deleted: remove the folder",
                 }
             )
             continue
@@ -461,6 +463,224 @@ def doctor(state_dir: Path, registry: Path) -> list[dict]:
             )
 
     return problems
+
+
+# ── mv (move/rename repair) ─────────────────────────────────────────────────
+# Spec: docs/lightbridge/lightbridge-mv.md — mode detection, uniform prefix
+# semantics, collision rules, and the guard all live there.
+
+
+def _norm(path: str | Path) -> Path:
+    """The comparison form every mv match uses: expanduser + resolve (non-strict)."""
+    return Path(path).expanduser().resolve()
+
+
+def _rewrite_path(raw: str, old: Path, new: Path) -> str | None:
+    """`raw` respelled under `new` when it equals or lies under `old`; None when unrelated.
+
+    Matching is on the normalized form; the returned spelling preserves the entry's
+    hand-authored style — a `~`-style path stays `~`-style while still under home.
+    """
+    resolved = _norm(raw)
+    if not resolved.is_relative_to(old):
+        return None
+    rel = resolved.relative_to(old)
+    target = new if rel == Path(".") else new / rel
+    if raw.lstrip().startswith("~"):
+        home = _norm("~")
+        if target == home:
+            return "~"
+        try:
+            return os.path.join("~", str(target.relative_to(home)))
+        except ValueError:
+            return str(target)
+    return str(target)
+
+
+def set_root(text: str, root: Path) -> str:
+    """`text` with the top-level `root =` line rewritten — a targeted line edit.
+
+    Only lines before the first `[section]` header qualify (that is where TOML keeps
+    top-level keys), so a section's own `root` key can never be hit. Every config this
+    tool writes has the line (`render_config`); when absent it is appended at EOF as a
+    last resort — doctor's `missing-root` covers flagging that shape.
+    """
+    lines = text.splitlines(keepends=True)
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith("["):
+            break
+        if re.match(r"\s*root\s*=", line):
+            lines[i] = f"root = {toml_str(str(root))}\n"
+            return "".join(lines)
+    base = text if text.endswith("\n") else text + "\n"
+    return base + f"root = {toml_str(str(root))}\n"
+
+
+_REPO_LINE = re.compile(
+    r"""^(\s*(?:(?P<bare>[A-Za-z0-9][A-Za-z0-9_-]*)|"(?P<quoted>[^"]+)")\s*=\s*)"""
+    r"""(?P<q>['"])(?P<val>.*?)(?P=q)"""
+)
+
+
+def rename_registry_paths(text: str, old: Path, new: Path) -> tuple[str, dict[str, str]]:
+    """Rewrite every `[repos]` path equal to or under `old` — targeted line edits.
+
+    Returns (new_text, {name: new_path}). Each entry's quoting style, trailing
+    comment, and position survive; untouched lines are byte-identical.
+    """
+    span = section_span(text, "repos")
+    if span is None:
+        return text, {}
+    lines = text.splitlines(keepends=True)
+    changed: dict[str, str] = {}
+    for i in range(span[0] + 1, span[1]):
+        match = _REPO_LINE.match(lines[i])
+        if match is None:
+            continue
+        new_raw = _rewrite_path(match.group("val"), old, new)
+        if new_raw is None or new_raw == match.group("val"):
+            continue
+        quote = match.group("q")
+        value = f"{quote}{new_raw}{quote}" if quote not in new_raw else toml_str(new_raw)
+        lines[i] = lines[i][: len(match.group(1))] + value + lines[i][match.end() :]
+        changed[match.group("bare") or match.group("quoted")] = new_raw
+    return "".join(lines), changed
+
+
+def _merge_conflicts(src: Path, dst: Path) -> list[str]:
+    """Relative file paths that exist on both sides of a state merge (should be none —
+    state filenames are timestamped)."""
+    conflicts = []
+    for item in sorted(src.rglob("*")):
+        if item.is_file() and (dst / item.relative_to(src)).exists():
+            conflicts.append(str(item.relative_to(src)))
+    return conflicts
+
+
+def _merge_move(src: Path, dst: Path) -> None:
+    """Move `src`'s contents into the existing `dst` tree, then drop the empty `src`.
+
+    Conflict-free by contract: `plan_mv` refuses the whole operation when
+    `_merge_conflicts` finds anything.
+    """
+    for item in sorted(src.iterdir()):
+        target = dst / item.name
+        if item.is_dir() and target.is_dir():
+            _merge_move(item, target)
+        else:
+            shutil.move(str(item), str(target))
+    src.rmdir()
+
+
+def plan_mv(old_raw: str, new_raw: str, state_dir: Path, registry: Path) -> dict:
+    """The full mv plan — mode, blast radius, collisions — without changing anything.
+
+    Powers `--dry-run`, the confirmation display, `--json`, and the execute step.
+    Blocking problems land in `plan["errors"]`; an empty list means safe to apply.
+    """
+    old = _norm(old_raw)
+    new = _norm(new_raw)
+    plan: dict = {
+        "old": str(old),
+        "new": str(new),
+        "mode": None,
+        "projects": [],
+        "repos": {},
+        "claude": [],
+        "errors": [],
+    }
+
+    if str(old) == str(new):
+        plan["errors"].append("OLD and NEW are the same path — nothing to do.")
+        return plan
+    old_exists, new_exists = old.exists(), new.exists()
+    case_rename = old_exists and new_exists and old.samefile(new)
+    if case_rename or (old_exists and not new_exists):
+        plan["mode"] = "move"
+        if not old.is_dir():
+            plan["errors"].append(f"OLD is not a directory: {old}")
+            return plan
+    elif not old_exists and new_exists:
+        plan["mode"] = "repair"
+    elif old_exists:
+        plan["errors"].append(
+            f"both paths exist and are different directories:\n  OLD {old}\n  NEW {new}\n"
+            "No heuristics — resolve by hand, then re-run."
+        )
+        return plan
+    else:
+        plan["errors"].append(
+            f"neither path exists:\n  OLD {old}\n  NEW {new}\nCheck for a typo."
+        )
+        return plan
+
+    claude_projects = Path("~/.claude/projects").expanduser()
+    for config in sorted(state_dir.glob(f"*/{CONFIG_NAME}")):
+        try:
+            data = tomllib.loads(config.read_text(encoding="utf-8"))
+        except (tomllib.TOMLDecodeError, OSError):
+            continue  # doctor's problem (`unreadable`), not mv's
+        root = data.get("root")
+        if not isinstance(root, str) or not root.strip():
+            continue  # doctor's `missing-root` — nothing to match on
+        root_path = _norm(root)
+        if not root_path.is_relative_to(old):
+            continue
+        rel = root_path.relative_to(old)
+        new_root = new if rel == Path(".") else new / rel
+        old_key, new_key = config.parent.name, project_key(new_root)
+        entry = {
+            "old_key": old_key,
+            "new_key": new_key,
+            "old_root": str(root_path),
+            "new_root": str(new_root),
+            "collision": None,
+        }
+        target = state_dir / new_key
+        # On a case-insensitive FS a case-only rename makes target *be* the old dir —
+        # that's a plain rename, not a collision.
+        same_dir = target.exists() and target.samefile(config.parent)
+        if new_key != old_key and target.exists() and not same_dir:
+            if (target / CONFIG_NAME).is_file():
+                entry["collision"] = "config"
+                plan["errors"].append(
+                    f"{target / CONFIG_NAME} already exists — two configs claim "
+                    f"{new_root}.\nDiff it against {config}, delete one, then re-run."
+                )
+            else:
+                entry["collision"] = "state"
+                conflicts = _merge_conflicts(config.parent, target)
+                if conflicts:
+                    plan["errors"].append(
+                        f"state merge {old_key} → {new_key} would overwrite: "
+                        f"{', '.join(conflicts)}\nResolve by hand, then re-run."
+                    )
+        if (claude_projects / old_key).is_dir():
+            plan["claude"].append({"old_key": old_key, "new_key": new_key})
+        plan["projects"].append(entry)
+
+    repos, _error = load_registry(registry)
+    for name, raw in sorted((repos or {}).items()):
+        new_raw_value = _rewrite_path(raw, old, new)
+        if new_raw_value is not None and new_raw_value != raw:
+            plan["repos"][name] = {"old": raw, "new": new_raw_value}
+
+    if not plan["projects"] and not plan["repos"]:
+        done = state_dir / project_key(new) / CONFIG_NAME
+        if plan["mode"] == "repair" and done.is_file():
+            try:
+                data = tomllib.loads(done.read_text(encoding="utf-8"))
+            except (tomllib.TOMLDecodeError, OSError):
+                data = {}
+            root = data.get("root")
+            if isinstance(root, str) and _norm(root) == new:
+                plan["mode"] = "noop"  # verified complete — the idempotent re-run
+                return plan
+        plan["errors"].append(
+            f"nothing in lightbridge references {old} — no project config, no registry "
+            "entry.\nA typo? For an untracked repo, plain `mv` is all you need."
+        )
+    return plan
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────────
@@ -909,6 +1129,135 @@ def cmd_doctor(state_dir: Path | None, registry_file: str, json_out: bool) -> in
     return 1 if problems else 0
 
 
+def _default_ask(prompt: str) -> bool:
+    """The interactive confirmation — swapped out by tests via `cmd_mv(ask=...)`."""
+    try:
+        return input(prompt).strip().lower() in ("y", "yes")
+    except EOFError:
+        return False
+
+
+def _print_mv_plan(plan: dict) -> None:
+    """The blast radius, shown before anything changes (and by `--dry-run`)."""
+    verb = "move + repair" if plan["mode"] == "move" else "repair (already moved)"
+    print(row("plan", f"{verb}: {plan['old']} → {plan['new']}"))
+    print(
+        row(
+            "affects",
+            f"{len(plan['projects'])} project(s) · {len(plan['repos'])} registry entry(ies)",
+        )
+    )
+    for project in plan["projects"]:
+        merge = "  (merge into existing state)" if project["collision"] == "state" else ""
+        print(row("key", f"{project['old_key']}  →  {project['new_key']}{merge}"))
+    for name, change in plan["repos"].items():
+        print(row("repos", f"{name}: {change['old']} → {change['new']}"))
+
+
+def cmd_mv(
+    old_raw: str,
+    new_raw: str,
+    *,
+    yes: bool,
+    dry_run: bool,
+    json_out: bool,
+    state_dir: Path | None = None,
+    registry_file: str = DEFAULT_REGISTRY,
+    ask=None,
+) -> int:
+    state = (state_dir or default_state_dir()).expanduser()
+    registry = Path(registry_file).expanduser()
+    plan = plan_mv(old_raw, new_raw, state, registry)
+
+    if plan["errors"]:
+        print("\n".join(plan["errors"]), file=sys.stderr)
+        return 1
+    if plan["mode"] == "noop":
+        if json_out:
+            print(json.dumps({**plan, "applied": False}, indent=2))
+        else:
+            print(row("unchanged", f"already consistent — {plan['new']} is fully re-keyed"))
+        return 0
+    if not json_out:
+        _print_mv_plan(plan)
+    if dry_run:
+        if json_out:
+            print(json.dumps({**plan, "applied": False}, indent=2))
+        else:
+            print(row("dry-run", "nothing changed"))
+        return 0
+
+    # The guard (design Decision 2): a human at a TTY confirms; everything else
+    # needs --yes, which is reserved for explicitly human-instructed moves.
+    if not yes:
+        if ask is None and not sys.stdin.isatty():
+            print(
+                "refused — this changes the filesystem and needs confirmation, but stdin "
+                "is not a TTY.\nRe-run with --yes to apply. Agents: pass --yes only when "
+                "the human explicitly instructed this move.",
+                file=sys.stderr,
+            )
+            return 1
+        if not (ask or _default_ask)("proceed? [y/N] "):
+            print("aborted — nothing changed.", file=sys.stderr)
+            return 1
+
+    if plan["mode"] == "move":
+        old_path, new_path = Path(plan["old"]), Path(plan["new"])
+        new_path.parent.mkdir(parents=True, exist_ok=True)
+        if new_path.exists() and old_path.samefile(new_path):
+            os.rename(old_path, new_path)  # case-only rename (case-insensitive APFS)
+        else:
+            shutil.move(str(old_path), str(new_path))
+
+    for project in plan["projects"]:
+        old_dir, new_dir = state / project["old_key"], state / project["new_key"]
+        if project["old_key"] != project["new_key"]:
+            if new_dir.exists() and new_dir.samefile(old_dir):
+                os.rename(old_dir, new_dir)  # case-only re-key on a case-insensitive FS
+            elif new_dir.exists():
+                shutil.move(str(old_dir / CONFIG_NAME), str(new_dir / CONFIG_NAME))
+                _merge_move(old_dir, new_dir)
+            else:
+                old_dir.rename(new_dir)
+        config = new_dir / CONFIG_NAME
+        config.write_text(
+            set_root(config.read_text(encoding="utf-8"), Path(project["new_root"])),
+            encoding="utf-8",
+        )
+
+    if plan["repos"] and registry.is_file():
+        text, _changed = rename_registry_paths(
+            registry.read_text(encoding="utf-8"), Path(plan["old"]), Path(plan["new"])
+        )
+        registry.write_text(text, encoding="utf-8")
+
+    for note in plan["claude"]:
+        print(
+            f"note: ~/.claude/projects/{note['old_key']} exists (Claude Code session "
+            f"state; its new key would be {note['new_key']}) — not touched, migrate it "
+            "deliberately if wanted.",
+            file=sys.stderr,
+        )
+
+    if json_out:
+        print(json.dumps({**plan, "applied": True}, indent=2))
+        return 0
+    print(
+        row(
+            "moved" if plan["mode"] == "move" else "repaired",
+            f"{plan['old']} → {plan['new']}",
+        )
+    )
+    print(
+        row(
+            "rekeyed",
+            f"{len(plan['projects'])} project(s) · {len(plan['repos'])} registry entry(ies)",
+        )
+    )
+    return 0
+
+
 def use_utf8_console() -> None:
     """Let this CLI's own output survive a legacy Windows console.
 
@@ -1082,6 +1431,44 @@ def main() -> None:
         json_out: bool = json_opt,
     ) -> None:
         raise typer.Exit(cmd_repos_rm(name, registry, json_out))
+
+    @app.command(
+        help="Move/rename a repo (or parent dir) and repair all lightbridge bookkeeping. "
+        "OLD exists: performs the move too; OLD gone: repairs after a manual move. "
+        "Confirms on a TTY; spec: docs/lightbridge/lightbridge-mv.md."
+    )
+    def mv(
+        old: str = typer.Argument(..., metavar="OLD", help="Current path (repo or parent dir)."),
+        new: str = typer.Argument(..., metavar="NEW", help="Target path."),
+        yes: bool = typer.Option(
+            False,
+            "--yes",
+            help="Skip the confirmation prompt. Agents: pass this only when the human "
+            "explicitly instructed this move.",
+        ),
+        dry_run: bool = typer.Option(
+            False, "--dry-run", help="Print the blast-radius plan; change nothing."
+        ),
+        state_dir: Path | None = typer.Option(
+            None,
+            "--state-dir",
+            metavar="DIR",
+            help=f"Projects state dir (default: ${STATE_DIR_ENV} or {DEFAULT_STATE_DIR}).",
+        ),
+        registry: str = registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(
+            cmd_mv(
+                old,
+                new,
+                yes=yes,
+                dry_run=dry_run,
+                json_out=json_out,
+                state_dir=state_dir,
+                registry_file=registry,
+            )
+        )
 
     @app.command(help="List the known config sections.")
     def sections(json_out: bool = json_opt) -> None:
