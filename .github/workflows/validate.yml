@@ -34,6 +34,8 @@ jobs:
         run: uv run tests/test_notebook_tools.py
       - name: Run Codex plugin packaging tests
         run: uv run tests/test_codex_plugin.py
+      - name: Run skill-vendor tests
+        run: uv run tests/test_skill_vendor.py
       - name: Syntax-check all Python (bin, scripts, hooks, tests)
         run: |
           uv run python -m py_compile \
