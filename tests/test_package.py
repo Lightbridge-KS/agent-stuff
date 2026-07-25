@@ -139,6 +139,18 @@ class ArchiveTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("unknown skill", result.stderr)
 
+    def test_root_packages_foreign_tree_into_its_own_dist(self):
+        """The REAL packager serves a --root tree; default dist/ follows the root."""
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            repo = make_repo(base)  # reuse the fixture tree as the foreign root
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--root", str(repo)],
+                capture_output=True, text=True, encoding="utf-8",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((repo / "dist" / "sample.zip").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

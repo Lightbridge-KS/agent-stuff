@@ -55,7 +55,7 @@ EXCLUDE_NAMES = {".DS_Store", "__pycache__", ".git", ".ipynb_checkpoints"}
 FIXED_DATE_TIME = (1980, 1, 1, 0, 0, 0)
 
 
-def available_skills() -> dict[str, Path]:
+def available_skills(plugins_root: Path = PLUGINS_ROOT) -> dict[str, Path]:
     """Map bare skill name -> source folder for every discovered skill.
 
     Mirrors `bin/install.py`'s discovery glob. Bare folder names are globally
@@ -63,17 +63,17 @@ def available_skills() -> dict[str, Path]:
     a safe archive name and dict key.
     """
     found: dict[str, Path] = {}
-    for skill_md in sorted(PLUGINS_ROOT.glob("*/skills/*/SKILL.md")):
+    for skill_md in sorted(plugins_root.glob("*/skills/*/SKILL.md")):
         folder = skill_md.parent
         found[folder.name] = folder
     return found
 
 
-def skills_in_domain(domain: str) -> list[str]:
+def skills_in_domain(domain: str, plugins_root: Path = PLUGINS_ROOT) -> list[str]:
     """Bare names of every skill under plugins/<domain>/skills/."""
     return sorted(
         skill_md.parent.name
-        for skill_md in PLUGINS_ROOT.glob(f"{domain}/skills/*/SKILL.md")
+        for skill_md in plugins_root.glob(f"{domain}/skills/*/SKILL.md")
     )
 
 
@@ -168,7 +168,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("skills", nargs="*", help="Bare skill names to package (default: all).")
     parser.add_argument("--domain", help="Package every skill in this plugin domain.")
-    parser.add_argument("--out", help="Output directory. Default: dist/")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=REPO_ROOT,
+        metavar="DIR",
+        help="Content tree to package from (default: this repo).",
+    )
+    parser.add_argument("--out", help="Output directory. Default: <root>/dist/")
     parser.add_argument("--skill", action="store_true", help="Also emit a .skill (byte-identical to the .zip).")
     parser.add_argument("--versioned", action="store_true", help="Name archives by frontmatter version.")
     parser.add_argument("--dry-run", action="store_true", help="Print actions without writing files.")
@@ -178,21 +185,23 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
-    available = available_skills()
+    root = args.root.expanduser().resolve()
+    plugins_root = root / "plugins"
+    available = available_skills(plugins_root)
 
     if args.list:
         print("\n".join(available))
         return 0
 
     if not available:
-        print("No plugins/*/skills/*/SKILL.md files found.", file=sys.stderr)
+        print(f"No plugins/*/skills/*/SKILL.md files found under {root}.", file=sys.stderr)
         return 1
 
-    out_dir = Path(args.out).expanduser() if args.out else DEFAULT_DIST
+    out_dir = Path(args.out).expanduser() if args.out else root / "dist"
 
     selected: list[str] = []
     if args.domain:
-        in_domain = skills_in_domain(args.domain)
+        in_domain = skills_in_domain(args.domain, plugins_root)
         if not in_domain:
             print(f"unknown domain: {args.domain}", file=sys.stderr)
             return 1

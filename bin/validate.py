@@ -24,28 +24,66 @@ On top of that, this validator checks:
 
 This is the machine-checkable half of the contract; human rules live in CLAUDE.md.
 
-    uv run bin/validate.py
+    uv run bin/validate.py                 # this repo
+    uv run bin/validate.py --root DIR      # a second content-only tree (e.g. agent-stuff-private)
+
+`--root` points the validator at another repo with the same `plugins/` shape. When that
+root has no `.claude-plugin/marketplace.json`, the marketplace-driven checks are replaced
+by a direct walk of `plugins/*/.claude-plugin/plugin.json` (content mode) — privacy comes
+from repo visibility, not from a different layout.
 
 Exits non-zero (and prints every problem it found) if anything is malformed.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
 import sys
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PLUGINS_ROOT = REPO_ROOT / "plugins"
-SCRIPTS_ROOT = REPO_ROOT / "scripts"
-HOOKS_ROOT = REPO_ROOT / "hooks"
-MARKETPLACE = REPO_ROOT / ".claude-plugin" / "marketplace.json"
-CODEX_MARKETPLACE = REPO_ROOT / ".agents" / "plugins" / "marketplace.json"
+
+
+@dataclass(frozen=True)
+class Repo:
+    """The content tree under validation — this repo by default, a foreign one via --root."""
+
+    root: Path
+
+    @property
+    def plugins(self) -> Path:
+        return self.root / "plugins"
+
+    @property
+    def scripts(self) -> Path:
+        return self.root / "scripts"
+
+    @property
+    def hooks(self) -> Path:
+        return self.root / "hooks"
+
+    @property
+    def marketplace(self) -> Path:
+        return self.root / ".claude-plugin" / "marketplace.json"
+
+    @property
+    def codex_marketplace(self) -> Path:
+        return self.root / ".agents" / "plugins" / "marketplace.json"
+
+    def rel(self, path: Path) -> str:
+        """Display form of `path` — root-relative, absolute when outside the root."""
+        try:
+            return str(path.relative_to(self.root))
+        except ValueError:
+            return str(path)
+
 STRICT_SEMVER = re.compile(
     r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
     r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
@@ -99,9 +137,9 @@ def non_empty_str(value) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def validate_skill(path: Path) -> list[str]:
+def validate_skill(path: Path, repo: Repo) -> list[str]:
     """Return a list of error strings (empty == valid) for one SKILL.md, plus stderr warnings."""
-    rel = path.relative_to(REPO_ROOT)
+    rel = repo.rel(path)
     folder = path.parent.name
     errors: list[str] = []
 
@@ -131,16 +169,14 @@ def validate_skill(path: Path) -> list[str]:
         body = md.read_text(encoding="utf-8")
         for tag in TOOL_CALL_ARTIFACTS:
             if tag in body:
-                errors.append(
-                    f"{md.relative_to(REPO_ROOT)}: contains tool-call artifact '{tag}'"
-                )
+                errors.append(f"{repo.rel(md)}: contains tool-call artifact '{tag}'")
 
     return errors
 
 
-def validate_subagent(path: Path) -> list[str]:
+def validate_subagent(path: Path, repo: Repo) -> list[str]:
     """Return error strings (empty == valid) for one subagent .md, plus stderr warnings."""
-    rel = path.relative_to(REPO_ROOT)
+    rel = repo.rel(path)
     stem = path.stem
     errors: list[str] = []
 
@@ -197,7 +233,7 @@ def validate_subagent(path: Path) -> list[str]:
 
 
 def validate_subagent_names(
-    agent_files: list[Path], skill_files: list[Path]
+    agent_files: list[Path], skill_files: list[Path], repo: Repo
 ) -> list[str]:
     """Cross-file checks: unique subagent names, no `<domain>/<name>` clash with skills."""
     errors: list[str] = []
@@ -207,7 +243,7 @@ def validate_subagent_names(
         by_stem.setdefault(path.stem, []).append(path)
     for stem, paths in sorted(by_stem.items()):
         if len(paths) > 1:
-            rels = ", ".join(str(p.relative_to(REPO_ROOT)) for p in paths)
+            rels = ", ".join(repo.rel(p) for p in paths)
             errors.append(
                 f"subagent name '{stem}' is defined more than once ({rels}); "
                 "the installer flattens all subagents into one directory"
@@ -218,21 +254,21 @@ def validate_subagent_names(
         key = f"{path.parent.parent.name}/{path.stem}"
         if key in skill_keys:
             errors.append(
-                f"{path.relative_to(REPO_ROOT)}: '{key}' collides with a skill of "
+                f"{repo.rel(path)}: '{key}' collides with a skill of "
                 "the same name in the same domain (shared install address space)"
             )
 
     return errors
 
 
-def validate_manifests() -> list[str]:
+def validate_manifests(repo: Repo) -> list[str]:
     """Validate marketplace.json and every referenced plugin.json."""
-    rel_market = MARKETPLACE.relative_to(REPO_ROOT)
-    if not MARKETPLACE.is_file():
+    rel_market = repo.rel(repo.marketplace)
+    if not repo.marketplace.is_file():
         return [f"{rel_market}: missing"]
 
     try:
-        market = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
+        market = json.loads(repo.marketplace.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         return [f"{rel_market}: invalid JSON: {exc}"]
 
@@ -254,7 +290,7 @@ def validate_manifests() -> list[str]:
             errors.append(f"{rel_market}: plugin '{name}' is missing a string source")
             continue
 
-        plugin_dir = (REPO_ROOT / source).resolve()
+        plugin_dir = (repo.root / source).resolve()
         manifest = plugin_dir / ".claude-plugin" / "plugin.json"
         if not manifest.is_file():
             errors.append(
@@ -262,7 +298,7 @@ def validate_manifests() -> list[str]:
             )
             continue
 
-        rel_manifest = manifest.relative_to(REPO_ROOT)
+        rel_manifest = repo.rel(manifest)
         try:
             data = json.loads(manifest.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
@@ -276,14 +312,14 @@ def validate_manifests() -> list[str]:
     return errors
 
 
-def validate_codex_manifests() -> list[str]:
+def validate_codex_manifests(repo: Repo) -> list[str]:
     """Validate the repo-local Codex marketplace and every referenced plugin bundle."""
 
-    rel_market = CODEX_MARKETPLACE.relative_to(REPO_ROOT)
-    if not CODEX_MARKETPLACE.is_file():
+    rel_market = repo.rel(repo.codex_marketplace)
+    if not repo.codex_marketplace.is_file():
         return [f"{rel_market}: missing"]
     try:
-        market = json.loads(CODEX_MARKETPLACE.read_text(encoding="utf-8"))
+        market = json.loads(repo.codex_marketplace.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         return [f"{rel_market}: invalid JSON: {exc}"]
 
@@ -320,8 +356,8 @@ def validate_codex_manifests() -> list[str]:
                 f"{rel_market}: plugin '{name}' must use a ./ relative source path"
             )
             continue
-        plugin_dir = (REPO_ROOT / source_path).resolve()
-        if not plugin_dir.is_relative_to(REPO_ROOT) or not plugin_dir.is_dir():
+        plugin_dir = (repo.root / source_path).resolve()
+        if not plugin_dir.is_relative_to(repo.root) or not plugin_dir.is_dir():
             errors.append(f"{rel_market}: plugin '{name}' source escapes or is missing")
             continue
         if not isinstance(policy, dict):
@@ -341,15 +377,15 @@ def validate_codex_manifests() -> list[str]:
                 )
         if not non_empty_str(entry.get("category")):
             errors.append(f"{rel_market}: plugin '{name}' is missing category")
-        errors += validate_codex_plugin(plugin_dir, name)
+        errors += validate_codex_plugin(plugin_dir, name, repo)
     return errors
 
 
-def validate_codex_plugin(plugin_dir: Path, expected_name: str) -> list[str]:
+def validate_codex_plugin(plugin_dir: Path, expected_name: str, repo: Repo) -> list[str]:
     """Validate one Codex manifest plus its declared companion paths."""
 
     manifest = plugin_dir / ".codex-plugin" / "plugin.json"
-    rel_manifest = manifest.relative_to(REPO_ROOT)
+    rel_manifest = repo.rel(manifest)
     if not manifest.is_file():
         return [f"{rel_manifest}: missing"]
     try:
@@ -417,14 +453,14 @@ def validate_codex_plugin(plugin_dir: Path, expected_name: str) -> list[str]:
     if "/Users/" in manifest_text:
         errors.append(f"{rel_manifest}: contains a hard-coded user path")
     if mcp_path.is_file():
-        errors += validate_codex_mcp(plugin_dir, mcp_path)
+        errors += validate_codex_mcp(plugin_dir, mcp_path, repo)
     return errors
 
 
-def validate_codex_mcp(plugin_dir: Path, path: Path) -> list[str]:
+def validate_codex_mcp(plugin_dir: Path, path: Path, repo: Repo) -> list[str]:
     """Validate plugin-relative STDIO MCP launch configuration."""
 
-    rel = path.relative_to(REPO_ROOT)
+    rel = repo.rel(path)
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
@@ -459,7 +495,7 @@ def validate_codex_mcp(plugin_dir: Path, path: Path) -> list[str]:
     return errors
 
 
-def validate_content_dir(root: Path, required: list[str]) -> list[str]:
+def validate_content_dir(root: Path, required: list[str], repo: Repo) -> list[str]:
     """Each immediate subfolder of `root` must contain every file in `required`."""
     if not root.is_dir():
         return []
@@ -469,14 +505,39 @@ def validate_content_dir(root: Path, required: list[str]) -> list[str]:
             continue
         for fname in required:
             if not (item / fname).is_file():
-                rel = item.relative_to(REPO_ROOT)
-                errors.append(f"{rel}: missing {fname}")
+                errors.append(f"{repo.rel(item)}: missing {fname}")
     return errors
 
 
-def validate_hook_toml(hook_dir: Path) -> list[str]:
+def validate_domain_manifests(repo: Repo) -> list[str]:
+    """Content mode: every `plugins/<domain>/.claude-plugin/plugin.json` parses and names its domain.
+
+    With no marketplace.json to drive `validate_manifests`, this direct walk keeps the
+    per-domain manifests honest in a content-only tree (the private castle).
+    """
+    errors: list[str] = []
+    for domain in sorted(repo.plugins.iterdir()):
+        if not domain.is_dir() or domain.name.startswith((".", "_")):
+            continue
+        manifest = domain / ".claude-plugin" / "plugin.json"
+        if not manifest.is_file():
+            errors.append(f"{repo.rel(domain)}: missing .claude-plugin/plugin.json")
+            continue
+        try:
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            errors.append(f"{repo.rel(manifest)}: invalid JSON: {exc}")
+            continue
+        if data.get("name") != domain.name:
+            errors.append(
+                f"{repo.rel(manifest)}: name '{data.get('name')}' must match domain '{domain.name}'"
+            )
+    return errors
+
+
+def validate_hook_toml(hook_dir: Path, repo: Repo) -> list[str]:
     """Validate one hook's `hook.toml` descriptor (the agent-neutral registration source)."""
-    rel = (hook_dir / "hook.toml").relative_to(REPO_ROOT)
+    rel = repo.rel(hook_dir / "hook.toml")
     descriptor_path = hook_dir / "hook.toml"
     if not descriptor_path.is_file():
         return []  # presence is enforced by validate_content_dir; nothing to parse here
@@ -509,36 +570,57 @@ def validate_hook_toml(hook_dir: Path) -> list[str]:
     return errors
 
 
-def main() -> int:
-    skill_files = sorted(PLUGINS_ROOT.glob("*/skills/*/SKILL.md"))
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Validate an agent-stuff content tree (skills, manifests, scripts, hooks)."
+    )
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=REPO_ROOT,
+        metavar="DIR",
+        help="Content tree to validate (default: this repo). A root without "
+        ".claude-plugin/marketplace.json is validated in content mode.",
+    )
+    args = parser.parse_args(argv)
+    repo = Repo(root=args.root.expanduser().resolve())
+
+    skill_files = sorted(repo.plugins.glob("*/skills/*/SKILL.md"))
     if not skill_files:
-        print("No plugins/*/skills/*/SKILL.md files found.", file=sys.stderr)
+        print(f"No plugins/*/skills/*/SKILL.md files found under {repo.root}.", file=sys.stderr)
         return 1
 
-    agent_files = sorted(PLUGINS_ROOT.glob("*/agents/*.md"))
+    agent_files = sorted(repo.plugins.glob("*/agents/*.md"))
+    # Content mode: no marketplace at this root — the tree publishes nothing, so the
+    # marketplace-driven checks are replaced by a direct walk of the domain manifests.
+    content_mode = not repo.marketplace.is_file()
 
-    errors = [err for path in skill_files for err in validate_skill(path)]
-    errors += [err for path in agent_files for err in validate_subagent(path)]
-    errors += validate_subagent_names(agent_files, skill_files)
-    errors += validate_manifests()
-    errors += validate_codex_manifests()
-    errors += validate_content_dir(SCRIPTS_ROOT, ["README.md"])
-    errors += validate_content_dir(HOOKS_ROOT, ["README.md", "hook.toml"])
-    if HOOKS_ROOT.is_dir():
-        for hook_dir in sorted(HOOKS_ROOT.iterdir()):
+    errors = [err for path in skill_files for err in validate_skill(path, repo)]
+    errors += [err for path in agent_files for err in validate_subagent(path, repo)]
+    errors += validate_subagent_names(agent_files, skill_files, repo)
+    if content_mode:
+        errors += validate_domain_manifests(repo)
+    else:
+        errors += validate_manifests(repo)
+        errors += validate_codex_manifests(repo)
+    errors += validate_content_dir(repo.scripts, ["README.md"], repo)
+    errors += validate_content_dir(repo.hooks, ["README.md", "hook.toml"], repo)
+    if repo.hooks.is_dir():
+        for hook_dir in sorted(repo.hooks.iterdir()):
             if hook_dir.is_dir() and not hook_dir.name.startswith((".", "_")):
-                errors += validate_hook_toml(hook_dir)
+                errors += validate_hook_toml(hook_dir, repo)
 
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
 
+    mode = "domain manifests (content mode)" if content_mode else "plugin manifests"
     print(
         f"validated {len(skill_files)} skills, {len(agent_files)} subagents, "
-        "plugin manifests, and scripts/hooks contracts"
+        f"{mode}, and scripts/hooks contracts"
     )
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
