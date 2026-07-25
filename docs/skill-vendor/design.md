@@ -26,7 +26,10 @@ Adopted skills being re-wired to their upstream ("re-wire to upstream as Vendore
 = write a manifest entry here).
 
 Out of scope: Authored skills (agent-stuff symlinks, owned by the castle gate),
-Harness-provided skills, and anything still sitting on the Adopted shelf.
+Harness-provided skills, and anything still sitting on the Adopted shelf. That
+includes this tool's own skill (`plugins/lightbridge/skills/skill-vendor/`):
+**Authored tools' skills are co-shipped by co-location** — skill and tool share one
+working tree, so they cannot skew and never enter the manifest.
 
 ## The invariant, and its three knowledge sources
 

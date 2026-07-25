@@ -303,6 +303,18 @@ class SkillVendorCase(unittest.TestCase):
         (self.reg_a / "squatter").mkdir()
         self.assertEqual(sv.cmd_status(["x"], self.home, as_json=False, exit_semantics=True), 0)
 
+    # ── the tool's own skill must not drift from its CLI ────────────────────
+
+    def test_skill_doc_mentions_only_real_verbs(self) -> None:
+        """Every `skill-vendor <verb>` in the co-located SKILL.md is a real subcommand."""
+        skill = REPO_ROOT / "plugins" / "lightbridge" / "skills" / "skill-vendor" / "SKILL.md"
+        mentioned = {
+            m.group(1)
+            for m in re.finditer(r"`skill-vendor\s+([a-z][a-z-]*)", skill.read_text(encoding="utf-8"))
+        }
+        self.assertTrue(mentioned)  # the doc does show invocations
+        self.assertLessEqual(mentioned, {"list", "doctor", "sync", "attest"})
+
     # ── end-to-end through the shebang ──────────────────────────────────────
 
     def test_subprocess_doctor_json(self) -> None:
