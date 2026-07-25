@@ -27,9 +27,9 @@
       "name": "lightbridge",
       "displayName": "Lightbridge",
       "source": "./plugins/lightbridge",
-      "description": "Personal workflow conventions — bootstrap and manage the .lightbridge personal config namespace (user-level, per-project).",
+      "description": "Personal workflow conventions — bootstrap and manage the .lightbridge personal config namespace (user-level, per-project), and keep vendored agent skills in sync with their installed binaries.",
       "category": "productivity",
-      "tags": ["config", "workflow", "lightbridge"]
+      "tags": ["config", "workflow", "lightbridge", "skills"]
     },
     {
       "name": "productivity",

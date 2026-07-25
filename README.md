@@ -88,6 +88,9 @@ Standalone CLIs an agent runs inside the project it's working in. Each is a self
   plans; the filing system Claude Code's plan mode never had.
 - **[`scripts/repo-links`](scripts/repo-links)** — resolve a repo's declared cross-repo
   links to verified local paths, so personal paths never get committed.
+- **[`scripts/skill-vendor`](scripts/skill-vendor)** — keep vendored agent skills in
+  sync with their installed binaries: pin worktrees to release tags (or attested refs),
+  serve them into `~/.claude/skills/` and `~/.codex/skills/` as symlinks, and report skew.
 
 ## Hooks
 
