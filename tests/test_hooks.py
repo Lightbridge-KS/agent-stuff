@@ -11,7 +11,7 @@ a throwaway *state* dir standing in for `~/.lightbridge/projects` (wired via
 as a subprocess with a SessionStart payload on stdin — executing the FILE directly,
 exactly as Claude Code's /bin/sh registration does, so a missing executable bit or
 broken shebang fails here too. The hook resolves its paired docs_index.py and
-lightbridge.py relative to its own location in this repo, so it is exercised in
+lb_resolve.py relative to its own location in this repo, so it is exercised in
 place — only the project and state under inspection are synthetic.
 
 Opt-in is via a `[docs-index]` section in the project's user-level config,

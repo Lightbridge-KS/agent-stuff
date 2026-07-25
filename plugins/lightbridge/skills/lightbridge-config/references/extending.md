@@ -7,17 +7,21 @@ per-project config feature, so the catalog grows by a known recipe instead of ad
 
 1. **Build the reader.** A script (`scripts/<tool>/`) or hook (`hooks/<hook>/`) that parses
    `[<name>]` from the project's user-level config. Rules:
-   - Resolve the config through `scripts/lightbridge/lightbridge.py` (`load_config`) — never
-     reimplement root/key/config resolution, and never read from inside the repo.
+   - Resolve the config through `scripts/lightbridge/lb_resolve.py` (`load_config`) — never
+     reimplement root/key/config resolution, and never read from inside the repo. That is
+     the one module a reader may path-load; `lightbridge.py` is the CLI entrypoint and is
+     not importable.
    - Opt-in = section presence; honor `enabled = false`.
    - Fail open and quiet (no section / missing keys / malformed file → do nothing, exit 0).
    - A sensible default for every optional key.
 2. **Register in [`catalog.md`](catalog.md).** Add a `### [<name>]` entry: purpose · reader
    (+ internals link) · opt-in rule · keys with defaults · notes.
-3. **Add the emittable template** to `SECTIONS` in `scripts/lightbridge/lightbridge.py`
+3. **Add the emittable template** to `SECTIONS` in `scripts/lightbridge/lb_catalog.py`
    (`purpose` · `reader` · `block` — the TOML `lb init` / `lb add` will write, with the
-   default keys). Note the deliberate asymmetry: a feature's *reader* lives with the
-   feature, but its *template* lives in the resolver, because that is what writes configs.
+   default keys), and a matching member to the `SectionName` enum in the same file (an
+   import-time assert keeps the two aligned). Note the deliberate asymmetry: a feature's
+   *reader* lives with the feature, but its *template* lives with the CLI, because that is
+   what writes configs.
    `tests/test_lightbridge.py::test_sections_match_catalog` fails if you do step 2 or 3
    without the other.
 4. **Sync the brief.** If it changes the cross-cutting story, add or adjust one line in

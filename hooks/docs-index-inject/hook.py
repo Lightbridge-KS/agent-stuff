@@ -26,7 +26,7 @@ Config (all keys optional except the section's presence):
     include = ["CONTEXT.md", "CONTEXT-MAP.md", "VISION.md"]  # extra root-level files outside `dir`
 
 Config resolution (repo root via git toplevel, project-key encoding) is owned by
-`scripts/lightbridge/lightbridge.py`; the index logic by `scripts/docs-index/
+`scripts/lightbridge/lb_resolve.py`; the index logic by `scripts/docs-index/
 docs_index.py` — both imported, single source of truth. Unlike the CLI, this hook
 requires an explicit `summary` / `read_when` (no fallback to `description`) so website
 frontmatter is never surfaced. Besides the docs `dir` it also indexes the `include`
@@ -51,7 +51,7 @@ from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 DOCS_INDEX = SCRIPTS / "docs-index" / "docs_index.py"
-LIGHTBRIDGE = SCRIPTS / "lightbridge" / "lightbridge.py"
+LIGHTBRIDGE = SCRIPTS / "lightbridge" / "lb_resolve.py"
 
 
 def load_module(name: str, path: Path):

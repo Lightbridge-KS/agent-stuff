@@ -14,7 +14,7 @@ exercised end to end. Files are executed directly, the same path as Claude Code'
 /bin/sh registration, so a missing executable bit or broken shebang fails here too
 (`UV_CACHE_DIR` is pinned to the real cache, since the fake `HOME` would otherwise
 cold-start uv on every subprocess). The hook resolves its paired repo_links.py and
-lightbridge.py relative to its own location in this repo, so it is exercised in
+lb_resolve.py relative to its own location in this repo, so it is exercised in
 place — only the project and home under inspection are synthetic.
 
 Opt-in is twice: a `[repo-links]` section in the project's user-level config AND a

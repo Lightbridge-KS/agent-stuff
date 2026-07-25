@@ -56,7 +56,7 @@ ACK_FILE = ".acked"
 # Root/key/config resolution is owned by scripts/lightbridge — one implementation
 # for the whole ~/.lightbridge tree (config, handoffs). Keys derive from the git
 # toplevel (cwd fallback), so a session launched in a subdir lands on the same key.
-_LIGHTBRIDGE = Path(__file__).resolve().parents[1] / "lightbridge" / "lightbridge.py"
+_LIGHTBRIDGE = Path(__file__).resolve().parents[1] / "lightbridge" / "lb_resolve.py"
 _spec = importlib.util.spec_from_file_location("lightbridge", _LIGHTBRIDGE)
 _lb = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_lb)
