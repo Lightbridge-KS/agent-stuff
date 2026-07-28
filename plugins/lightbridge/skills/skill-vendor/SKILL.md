@@ -8,7 +8,7 @@ metadata:
 # skill-vendor
 
 `skill-vendor` keeps **Vendored** skills (third-party skills that ship with or track an
-installed binary — see the user-level AGENTS.md *Skill vendors* taxonomy) serving the
+installed binary — see the `skill-taxonomy` skill for the full vendor taxonomy) serving the
 exact bytes known-good for that binary, symlinked into the harness registries
 (`~/.claude/skills/`, `~/.codex/skills/`).
 
