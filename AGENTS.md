@@ -28,7 +28,8 @@ hooks/<hook>/                             # Claude Code event hooks
 bin/                                      # MACHINERY (not content): installer, validator,
   install.py  targets.toml                #   and the agent-target registry
   validate.py
-tests/                                    # test suite (8 files; `just test` runs all)
+  island_path.py                          #   island → workspace resolver (skills-island)
+tests/                                    # test suite (`just test` runs all)
 docs/architecture.md                      # how and why this repo is structured
 .github/workflows/validate.yml            # CI gate on every PR and push to main
 ```
@@ -148,6 +149,12 @@ Python, executed via [`uv`](https://docs.astral.sh/uv/) (self-contained scripts 
   content-only tree** with the same `plugins/` shape (the private castle,
   `../agent-stuff-private`): validate it (content mode when it has no marketplace.json),
   install from it, package from it. Machinery lives here only; content repos stay thin.
+- `uv run bin/island_path.py list|path|targets|root` — resolve an **island** (a workspace
+  folder holding many repos but not itself a repo, so its `.claude/skills/` can never be
+  committed) to where it sits on this machine, per `~/.lightbridge/islands.toml`. Supplies
+  the `--target` dirs that `install.py --root ../skills-island --domain <island>` installs
+  into; `harnesses` there index `bin/targets.toml`, so a new `~/`-rooted target works with
+  no code change. Resolution only — it never writes.
 - `uv run bin/install.py --list` — list skills and detected agents.
 - `uv run bin/install.py --all` — install all skills into every agent present on the machine.
 - `uv run bin/install.py --claude --codex --pi` — install into specific agents.
@@ -161,6 +168,7 @@ Python, executed via [`uv`](https://docs.astral.sh/uv/) (self-contained scripts 
   - `uv run tests/test_lightbridge.py` — the canonical config resolver.
   - `uv run tests/test_plan_store.py` — `plan-store` plus both plan hooks.
   - `uv run tests/test_repo_links.py` — the `repo-links` resolver CLI and its hook.
+  - `uv run tests/test_island_path.py` — the island registry resolver.
   - `uv run tests/test_handoff_hook.py` — the handoff split (pulled journal, pushed inbox).
   - `uv run tests/test_research_kit.py` — the research skill's `research_kit.py`.
 
