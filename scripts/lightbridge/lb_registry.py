@@ -16,7 +16,7 @@ import re
 from pathlib import Path
 
 from lb_resolve import load_registry
-from lb_tomledit import rewrite_path, section_span, toml_str
+from lb_tomledit import rewrite_path, section_span, terminate, toml_str
 
 REGISTRY_HEADER = """\
 # ~/.lightbridge/repos.toml — personal name → path repo registry. PER MACHINE, never
@@ -48,13 +48,14 @@ def append_repo(text: str, name: str, path: str) -> str:
     """`text` with `name = "path"` appended inside `[repos]` — a targeted line edit.
 
     Lands before the block's trailing blank lines; a registry with no `[repos]` header
-    gains one at EOF.
+    gains one at EOF. A file whose last line lacks a newline is terminated first, so the
+    entry never lands on the tail of an existing one.
     """
     line = f"{name} = {toml_str(path)}\n"
+    text = terminate(text)
     span = section_span(text, "repos")
     if span is None:
-        base = text if text.endswith("\n") else text + "\n"
-        return base + "\n[repos]\n" + line
+        return text + "\n[repos]\n" + line
     lines = text.splitlines(keepends=True)
     end = span[1]
     while end > span[0] + 1 and lines[end - 1].strip() == "":

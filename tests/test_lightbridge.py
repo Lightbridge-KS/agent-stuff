@@ -753,6 +753,20 @@ class ReposCliTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIsNone(json.loads(result.stdout)["repos"])
 
+    def test_add_to_registry_whose_last_line_lacks_a_newline(self):
+        """A hand-saved registry with no trailing newline used to get the new entry
+        appended onto the tail of the last one (`a = "x"b = "y"`), corrupting the file —
+        and `add` reported success, so the breakage only surfaced on the *next* run."""
+        with tempfile.TemporaryDirectory() as d:
+            registry = Path(d) / "repos.toml"
+            registry.write_text('[repos]\none = "/one"', encoding="utf-8")  # no "\n"
+            result = self.run_repos(registry, "add", "two", str(d))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            text = registry.read_text()
+            self.assertEqual(tomllib.loads(text)["repos"], {"one": "/one", "two": str(d)})
+            result = self.run_repos(registry, "list")  # the run that used to blow up
+            self.assertEqual(result.returncode, 0, result.stderr)
+
 
 class MvHelperTest(unittest.TestCase):
     """`mv`'s pure helpers — rewrite spelling, root line edit — via module import."""
@@ -796,6 +810,21 @@ class MvHelperTest(unittest.TestCase):
         self.assertIn("root = '/new/path'", out)
         self.assertIn("root = '/decoy'", out)  # the section's key is untouched
         self.assertIn("# comment", out)
+
+    def test_line_inserts_survive_an_unterminated_final_line(self):
+        """`terminate`'s reason to exist: `splitlines(keepends=True)` leaves the last line
+        unterminated, so an insert at the end of the list joins onto it. Every writer that
+        can land a line at EOF must be immune — the output has to still parse as TOML."""
+        cases = {
+            "set_enabled": lambda: lb_tomledit.set_enabled("[docs-index]", "docs-index", True),
+            "set_root": lambda: lb_tomledit.set_root("# no root here", Path("/new")),
+            "append_repo": lambda: lb_registry.append_repo('[repos]\none = "/one"', "two", "/two"),
+        }
+        for name, edit in cases.items():
+            with self.subTest(writer=name):
+                out = edit()
+                tomllib.loads(out)  # raises on the tail-join corruption
+                self.assertTrue(out.endswith("\n"))
 
     def test_cmd_mv_ask_declined_aborts(self):
         """The TTY-prompt branch, unit-level via the injectable `ask`."""
