@@ -27,6 +27,17 @@ from pathlib import Path
 from lb_resolve import toml_str  # re-exported: every writer here needs it
 
 
+def terminate(text: str) -> str:
+    """`text` with a final newline — the precondition every line insert here assumes.
+
+    `splitlines(keepends=True)` yields an unterminated final element for a file whose last
+    line lacks a newline, so a line inserted at the end of that list joins onto the tail of
+    the existing one (`a = "x"b = "y"`) — invalid TOML that only the *next* run notices.
+    Empty text is left alone: appenders build their own header for that case.
+    """
+    return text + "\n" if text and not text.endswith("\n") else text
+
+
 def section_span(text: str, name: str) -> tuple[int, int] | None:
     """Line span [start, end) of the `[name]` block — header included, sub-tables not.
 
@@ -62,6 +73,7 @@ def set_enabled(text: str, name: str, value: bool) -> str:
     rewrite, so comments and layout elsewhere are untouched. Caller guarantees the
     section exists.
     """
+    text = terminate(text)
     start, end = section_span(text, name)
     lines = text.splitlines(keepends=True)
     word = "true" if value else "false"
@@ -88,8 +100,7 @@ def set_root(text: str, root: Path) -> str:
         if re.match(r"\s*root\s*=", line):
             lines[i] = f"root = {toml_str(str(root))}\n"
             return "".join(lines)
-    base = text if text.endswith("\n") else text + "\n"
-    return base + f"root = {toml_str(str(root))}\n"
+    return terminate(text) + f"root = {toml_str(str(root))}\n"
 
 
 # ── path rewriting (shared by mv's project and registry passes) ──────────────
