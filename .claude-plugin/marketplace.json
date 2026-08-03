@@ -56,6 +56,14 @@
       "tags": ["jupyter", "notebook", "python", "mcp"]
     },
     {
+      "name": "documents",
+      "displayName": "Documents",
+      "source": "./plugins/documents",
+      "description": "Document conversion and parsing — parse PDF/Office documents to Markdown (routed local/cloud tools), and render Markdown to DOCX.",
+      "category": "productivity",
+      "tags": ["pdf", "docx", "markdown", "parsing"]
+    },
+    {
       "name": "experiment",
       "displayName": "Experiment",
       "source": "./plugins/experiment",
