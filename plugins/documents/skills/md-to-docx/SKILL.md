@@ -2,7 +2,7 @@
 name: md-to-docx
 description: "Render Markdown files to DOCX (Word) format using Quarto CLI. Use when the user asks to convert, render, or export Markdown (.md) files to .docx format. Supports custom DOCX reference templates for consistent styling (fonts, margins, headings). This skill is for Markdown-to-DOCX conversion only — not for editing existing .docx files."
 metadata:
-  version: "2026-07-26"
+  version: "2026-08-03"
 ---
 
 # Markdown to DOCX Rendering
@@ -57,10 +57,11 @@ Templates are `.docx` reference documents that control styling (fonts, margins, 
 
 ### Available templates
 
-Check the skill's `assets/` folder for bundled templates:
+Check the skill's `assets/` folder for bundled templates (under this skill's base
+directory, announced when the skill is invoked):
 
 ```bash
-ls ~/.agents/skills/md-to-docx/assets/*.docx
+ls <skill-base-dir>/assets/*.docx
 ```
 
 Currently bundled:
@@ -71,7 +72,7 @@ Currently bundled:
 Use the `-M reference-doc:` flag with the **absolute path** to the template:
 
 ```bash
-TEMPLATE="$HOME/.agents/skills/md-to-docx/assets/th-sarabun-new-ref-bw.docx"
+TEMPLATE="<skill-base-dir>/assets/th-sarabun-new-ref-bw.docx"
 quarto render "$INPUT" --to docx --output-dir "$OUTPUT_DIR" -M "reference-doc:$TEMPLATE"
 ```
 

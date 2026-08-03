@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "documents",
+  "description": "Document conversion and parsing — documents ⇄ Markdown: parse PDF/Office files to Markdown via routed local/cloud tools, and render Markdown back to DOCX.",
+  "author": {
+    "name": "Kittipos S.",
+    "url": "https://github.com/Lightbridge-KS"
+  },
+  "homepage": "https://github.com/Lightbridge-KS/agent-stuff",
+  "repository": "https://github.com/Lightbridge-KS/agent-stuff",
+  "license": "MIT",
+  "keywords": ["pdf", "docx", "markdown", "parsing", "conversion"]
+}
