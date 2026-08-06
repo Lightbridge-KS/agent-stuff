@@ -7,7 +7,7 @@ description: >-
   capability/steering packs. Use when the user invokes it by name
   (`agentic-architecture`) or near-match.
 metadata:
-  version: "2026-07-15"
+  version: "2026-08-06"
 ---
 
 # Agentic Architecture
@@ -49,7 +49,8 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
 - **Design** — compile the user's inputs (PRD, rough design, this conversation) into the
   same document shape. Evidence = those inputs only. In this mode **every organ is a
   decision**: needed / not needed / undecided — don't silently settle the undecided ones;
-  they go to "Decisions needed".
+  they go to "Decisions needed", each also 💡-marked inline where the choice bites (its
+  section, or its row in the Organ Presence Matrix).
   Output: `docs/design/<nn>-agentic-architecture.md` (next free number) unless the user names
   a path.
 
@@ -212,6 +213,9 @@ How a developer adds a tool, skill, subagent, provider, or hook.
 ## 9. Glossary & Open Questions   <!-- design mode: "Decisions needed" -->
 Domain terms a newcomer must know; and what the evidence cannot determine — assumptions,
 choices still open. Uncertainty goes here, not into the diagrams.
+<!-- Design mode: this section indexes the 💡 markers placed inline at each decision
+     site (💡 + one line stating the choice). Budget them — taste calls, hard-to-reverse
+     choices, deviations from settled convention only; `rg 💡` = the review checklist. -->
 ```
 
 ## Mermaid (GitHub-reliable rendering)
@@ -233,4 +237,6 @@ choices still open. Uncertainty goes here, not into the diagrams.
 - [ ] Every file/function/tool/skill named in the doc exists in the mode's evidence.
 - [ ] Sibling lens docs cross-linked if present.
 - [ ] Uncertainties live in "Open Questions" / "Decisions needed", not disguised as facts.
+- [ ] Design mode: 💡 markers inline at each decision site, indexed in "Decisions
+      needed" — budgeted (taste calls, hard-to-reverse choices, deviations only).
 - [ ] Exactly one Markdown file.

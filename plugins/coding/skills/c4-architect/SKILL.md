@@ -2,7 +2,7 @@
 name: c4-architect
 description: Transform requirements or rough ideas into C4 diagrams (C1–C3) via phase-gated Q&A — ASCII inline, Mermaid to disk, light DDD-strategic vocabulary. Use when the user wants to design, architect, diagram, or model a system through dialogue, or mentions C4. For compiling already-formed inputs (PRD, settled ideas) into a design doc without elicitation, use `system-architecture` (design mode) instead.
 metadata:
-  version: "2026-07-09"
+  version: "2026-08-06"
 ---
 
 # c4-architect
@@ -371,7 +371,10 @@ When the user indicates they want to save the results (either you offer, or they
    - An `## Overview` section with the phase's system-purpose or container-name.
    - The table (markdown).
    - A **Mermaid** diagram (NOT ASCII — files are where Mermaid shines). Use `flowchart TB` or `LR`, with `subgraph` blocks for bounded contexts, and arrow labels identical to the ASCII version.
-   - An `## Open questions` list if any were left unresolved.
+   - An `## Open questions` list if any were left unresolved. Also mark each unresolved
+     question inline with 💡 + one line stating the decision, at the table row or section
+     where it bites — the list indexes the markers (`rg 💡` = the review checklist).
+     Budget them: taste calls, hard-to-reverse choices, deviations only.
 4. **No frontmatter.** Keep the `.md` files portable — they should render correctly in any Markdown renderer, not just Starlight.
 
 Example `02-containers.md` skeleton:

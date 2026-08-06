@@ -7,7 +7,7 @@ description: >-
   against AX principles, use `ax-interface` instead. Use when the user invokes it by name
   (`surface-architecture`) or near-match.
 metadata:
-  version: "2026-07-15"
+  version: "2026-08-06"
 ---
 
 # Surface Architecture (UX / DX / API)
@@ -30,7 +30,7 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
 - **Design** — compile the user's inputs (PRD, rough design, this conversation) into the
   same document shape. Evidence = those inputs only. Don't invent requirements or silently
   settle open choices (navigation model, auth flow, error contract …) — undecided →
-  "Decisions needed".
+  "Decisions needed", each also 💡-marked inline at the section where the choice bites.
   Output: `docs/design/<nn>-surface-architecture.md` (next free number) unless the user names
   a path.
   When the design is settled and the user is about to build, point forward to
@@ -175,6 +175,9 @@ API headers/params/versioning.
 ## 8. Open Questions & Notes   <!-- design mode: "Decisions needed" -->
 What the evidence cannot determine, assumptions made, choices still open. Be honest here —
 this is where uncertainty goes instead of into the diagrams.
+<!-- Design mode: this section indexes the 💡 markers placed inline at each decision
+     site (💡 + one line stating the choice). Budget them — taste calls, hard-to-reverse
+     choices, deviations from settled convention only; `rg 💡` = the review checklist. -->
 ```
 
 ## Mermaid (GitHub-reliable rendering)
@@ -197,4 +200,6 @@ this is where uncertainty goes instead of into the diagrams.
 - [ ] Sibling lens docs cross-linked if present.
 - [ ] All diagrams are valid Mermaid in fenced blocks.
 - [ ] Uncertainties live in "Open Questions" / "Decisions needed", not disguised as facts.
+- [ ] Design mode: 💡 markers inline at each decision site, indexed in "Decisions
+      needed" — budgeted (taste calls, hard-to-reverse choices, deviations only).
 - [ ] Exactly one Markdown file.

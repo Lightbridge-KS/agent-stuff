@@ -9,7 +9,7 @@ description: >-
   it by name (`ax-interface`) or near-match ("AX analysis", "agent experience of …",
   "agent-friendly interface").
 metadata:
-  version: "2026-07-15"
+  version: "2026-08-06"
 ---
 
 # AX Interface
@@ -85,7 +85,8 @@ Infer the mode from the prompt's verb and repo state; ask when ambiguous.
 - **Design** — apply the principles while shaping a new or changing agent-facing surface.
   Evidence = the user's inputs (PRD, rough design, this conversation). Every principle is
   a **decision**: chosen shape / consciously waived / undecided — don't silently settle
-  the undecided ones; they go to "Decisions needed".
+  the undecided ones; they go to "Decisions needed", each also 💡-marked inline at the
+  principle row where the choice bites.
   Output: `docs/design/<nn>-ax-interface.md` (next free number) — unless the AX pass is
   one thread of a larger design conversation or another skill's document; then contribute
   the decisions inline and skip the standalone file.
@@ -197,6 +198,9 @@ Cheap-and-high-impact first. Each with a before/after in the hostile/friendly fo
 ## 4. Open Questions & Notes   <!-- design mode: "Decisions needed" -->
 What the evidence cannot determine, assumptions made, choices still open. Uncertainty
 goes here — not disguised as a finding.
+<!-- Design mode: this section indexes the 💡 markers placed inline at each decision
+     site (💡 + one line stating the choice). Budget them — taste calls, hard-to-reverse
+     choices, deviations from settled convention only; `rg 💡` = the review checklist. -->
 ```
 
 ## Quality checklist before finishing
@@ -207,6 +211,8 @@ goes here — not disguised as a finding.
 - [ ] Every finding has a concrete fix; observations without fixes are labelled as such.
 - [ ] Recommendations ranked by leverage, with at least one hostile/friendly before/after.
 - [ ] Scorecard present in analyze mode; undecided design choices in "Decisions needed", not silently settled.
+- [ ] Design mode: 💡 markers inline at each undecided choice, indexed in "Decisions
+      needed" — budgeted (taste calls, hard-to-reverse choices, deviations only).
 - [ ] Sibling lens docs cross-linked if present.
 - [ ] Uncertainties live in "Open Questions" / "Decisions needed", not disguised as facts.
 - [ ] At most one Markdown file (design mode may contribute inline to a host doc instead).

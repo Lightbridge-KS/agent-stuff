@@ -6,7 +6,7 @@ description: >-
   Mermaid diagrams. Use when the user invokes it by name
   (`data-architecture`) or near-match.
 metadata:
-  version: "2026-07-15"
+  version: "2026-08-06"
 ---
 
 # Data Architecture
@@ -30,7 +30,8 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
   `_docs/` if missing).
 - **Design** — compile the user's inputs (PRD, rough design, this conversation) into the
   same document shape. Evidence = those inputs only. Don't invent requirements or silently
-  settle open choices (engine, retention, partitioning …) — undecided → "Decisions needed".
+  settle open choices (engine, retention, partitioning …) — undecided → "Decisions
+  needed", each also 💡-marked inline at the section where the choice bites.
   Output: `docs/design/<nn>-data-architecture.md` (next free number) unless the user names
   a path.
   When the design is settled and the user is about to build, point forward to
@@ -165,6 +166,9 @@ roles). Explain mode: populate ONLY from declared artifacts; unverifiable policy
 What the evidence cannot determine: upstream systems, true retention policy, ownership
 across teams, choices still open. Be honest here — uncertainty goes here, not into the
 diagrams.
+<!-- Design mode: this section indexes the 💡 markers placed inline at each decision
+     site (💡 + one line stating the choice). Budget them — taste calls, hard-to-reverse
+     choices, deviations from settled convention only; `rg 💡` = the review checklist. -->
 ```
 
 ## Mermaid (GitHub-reliable rendering)
@@ -189,4 +193,6 @@ diagrams.
 - [ ] Sibling lens docs cross-linked if present.
 - [ ] All diagrams are valid Mermaid in fenced blocks.
 - [ ] Uncertainties live in "Open Questions" / "Decisions needed", not disguised as facts.
+- [ ] Design mode: 💡 markers inline at each decision site, indexed in "Decisions
+      needed" — budgeted (taste calls, hard-to-reverse choices, deviations only).
 - [ ] Exactly one Markdown file.

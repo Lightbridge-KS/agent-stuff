@@ -8,7 +8,7 @@ description: >-
   is settled and you are about to build, or when the user invokes it by name
   (`codebase-blueprint`) or near-match.
 metadata:
-  version: "2026-07-13"
+  version: "2026-08-06"
 ---
 
 # Codebase Blueprint
@@ -122,6 +122,11 @@ how to write. Four sections do not come free, and they are why this document exi
   checks it. **Turning a prose rule into a grep or a lint rule is this skill's signature
   move**; a one-line grep in the dry gates catches, forever, what a document merely asserts.
 
+The blueprint is review-gated: mark inline with 💡 + one line the few spots that rest on
+this skill's own judgment rather than a cited design doc or an answered fork — taste calls,
+hard-to-reverse structure, deviations from settled convention. Budget them (a marker on
+everything marks nothing); `rg 💡` is the reviewer's checklist.
+
 ## Phase 4 — Amend upstream (part of done, not an afterthought)
 
 Reconciliation invalidates claims in the docs it reconciled. Go back and mark them **in
@@ -151,4 +156,5 @@ service layer out of reflex. `clean-architecture` for how much layering the tier
 - [ ] Every fork is either cited to a design doc, dropped as N/A, or asked — none defaulted.
 - [ ] Import matrix has an enforcing tool; invariants table stars what is machine-checked.
 - [ ] "What is deliberately absent" is written and non-empty.
+- [ ] 💡 markers on judgment calls not settled by a design doc or an asked fork — budgeted.
 - [ ] Upstream docs amended in place; behavior amendments raised as questions, not applied.
