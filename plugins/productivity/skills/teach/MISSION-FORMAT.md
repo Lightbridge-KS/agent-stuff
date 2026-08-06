@@ -22,7 +22,7 @@
 - {Adjacent topics the user explicitly does not want to chase right now — protects the zone of proximal development}
 
 ## Medium (optional)
-- {Lesson medium decision, per lesson type. e.g. "Knowledge lessons: HTML. Code skills practice: .ipynb." Omit to default to HTML.}
+- {Deviations from the default medium (Quarto book, interactivity Tiers 0–2) and any tier decisions. e.g. "Code skills: quarto-live (Tier 3, installed) with .ipynb fallback for exercises needing a real environment." Omit to accept the default.}
 ```
 
 ## Rules

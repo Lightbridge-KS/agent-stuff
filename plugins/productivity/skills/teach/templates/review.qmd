@@ -1,0 +1,11 @@
+# Review {.unnumbered}
+
+Retrieval practice across every chapter so far — questions arrive shuffled, and
+mixed across topics on purpose (interleaving). Do a handful from memory at the
+start of a sitting.
+
+::: {.quiz-deck}
+
+{{< include assets/questions/_01-{slug}.qmd >}}
+
+:::

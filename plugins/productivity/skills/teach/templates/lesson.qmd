@@ -1,0 +1,46 @@
+# {Lesson title}
+
+::: {.thesis}
+{The chapter's one-line thesis — the single idea this lesson lands.}
+:::
+
+## The picture
+
+::: {.topo}
+```
+{ASCII diagram — the lesson's spine. Prose below explains each arrow.}
+```
+:::
+
+::: {.cap}
+{One-sentence caption: what to notice in the diagram.}
+:::
+
+## {Knowledge sections}
+
+{Short sections teaching only what the skill below requires. Cite trusted
+sources from RESOURCES.md inline. Link glossary terms on first use:
+[term](../reference/glossary.qmd#term-slug). Cross-link related chapters.}
+
+::: {.mission}
+{Tie the lesson back to the user's real goal: the runbook line, the codebase
+file, the race plan this chapter just made legible.}
+:::
+
+## Check yourself
+
+{{< include ../assets/questions/_NN-{slug}.qmd >}}
+
+{Free-recall questions use a collapsible callout instead of the quiz widget:}
+
+**{N}.** {Open question demanding recall, not recognition?}
+
+::: {.callout-tip collapse="true"}
+## Show answer
+{The answer, including why plausible wrong answers are wrong.}
+:::
+
+::: {.readnext}
+[{The single highest-trust primary source for this chapter}]({url}).
+{One sentence on how to use it — read, skim, bookmark, watch.}
+:::

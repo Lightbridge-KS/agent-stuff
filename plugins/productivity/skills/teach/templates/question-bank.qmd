@@ -1,0 +1,17 @@
+<!-- Question bank partial: assets/questions/_NN-{slug}.qmd — one per lesson.
+     Single source for MCQs: included by the lesson's "Check yourself" section
+     AND by review.qmd's deck. Filename must start with `_` so Quarto does not
+     render it standalone. One `.quiz` div per question; `[x]` marks the correct
+     answer (shuffled at load, so position carries no cue — but keep distractors
+     the same length and register as the truth). -->
+
+::: {.quiz}
+**Q.** {Question text?}
+
+- [ ] {distractor}
+- [x] {correct answer}
+- [ ] {distractor}
+
+{Explanation shown after answering: why the right answer is right and the
+tempting distractor is wrong.}
+:::
