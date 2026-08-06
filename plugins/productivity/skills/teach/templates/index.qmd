@@ -1,0 +1,32 @@
+# Preface {.unnumbered}
+
+::: {.thesis}
+{One paragraph-length promise: what the user will be able to DO when they finish
+this book, phrased in the mission's terms — not "understand X".}
+:::
+
+{Why this book exists — the mission made concrete. If the mission centers on a
+real artifact (a runbook, a codebase, a race, a performance), show it here:
+the strings/moves/facts the user cannot yet read, which the book will teach.}
+
+## The map
+
+{The organizing frame for the whole book — the 3–5 questions or arcs the parts
+answer. Ideally one diagram (`.topo` div) the user can eventually redraw from
+memory.}
+
+## Where you are
+
+{Progress at a glance — updated each session from `learning-records/`.}
+
+| Part | Chapter | Status |
+|---|---|---|
+| I | [{Chapter title}](lessons/01-{slug}.qmd) | done / in progress / next / — |
+
+## How to read this
+
+Each chapter lands one idea and stops. Answer the **Check yourself** questions
+from memory before revealing anything — the effort is the point. The
+[Review](review.qmd) appendix reshuffles every question in the book; visit it
+at the start of a sitting, not the end. Ask your teaching agent any question
+this book leaves open.

@@ -1,0 +1,83 @@
+<script>
+// Tier-1 quiz widget for /teach workspaces. Included on every page via
+// `include-after-body` in _quarto.yml; styling lives in theme.scss.
+//
+// Authoring contract — one question per div, authored as a task list:
+//
+//   ::: {.quiz}
+//   **Q.** The question text?
+//
+//   - [ ] a distractor
+//   - [x] the correct answer
+//   - [ ] another distractor
+//
+//   Everything after the list is the explanation, revealed after answering.
+//   :::
+//
+// Options are shuffled on every load; no length or formatting cue may
+// distinguish the correct answer. A `.quiz-deck` wrapper (review.qmd)
+// additionally shuffles the order of the questions inside it.
+//
+// Graceful degradation: without JS (and in print) the task list renders
+// as-is, so the page remains readable — just not self-grading.
+(() => {
+  "use strict";
+
+  const shuffle = (arr) => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
+
+  const initQuiz = (root) => {
+    const list = root.querySelector("ul");
+    if (!list) return;
+
+    const options = Array.from(list.querySelectorAll("li"))
+      .map((li) => {
+        const box = li.querySelector('input[type="checkbox"]');
+        if (!box) return null;
+        const correct = box.checked;
+        box.remove();
+        return { correct, li };
+      })
+      .filter(Boolean);
+    if (!options.length) return;
+
+    for (let el = list.nextElementSibling; el; el = el.nextElementSibling) {
+      el.classList.add("quiz-explanation");
+    }
+
+    const grid = document.createElement("div");
+    grid.className = "quiz-options";
+    shuffle(options).forEach((opt) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "quiz-option";
+      btn.dataset.correct = opt.correct;
+      btn.append(...opt.li.childNodes);
+      btn.addEventListener("click", () => {
+        if (root.classList.contains("quiz-answered")) return;
+        root.classList.add("quiz-answered");
+        btn.classList.add(opt.correct ? "quiz-right" : "quiz-wrong");
+        if (!opt.correct) {
+          const right = grid.querySelector('[data-correct="true"]');
+          if (right) right.classList.add("quiz-right");
+        }
+      });
+      grid.appendChild(btn);
+    });
+    list.replaceWith(grid);
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".quiz-deck").forEach((deck) => {
+      shuffle(Array.from(deck.querySelectorAll(":scope > .quiz")))
+        .forEach((q) => deck.appendChild(q));
+    });
+    document.querySelectorAll("div.quiz").forEach(initQuiz);
+  });
+})();
+</script>

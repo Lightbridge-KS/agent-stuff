@@ -1,0 +1,50 @@
+# Quarto book config for a /teach workspace.
+# Fill every {placeholder}; delete comments once settled.
+project:
+  type: book
+  output-dir: _book
+
+# Executed chapters (Tier 2/3 or jupyter engine) render once and are cached;
+# they only re-execute when their source changes.
+execute:
+  freeze: auto
+
+book:
+  title: "{Course title — evocative, not the topic name}"
+  subtitle: "{One line tying the book to the mission}"
+  author: "{User's name}"
+  date: last-modified
+  date-format: "D MMMM YYYY"
+  search: true
+  page-navigation: true
+  sidebar:
+    style: docked
+    collapse-level: 1
+  chapters:
+    - index.qmd
+    # Group chapters into parts as the syllabus takes shape:
+    # - part: "I — {Arc title}"
+    #   chapters:
+    #     - lessons/01-{slug}.qmd
+  appendices:
+    - reference/glossary.qmd
+    - reference/cheatsheet.qmd
+    - review.qmd
+
+format:
+  html:
+    theme:
+      - cosmo
+      - assets/theme.scss
+    include-after-body: assets/quiz.html
+    toc: true
+    toc-depth: 3
+    toc-title: "On this page"
+    number-sections: false
+    code-copy: true
+    code-overflow: scroll
+    link-external-newwindow: true
+    link-external-icon: false
+    fig-align: center
+    smooth-scroll: true
+    anchor-sections: true
