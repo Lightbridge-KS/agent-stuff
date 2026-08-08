@@ -36,6 +36,10 @@ jobs:
         run: uv run tests/test_codex_plugin.py
       - name: Run skill-vendor tests
         run: uv run tests/test_skill_vendor.py
+      - name: Run skill-health tests
+        run: uv run tests/test_skill_health.py
+      - name: Run skill-health Telegram notifier tests
+        run: uv run tests/test_skill_health_telegram_notify.py
       - name: Run validator tests
         run: uv run tests/test_validate.py
       - name: Syntax-check all Python (bin, scripts, hooks, tests)
