@@ -287,7 +287,8 @@ def notify(command: str, report: Report, report_path: Path) -> str | None:
     A notifier that fails must not change the health verdict — the checks already ran and
     their answer stands. The failure is surfaced on stderr and recorded, not swallowed.
     """
-    exe = shutil.which(command, path=search_path()) or command
+    env = dict(os.environ, PATH=search_path())
+    exe = shutil.which(command, path=env["PATH"]) or command
     try:
         proc = subprocess.run(
             [exe],
@@ -295,6 +296,7 @@ def notify(command: str, report: Report, report_path: Path) -> str | None:
             capture_output=True,
             text=True,
             timeout=60,
+            env=env,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return f"notify-command failed: {exc}"

@@ -213,6 +213,18 @@ class EndToEnd(unittest.TestCase):
         self.assertEqual(payload["severity"], "warning")
         self.assertEqual(payload["metadata"]["red"], "a")
 
+    def test_notifier_inherits_repaired_search_path(self):
+        # The notifier shells out further (openclaw, curl, …), so it needs the repaired
+        # PATH too — resolving the notifier binary against it is not enough. Asserted
+        # against search_path() rather than a named directory: which dirs exist is a
+        # property of the machine, but inheriting whatever was repaired is the contract.
+        dest = Path(self.tmp.name) / "path.txt"
+        script = Path(self.tmp.name) / "capture-path.sh"
+        script.write_text(f'#!/bin/sh\nprintf "%s" "$PATH" > "{dest}"\ncat >/dev/null\n')
+        script.chmod(script.stat().st_mode | stat.S_IEXEC)
+        self.run_with([check("a", *FAIL)], notify=str(script))
+        self.assertEqual(dest.read_text(), sh.search_path())
+
     def test_notifier_silent_on_green(self):
         dest = Path(self.tmp.name) / "payload.json"
         code, _, _ = self.run_with([check("a", *PASS)], notify=self.notifier(dest))

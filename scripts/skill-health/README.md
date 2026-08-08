@@ -71,6 +71,37 @@ the watchdog's `map[string]string`.
 A notifier that fails does not change the health verdict: the checks already ran and
 their answer stands. The failure goes to stderr.
 
+### Telegram notifier (OpenClaw)
+
+`skill_health_telegram_notify.py` is the machine adapter for a Telegram forum topic. It
+validates the `skill_health` envelope, renders a bounded plain-text warning, and calls
+`openclaw message send` directly — no model or webhook relay is involved.
+
+Keep the destination outside this public repository:
+
+```toml
+# ~/.config/skill-health/telegram.toml
+account = "default"
+chat_id = "<telegram-chat-id>"
+thread_id = "<forum-topic-id>"
+silent = true
+```
+
+Install both PATH shims from the repo root:
+
+```bash
+ln -s "$PWD/scripts/skill-health/skill_health.py" ~/.local/bin/skill-health
+ln -s "$PWD/scripts/skill-health/skill_health_telegram_notify.py" \
+  ~/.local/bin/skill-health-telegram-notify
+```
+
+The launchd template already passes
+`--notify-command ~/.local/bin/skill-health-telegram-notify`, so regenerating the plist
+preserves the notification path. Override the config location with
+`SKILL_HEALTH_TELEGRAM_CONFIG`; override the OpenClaw executable with
+`SKILL_HEALTH_OPENCLAW_BIN`. For a no-send integration check, pipe an alert JSON into
+`skill-health-telegram-notify --dry-run`.
+
 ## Scheduling (launchd)
 
 From the repo root:
@@ -85,17 +116,15 @@ launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.kittipos.skill-health.pl
 launchctl kickstart -k gui/$UID/com.kittipos.skill-health   # force one run now
 ```
 
-> [!WARNING]
-> **Re-running that `sed` overwrites the installed plist**, dropping any
-> `--notify-command` added by hand. Nothing errors: the sweep keeps running and keeps
-> writing its report, it just stops telling anyone. That is the same silent failure this
-> tool exists to catch, so before regenerating, check what the live job actually runs:
+> [!NOTE]
+> Re-running that `sed` overwrites the installed plist. The notifier is part of the
+> template, so its wiring is preserved; still verify what the live job runs:
 >
 > ```bash
 > launchctl print gui/$UID/com.kittipos.skill-health | grep -A6 arguments
 > ```
 >
-> then re-add the flag and `bootout` + `bootstrap` again.
+> then `bootout` + `bootstrap` again.
 
 Use `bootstrap`, not the legacy `launchctl load` — `load` fails with `Input/output error`
 on current macOS. To remove: `launchctl bootout gui/$UID/com.kittipos.skill-health`.
@@ -107,14 +136,9 @@ so the Mac being asleep only delays it.
 launchd hands jobs a minimal PATH, which bites twice. The plist therefore invokes `uv` by
 absolute path rather than relying on the script's `env`-based shebang (otherwise the job
 never starts — silently, weekly), and the tool itself prepends `~/.local/bin`,
-`/opt/homebrew/bin`, and `/usr/local/bin` before resolving any checker. Both are
+`/opt/homebrew/bin`, and `/usr/local/bin` before resolving any checker or notifier. Both are
 deliberate: a health checker that silently fails to find its own checkers is worse than
 no checker at all.
-
-To wire notifications, append `--notify-command /path/to/notifier` to the plist's
-`ProgramArguments`, then `bootout` + `bootstrap`. It lives in the plist rather than a
-config file because it is one value set once — see the regeneration warning above, which
-is the cost of that choice.
 
 Logs: `~/Library/Logs/skill-health/`.
 
@@ -122,6 +146,8 @@ Logs: `~/Library/Logs/skill-health/`.
 
 ```bash
 ln -s "$PWD/scripts/skill-health/skill_health.py" ~/.local/bin/skill-health
+ln -s "$PWD/scripts/skill-health/skill_health_telegram_notify.py" \
+  ~/.local/bin/skill-health-telegram-notify
 ```
 
 The `#!/usr/bin/env -S uv run --script` shebang carries through the symlink. Use a real
@@ -132,6 +158,7 @@ shell.
 
 ```bash
 uv run tests/test_skill_health.py
+uv run tests/test_skill_health_telegram_notify.py
 ```
 
 Env override for isolation: `SKILL_HEALTH_HOME` replaces `~/.lightbridge` (or pass

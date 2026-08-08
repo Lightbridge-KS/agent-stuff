@@ -13,25 +13,21 @@
   Use `bootstrap`, not the legacy `launchctl load` (which fails with Input/output error
   on current macOS). Remove with `launchctl bootout gui/$UID/com.kittipos.skill-health`.
 
-  WARNING — RE-INSTALLING SILENTLY DROPS --notify-command.
-  That sed overwrites the installed plist from this template, so any notifier flag added
-  by hand disappears. Nothing errors: the sweep still runs and still writes its report,
-  it just stops telling anyone — the same silent failure this tool exists to catch.
-  Before regenerating, read back what the live job runs:
+  This template includes the Telegram notifier explicitly so re-installation preserves
+  the alert path. Configure its machine-local destination first; see README.md. Before
+  regenerating, read back what the live job runs:
 
     launchctl print gui/$UID/com.kittipos.skill-health | grep -A6 arguments
 
-  then re-add the flag below and bootout + bootstrap again.
+  then bootout + bootstrap again.
 
   uv is invoked by absolute path on purpose. The script's own
   `#!/usr/bin/env -S uv run --script` shebang cannot be used here: launchd hands a job a
   minimal PATH, so `env` would not find `uv` and the job would fail to start — silently,
   weekly. (Once running, the tool repairs PATH itself for the checkers it shells out to.)
 
-  To add notifications, append the flag to ProgramArguments:
-    <string>--notify-command</string>
-    <string>/path/to/notifier</string>
-  It runs only when a check is red, with the alert JSON on stdin. See README.md.
+  The notifier runs only when a check is red, with the alert JSON on stdin. It sends via
+  the OpenClaw CLI without an agent/model hop. See README.md.
 -->
 <plist version="1.0">
 <dict>
@@ -44,6 +40,8 @@
     <string>run</string>
     <string>--script</string>
     <string>__SCRIPT__</string>
+    <string>--notify-command</string>
+    <string>__HOME__/.local/bin/skill-health-telegram-notify</string>
   </array>
 
   <!-- Saturdays at 10:07. Off the :00/:30 mark by convention. A fire missed because the

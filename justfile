@@ -36,6 +36,7 @@ test:
     uv run tests/test_codex_plugin.py
     uv run tests/test_skill_vendor.py
     uv run tests/test_skill_health.py
+    uv run tests/test_skill_health_telegram_notify.py
     uv run tests/test_validate.py
 
 # Remove build artifacts
