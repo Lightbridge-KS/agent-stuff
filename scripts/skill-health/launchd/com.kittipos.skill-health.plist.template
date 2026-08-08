@@ -13,6 +13,16 @@
   Use `bootstrap`, not the legacy `launchctl load` (which fails with Input/output error
   on current macOS). Remove with `launchctl bootout gui/$UID/com.kittipos.skill-health`.
 
+  WARNING — RE-INSTALLING SILENTLY DROPS --notify-command.
+  That sed overwrites the installed plist from this template, so any notifier flag added
+  by hand disappears. Nothing errors: the sweep still runs and still writes its report,
+  it just stops telling anyone — the same silent failure this tool exists to catch.
+  Before regenerating, read back what the live job runs:
+
+    launchctl print gui/$UID/com.kittipos.skill-health | grep -A6 arguments
+
+  then re-add the flag below and bootout + bootstrap again.
+
   uv is invoked by absolute path on purpose. The script's own
   `#!/usr/bin/env -S uv run --script` shebang cannot be used here: launchd hands a job a
   minimal PATH, so `env` would not find `uv` and the job would fail to start — silently,

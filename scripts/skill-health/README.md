@@ -85,6 +85,18 @@ launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.kittipos.skill-health.pl
 launchctl kickstart -k gui/$UID/com.kittipos.skill-health   # force one run now
 ```
 
+> [!WARNING]
+> **Re-running that `sed` overwrites the installed plist**, dropping any
+> `--notify-command` added by hand. Nothing errors: the sweep keeps running and keeps
+> writing its report, it just stops telling anyone. That is the same silent failure this
+> tool exists to catch, so before regenerating, check what the live job actually runs:
+>
+> ```bash
+> launchctl print gui/$UID/com.kittipos.skill-health | grep -A6 arguments
+> ```
+>
+> then re-add the flag and `bootout` + `bootstrap` again.
+
 Use `bootstrap`, not the legacy `launchctl load` — `load` fails with `Input/output error`
 on current macOS. To remove: `launchctl bootout gui/$UID/com.kittipos.skill-health`.
 
@@ -100,7 +112,9 @@ deliberate: a health checker that silently fails to find its own checkers is wor
 no checker at all.
 
 To wire notifications, append `--notify-command /path/to/notifier` to the plist's
-`ProgramArguments`.
+`ProgramArguments`, then `bootout` + `bootstrap`. It lives in the plist rather than a
+config file because it is one value set once — see the regeneration warning above, which
+is the cost of that choice.
 
 Logs: `~/Library/Logs/skill-health/`.
 
