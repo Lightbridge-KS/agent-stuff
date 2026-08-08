@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Weekly skill-surface health check. Report-only.
+
+  Install (from the repo root):
+    sed -e "s|__HOME__|$HOME|g" \
+        -e "s|__SCRIPT__|$PWD/scripts/skill-health/skill_health.py|g" \
+      scripts/skill-health/launchd/com.kittipos.skill-health.plist.template \
+      > ~/Library/LaunchAgents/com.kittipos.skill-health.plist
+    launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.kittipos.skill-health.plist
+
+  Use `bootstrap`, not the legacy `launchctl load` (which fails with Input/output error
+  on current macOS). Remove with `launchctl bootout gui/$UID/com.kittipos.skill-health`.
+
+  WARNING — RE-INSTALLING SILENTLY DROPS --notify-command.
+  That sed overwrites the installed plist from this template, so any notifier flag added
+  by hand disappears. Nothing errors: the sweep still runs and still writes its report,
+  it just stops telling anyone — the same silent failure this tool exists to catch.
+  Before regenerating, read back what the live job runs:
+
+    launchctl print gui/$UID/com.kittipos.skill-health | grep -A6 arguments
+
+  then re-add the flag below and bootout + bootstrap again.
+
+  uv is invoked by absolute path on purpose. The script's own
+  `#!/usr/bin/env -S uv run --script` shebang cannot be used here: launchd hands a job a
+  minimal PATH, so `env` would not find `uv` and the job would fail to start — silently,
+  weekly. (Once running, the tool repairs PATH itself for the checkers it shells out to.)
+
+  To add notifications, append the flag to ProgramArguments:
+    <string>--notify-command</string>
+    <string>/path/to/notifier</string>
+  It runs only when a check is red, with the alert JSON on stdin. See README.md.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.kittipos.skill-health</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__HOME__/.local/bin/uv</string>
+    <string>run</string>
+    <string>--script</string>
+    <string>__SCRIPT__</string>
+  </array>
+
+  <!-- Saturdays at 10:07. Off the :00/:30 mark by convention. A fire missed because the
+       Mac was asleep runs on next wake, so sleep only delays the check. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key>
+    <integer>6</integer>
+    <key>Hour</key>
+    <integer>10</integer>
+    <key>Minute</key>
+    <integer>7</integer>
+  </dict>
+
+  <!-- False on purpose: a weekly audit should not fire on every login. -->
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/skill-health/launchd.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/skill-health/launchd.err.log</string>
+</dict>
+</plist>
