@@ -122,13 +122,18 @@ Rules:
 ## Pickup
 
 The journal is pulled (user asks). The inbox is pushed — the `handoff-inject` SessionStart
-hook (`hooks/handoff-inject`) announces unread items; `scripts/handoff/handoff.py` is the
-inbox behind it:
+hook (`hooks/handoff-inject`, agent-stuff) announces unread items;
+`<agent-stuff>/scripts/handoff/handoff.py` is the inbox behind it.
+
+**These paths are relative to the agent-stuff repo root, not to this skill folder** —
+the skill is read through a registry symlink (`~/.claude/skills/handoff/`), where
+resolving them locally finds nothing and reads as "the tooling is missing". It is not;
+it is one directory tree up. Not on PATH either, so invoke it in full:
 
 ```bash
-handoff.py                 # unread inbox items for this repo
-handoff.py --journal       # latest journal handoff — what `resume` picks up
-handoff.py --ack <file>    # mark one inbox item read
+uv run <agent-stuff>/scripts/handoff/handoff.py                 # unread inbox items for this repo
+uv run <agent-stuff>/scripts/handoff/handoff.py --journal       # latest journal handoff — what `resume` picks up
+uv run <agent-stuff>/scripts/handoff/handoff.py --ack <file>    # mark one inbox item read
 ```
 
 **Resuming (journal).**
@@ -163,7 +168,8 @@ handoff.py --ack <file>    # mark one inbox item read
    fires gets ignored.
 
 3. Inbox `## Next steps` are **advisory** — the user owns the call.
-4. **Ack once acted on (or consciously declined):** `handoff.py --ack <file>`. The ack is part
+4. **Ack once acted on (or consciously declined):** `… /handoff.py --ack <file>` (full
+   invocation above). The ack is part
    of the task's definition of done — work on an inbox item is not complete until it has run.
    An unacked item is re-announced every session; a notice that never stops firing gets tuned
    out. Do not ack an item you have merely read.
