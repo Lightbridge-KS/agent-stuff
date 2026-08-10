@@ -1,105 +1,102 @@
 ---
 name: md-to-docx
-description: "Render Markdown files to DOCX (Word) format using Quarto CLI. Use when the user asks to convert, render, or export Markdown (.md) files to .docx format. Supports custom DOCX reference templates for consistent styling (fonts, margins, headings). This skill is for Markdown-to-DOCX conversion only — not for editing existing .docx files."
+description: "Render Markdown files to DOCX (Word) via Quarto CLI, with plain Pandoc as fallback. Applies a Thai-friendly TH Sarabun New A4 template by default (color or black-and-white variant). Use when the user asks to convert, render, or export Markdown (.md) files to .docx format. This skill is for Markdown-to-DOCX conversion only — not for editing existing .docx files."
 metadata:
-  version: "2026-08-03"
+  version: "2026-08-10"
 ---
 
 # Markdown to DOCX Rendering
 
-Render any Markdown file to a Word document (.docx) using **Quarto CLI** as the rendering engine.
+Render any Markdown file to a Word document (.docx) — **Quarto CLI** as the primary
+engine, plain **pandoc** as the fallback. Every render applies the bundled TH Sarabun
+New A4 reference template unless the user explicitly asks for plain Word styling.
 
-## Prerequisites
+## Step 1 — Pick the render path
 
-Quarto CLI must be installed and in PATH. Verify with:
-
-```bash
-quarto --version
-```
-
-If not installed, direct the user to https://quarto.org/docs/get-started/
-
-## Basic Rendering
-
-To render a Markdown file to DOCX, placing the output in the **same directory** as the input:
+Run the detector (from this skill's base directory):
 
 ```bash
-quarto render /path/to/document.md --to docx --output-dir "$(cd "$(dirname /path/to/document.md)" && pwd)"
+bash <skill-base-dir>/scripts/ensure_quarto.sh
 ```
 
-### Critical: --output-dir requires an absolute path
+Branch on its stdout / exit code:
 
-Quarto interprets `--output-dir` relative to the **input file's directory**, not the current working directory. Always resolve to an absolute path. If you want the output in the same folder as the input:
+- prints `quarto` (exit 0) → **Quarto path** (primary)
+- prints `pandoc` (exit 1) → **Pandoc fallback** — same theme: Quarto's docx writer
+  *is* pandoc, so `--reference-doc` styling is identical
+- exit 2 → stop and tell the user: no docx renderer on this machine
+
+On Linux without Quarto the script attempts a user-local install into `~/.local`
+(no root); on macOS it suggests `brew install quarto`.
+
+## Step 2 — Pick the template
+
+Templates are `.docx` reference documents that control styling only (TH Sarabun New
+font, A4 page, 1-inch margins, heading styles) — they contain no content.
+
+Bundled in `<skill-base-dir>/assets/`:
+
+- `th-sarabun-new-ref.docx` — color headings (dark blue) — **the default; use for
+  every render**
+- `th-sarabun-new-ref-bw.docx` — black headings — use when the user asks for
+  print / black-and-white / grayscale output
+
+Omit the template **only** when the user explicitly asks for plain/default Word
+styling (Calibri look).
+
+## Step 3a — Quarto path (primary)
+
+Render to the **same directory** as the input:
 
 ```bash
 INPUT="/path/to/document.md"
 OUTPUT_DIR="$(cd "$(dirname "$INPUT")" && pwd)"
-quarto render "$INPUT" --to docx --output-dir "$OUTPUT_DIR"
-```
-
-If the user specifies a different output directory, resolve it to an absolute path:
-
-```bash
-quarto render "$INPUT" --to docx --output-dir "$(cd /path/to/output && pwd)"
-```
-
-### Output naming
-
-Quarto automatically names the output with the same stem as the input:
-- `report.md` → `report.docx`
-- `meeting-notes.md` → `meeting-notes.docx`
-
-Do NOT use the `--output` flag — it causes path handling issues with `--output-dir`.
-
-## Using Templates
-
-Templates are `.docx` reference documents that control styling (fonts, margins, heading styles, page layout). They do NOT contain content — only style definitions.
-
-### Available templates
-
-Check the skill's `assets/` folder for bundled templates (under this skill's base
-directory, announced when the skill is invoked):
-
-```bash
-ls <skill-base-dir>/assets/*.docx
-```
-
-Currently bundled:
-- `th-sarabun-new-ref-bw.docx` — Thai Sarabun New font, black & white style
-
-### Applying a template
-
-Use the `-M reference-doc:` flag with the **absolute path** to the template:
-
-```bash
-TEMPLATE="<skill-base-dir>/assets/th-sarabun-new-ref-bw.docx"
+TEMPLATE="<skill-base-dir>/assets/th-sarabun-new-ref.docx"
 quarto render "$INPUT" --to docx --output-dir "$OUTPUT_DIR" -M "reference-doc:$TEMPLATE"
 ```
 
-### Important: correct template flag syntax
+Gotchas (each of these fails silently or breaks paths if ignored):
 
-Use `-M reference-doc:<path>` (Quarto metadata flag). Do NOT use:
-- `--reference-doc` — Quarto silently ignores this Pandoc passthrough
-- `-- --reference-doc` — Also silently ignored
+- **`--output-dir` requires an absolute path** — Quarto resolves it relative to the
+  *input file's* directory, not the CWD. Always resolve as above; for a different
+  output directory use `"$(cd /path/to/output && pwd)"`.
+- **Template flag is `-M reference-doc:<abs-path>`** (Quarto metadata flag). Do NOT
+  use `--reference-doc` or `-- --reference-doc` — Quarto silently ignores both.
+- **Do NOT use `--output`** — it causes path handling issues with `--output-dir`.
+- Output name follows the input stem: `report.md` → `report.docx`.
 
-### When to use a template
-
-- If the user asks for specific fonts, margins, or styling → use a template
-- If the user mentions "Thai" or "Sarabun" → use `th-sarabun-new-ref-bw.docx`
-- If the user just wants a basic conversion → no template needed, omit the flag
-
-## Batch Rendering
-
-To render multiple Markdown files:
+Batch rendering:
 
 ```bash
+TEMPLATE="<skill-base-dir>/assets/th-sarabun-new-ref.docx"
 for f in /path/to/docs/*.md; do
-  quarto render "$f" --to docx --output-dir "$(cd "$(dirname "$f")" && pwd)"
+  quarto render "$f" --to docx --output-dir "$(cd "$(dirname "$f")" && pwd)" -M "reference-doc:$TEMPLATE"
 done
 ```
 
-## Error Handling
+## Step 3b — Pandoc fallback
 
-- If `quarto` is not found: tell the user to install Quarto from https://quarto.org
-- If rendering fails: Quarto prints errors to stderr — read and relay the error message to the user
-- If the input file doesn't exist: verify the path before running quarto
+Typically a web-app VM (Claude.ai / ChatGPT) with no Quarto and no way to install it.
+
+```bash
+TEMPLATE="<skill-base-dir>/assets/th-sarabun-new-ref.docx"
+pandoc "$INPUT" --reference-doc="$TEMPLATE" -o "${INPUT%.md}.docx"
+```
+
+- Here `--reference-doc=` **is** the correct flag — the opposite of the Quarto path.
+- Add `--toc` for a table of contents, `--number-sections` for numbered headings.
+- Pandoc has no Quarto shortcodes (`{{< pagebreak >}}` etc.). For a page break,
+  put a raw OpenXML block in the Markdown:
+
+  ````markdown
+  ```{=openxml}
+  <w:p><w:r><w:br w:type="page"/></w:r></w:p>
+  ```
+  ````
+
+## Error handling
+
+- Exit 2 from `ensure_quarto.sh`: tell the user neither Quarto nor pandoc is
+  available — install Quarto from https://quarto.org (or `brew install quarto`).
+- If rendering fails: the renderer prints errors to stderr — read and relay them.
+- If the input file doesn't exist: verify the path before rendering.
