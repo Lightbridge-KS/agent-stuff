@@ -24,6 +24,14 @@
       "tags": ["dicom", "dcmtk", "orthanc", "slicer"]
     },
     {
+      "name": "medical-ai",
+      "displayName": "Medical AI",
+      "source": "./plugins/medical-ai",
+      "description": "Standards and governance references for clinical AI: the MedLog protocol for event-level logging of deployed medical models.",
+      "category": "domain-expertise",
+      "tags": ["medical-ai", "clinical-ai", "medlog", "logging", "governance"]
+    },
+    {
       "name": "lightbridge",
       "displayName": "Lightbridge",
       "source": "./plugins/lightbridge",
