@@ -1,0 +1,59 @@
+---
+title: "{Lesson title}"
+description: "{One line: the idea this lesson lands}"
+sidebar:
+  label: "{Short nav label}"
+---
+
+{/* Copy to src/content/docs/lessons/NN-{slug}.mdx. Semantic components are
+    styled by src/styles/teach.css — same anatomy as the Quarto engine. */}
+
+import QuizNN from '../../partials/questions/NN-{slug}.mdx';
+
+<div class="thesis">
+{The chapter's one-line thesis — the single idea this lesson lands.}
+</div>
+
+## The picture
+
+{/* The template literal keeps whitespace and needs no escaping, and bypasses
+    the expressive-code framing a fenced block would get. */}
+<pre class="topo">{`
+{ASCII diagram — the lesson's spine. Prose below explains each arrow.}
+`}</pre>
+
+<div class="cap">
+{One-sentence caption: what to notice in the diagram.}
+</div>
+
+## {Knowledge sections}
+
+{Short sections teaching only what the skill below requires. Cite trusted
+sources from RESOURCES.md inline. Link glossary terms on first use:
+[term](/reference/glossary/#term-slug). Cross-link related chapters with
+absolute paths and trailing slashes.}
+
+<div class="mission">
+{Tie the lesson back to the user's real goal: the runbook line, the codebase
+file, the race plan this chapter just made legible.}
+</div>
+
+## Check yourself
+
+<QuizNN />
+
+{Free-recall questions use a collapsible reveal instead of the quiz widget:}
+
+**{N}.** {Open question demanding recall, not recognition?}
+
+<details>
+<summary>Show answer</summary>
+
+{The answer, including why plausible wrong answers are wrong.}
+
+</details>
+
+<div class="readnext">
+[{The single highest-trust primary source for this chapter}]({url}).
+{One sentence on how to use it — read, skim, bookmark, watch.}
+</div>

@@ -1,0 +1,18 @@
+{/* Question bank partial: src/partials/questions/NN-{slug}.mdx — one per
+    lesson. Single source for MCQs: imported by the lesson's "Check yourself"
+    section AND by review.mdx's deck. Partials outside src/content/docs are
+    never routed, so no underscore prefix is needed. One `.quiz` div per
+    question; `[x]` marks the correct answer (shuffled at load, so position
+    carries no cue — but keep distractors the same length and register as the
+    truth). */}
+
+<div class="quiz">
+**Q.** {Question text?}
+
+- [ ] {distractor}
+- [x] {correct answer}
+- [ ] {distractor}
+
+{Explanation shown after answering: why the right answer is right and the
+tempting distractor is wrong.}
+</div>

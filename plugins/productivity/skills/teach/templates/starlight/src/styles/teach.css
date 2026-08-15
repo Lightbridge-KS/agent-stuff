@@ -1,0 +1,177 @@
+/* /teach semantic components for the Starlight engine.
+ *
+ * Same component vocabulary as the Quarto theme (.thesis, .topo, .cap,
+ * .mission, .readnext, quiz classes) so lesson anatomy is engine-portable.
+ * Starlight owns base typography and light/dark; everything here leans on
+ * its --sl-color-* custom properties so both themes work. Extend this file;
+ * never inline styles in a lesson.
+ */
+
+:root {
+  /* Bronze accent for the thesis/diagram bars; reads on light and dark. */
+  --teach-accent: #b08d57;
+  --teach-label: var(--sl-color-gray-3);
+}
+
+/* ── The chapter's one-line thesis, under the title ─────────────────── */
+.sl-markdown-content .thesis {
+  font-size: var(--sl-text-lg);
+  color: var(--sl-color-gray-2);
+  border-left: 3px solid var(--teach-accent);
+  padding-left: 0.9rem;
+  margin-bottom: 2rem;
+}
+
+/* ── ASCII diagrams (pre.topo) — figures, not code ──────────────────── */
+/* Authored as <pre class="topo">{`…`}</pre> so expressive-code leaves them
+ * alone (a fenced block would get syntax colors, a frame, and a copy button). */
+.sl-markdown-content pre.topo {
+  background: var(--sl-color-gray-6, var(--sl-color-bg-nav));
+  border: 1px solid var(--sl-color-hairline);
+  border-left: 3px solid var(--teach-accent);
+  border-radius: 3px;
+  padding: 1.15rem 1.3rem;
+  font-size: 0.775rem;
+  line-height: 1.42;
+  overflow-x: auto;
+  tab-size: 4;
+  white-space: pre;
+}
+
+/* Diagram caption. Sits as a sibling div immediately after a .topo block. */
+.sl-markdown-content .cap {
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+  font-style: italic;
+  margin: -0.6rem 0 1.9rem 0;
+  padding-left: 0.2rem;
+}
+
+/* ── "Back to the mission" — the tie to the user's real goal ────────── */
+.sl-markdown-content .mission {
+  border-left: 3px solid var(--sl-color-gray-4);
+  background: var(--sl-color-gray-6, var(--sl-color-bg-nav));
+  padding: 0.85rem 1.1rem;
+  margin: 1.7rem 0;
+  font-size: var(--sl-text-sm);
+}
+
+.sl-markdown-content .mission::before,
+.sl-markdown-content .readnext::before {
+  display: block;
+  font-family: var(--__sl-font-mono, monospace);
+  font-size: 0.66rem;
+  letter-spacing: 0.11em;
+  color: var(--teach-label);
+  margin-bottom: 0.5rem;
+}
+
+.sl-markdown-content .mission::before {
+  content: "BACK TO THE MISSION";
+}
+
+/* ── "Read next" — the one primary source per chapter ───────────────── */
+.sl-markdown-content .readnext {
+  border-top: 1px solid var(--sl-color-hairline);
+  margin-top: 2.6rem;
+  padding-top: 1rem;
+  font-size: var(--sl-text-sm);
+}
+
+.sl-markdown-content .readnext::before {
+  content: "PRIMARY SOURCE";
+}
+
+/* ── Free recall (<details>) — the collapse IS the feedback loop ────── */
+.sl-markdown-content details {
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 3px;
+  padding: 0.5rem 0.9rem;
+  margin: 1rem 0;
+}
+
+.sl-markdown-content details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--sl-color-accent-high, var(--sl-color-text-accent));
+}
+
+/* ── Quiz widget (public/quiz.js) ───────────────────────────────────── */
+.sl-markdown-content .quiz {
+  border: 1px solid var(--sl-color-hairline);
+  border-left: 3px solid var(--sl-color-accent);
+  border-radius: 3px;
+  background: var(--sl-color-gray-6, var(--sl-color-bg-nav));
+  padding: 1rem 1.2rem;
+  margin: 1.6rem 0;
+}
+
+.sl-markdown-content .quiz-options {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.8rem 0;
+}
+
+.sl-markdown-content .quiz-option {
+  text-align: left;
+  font: inherit;
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-text);
+  background: var(--sl-color-bg);
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 3px;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+.sl-markdown-content .quiz-option:hover {
+  border-color: var(--sl-color-accent);
+}
+
+.sl-markdown-content .quiz-answered .quiz-option {
+  cursor: default;
+}
+
+.sl-markdown-content .quiz-answered .quiz-option:hover {
+  border-color: var(--sl-color-hairline);
+}
+
+.sl-markdown-content .quiz-option.quiz-right {
+  border-color: var(--sl-color-green);
+  background: var(--sl-color-green-low, transparent);
+}
+
+.sl-markdown-content .quiz-option.quiz-wrong {
+  border-color: var(--sl-color-red);
+  background: var(--sl-color-red-low, transparent);
+}
+
+/* Explanation stays hidden until the question is answered. */
+.sl-markdown-content .quiz-explanation {
+  display: none;
+  font-size: var(--sl-text-sm);
+}
+
+.sl-markdown-content .quiz-answered .quiz-explanation {
+  display: block;
+}
+
+/* ── Print — references should come off a printer usable ────────────── */
+@media print {
+  pre.topo {
+    font-size: 7.2pt;
+    page-break-inside: avoid;
+  }
+  table {
+    page-break-inside: avoid;
+  }
+  h2 {
+    page-break-after: avoid;
+  }
+  .quiz-explanation {
+    display: block !important;
+  }
+  .quiz {
+    page-break-inside: avoid;
+  }
+}
