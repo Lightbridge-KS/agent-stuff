@@ -1,6 +1,6 @@
 ---
 name: research-bg
-description: Quick one-shot research delegated to a background agent — investigates a question against primary sources and writes a single cited Markdown note into the repo. Use on /research-bg or when the user wants reading legwork delegated while they keep working. NOT for multi-session stateful research — use `research` for that.
+description: Quick one-shot research delegated to a background agent — investigates a question against primary sources and writes a single cited Markdown note into the repo. Use on /research-bg or when the user wants reading legwork delegated while they keep working. NOT for multi-session stateful research — use `research-deep` for that.
 metadata:
   version: "2026-08-15"
 ---

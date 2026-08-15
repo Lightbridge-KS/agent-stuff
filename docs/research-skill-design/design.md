@@ -1,16 +1,19 @@
 ---
-summary: Design for the `research` skill — a conversational, file-stated, pluggable deep-research
-  harness for Claude Code. Covers the UX (claude.ai-style plan-then-trigger), the AX (subagent
-  contracts, strategy modules, deterministic gates), the on-disk state contract, and the phase
-  machine.
+summary: Design for the `research-deep` skill (named `research` until 2026-08-15) — a
+  conversational, file-stated, pluggable deep-research harness for Claude Code. Covers the UX
+  (claude.ai-style plan-then-trigger), the AX (subagent contracts, strategy modules,
+  deterministic gates), the on-disk state contract, and the phase machine.
 read_when:
-  - implementing or changing the research skill (plugins/research/skills/research/)
+  - implementing or changing the research-deep skill (plugins/research/skills/research-deep/)
   - adding a search strategy module or retrieval backend
   - changing the research state contract (plan.md, sources.yaml, notes/)
   - debugging resume/phase-detection behavior of a research session
 ---
 
 # Design: the `research` skill
+
+> 2026-08-15: skill renamed `research` → `research-deep` (now paired with `research-bg`);
+> historical text below keeps the old name and paths.
 
 *Status: design settled 2026-07-05; v1 implemented same day (narrative shape + Markdown
 output). Quarto output added 2026-07-06 after the first E2E: `to-bibtex` generates

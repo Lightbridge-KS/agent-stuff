@@ -1,14 +1,17 @@
 ---
-summary: Canonical progress tracker for the `research` skill build — milestones with commit
-  SHAs, Now/Next, deferred scope, and the contracts confirmed by E2E testing that now bind
-  the implementation.
+summary: Canonical progress tracker for the `research-deep` skill build (named `research`
+  until 2026-08-15) — milestones with commit SHAs, Now/Next, deferred scope, and the
+  contracts confirmed by E2E testing that now bind the implementation.
 read_when:
-  - resuming or continuing work on the research skill (plugins/research/skills/research/)
-  - deciding what to build next for the research skill (deferred scope, open items)
+  - resuming or continuing work on the research-deep skill (plugins/research/skills/research-deep/)
+  - deciding what to build next for the research-deep skill (deferred scope, open items)
   - checking whether a research-skill behavior is a confirmed contract before changing it
 ---
 
 # Progress: the `research` skill
+
+> 2026-08-15: skill renamed `research` → `research-deep`; historical text below keeps
+> the old name and paths.
 
 Design (the *what & why*, decisions D1–D7): [`../design.md`](../design.md).
 Implementation plan executed 2026-07-05/06. This tracker is the single source of truth for

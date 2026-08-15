@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Behavioral tests for the research skill's research_kit.py machinery.
+"""Behavioral tests for the research-deep skill's research_kit.py machinery.
 
 Each test builds a throwaway research-session fixture in a temp dir and drives
 the CLI as `uv run` (so its pyyaml inline dep resolves), asserting on exit codes,
@@ -22,7 +22,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = (
-    REPO_ROOT / "plugins" / "research" / "skills" / "research" / "scripts" / "research_kit.py"
+    REPO_ROOT / "plugins" / "research" / "skills" / "research-deep" / "scripts" / "research_kit.py"
 )
 
 PLAN_MD = textwrap.dedent(

@@ -39,7 +39,7 @@ include = ["CONTEXT.md", "CONTEXT-MAP.md"]  # extra root-level files (default); 
     },
     "research": {
         "purpose": "per-project defaults for deep-research sessions",
-        "reader": "plugins/research → the research skill (read at plan time)",
+        "reader": "plugins/research → the research-deep skill (read at plan time)",
         "block": """\
 [research]
 enabled = true                     # optional; default true
