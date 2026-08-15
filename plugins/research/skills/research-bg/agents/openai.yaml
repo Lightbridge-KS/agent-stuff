@@ -1,0 +1,3 @@
+interface:
+  display_name: "Research (background)"
+  short_description: "Delegate one-shot research to a background agent"
