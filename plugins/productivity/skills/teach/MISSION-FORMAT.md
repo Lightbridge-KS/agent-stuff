@@ -22,7 +22,7 @@
 - {Adjacent topics the user explicitly does not want to chase right now — protects the zone of proximal development}
 
 ## Medium (optional)
-- {Deviations from the default medium (Quarto book, interactivity Tiers 0–2) and any tier decisions. e.g. "Code skills: quarto-live (Tier 3, installed) with .ipynb fallback for exercises needing a real environment." Omit to accept the default.}
+- {Deviations from the default medium (Quarto book engine, interactivity Tiers 0–2) and any engine/tier decisions. e.g. "Engine: Starlight (web-native reading, Tiers 0–1); code practice via .ipynb." or "Code skills: quarto-live (Tier 3, installed) with .ipynb fallback for exercises needing a real environment." Omit to accept the default.}
 ```
 
 ## Rules
