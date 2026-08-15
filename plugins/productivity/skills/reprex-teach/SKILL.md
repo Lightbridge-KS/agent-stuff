@@ -1,8 +1,11 @@
 ---
 name: reprex-teach
-description: Teach a concept the reprex way — one minimal, self-contained, actually-run example per concept, diagram before prose, nothing written to the repo. Use when the user invokes it by name (`reprex-teach`) or near-match ("teach me X reprex-style", "minimal lesson on X", "teach me X minimally").
+description: >-
+  Teach a concept the reprex way — one minimal, self-contained, actually-run example per
+  concept, diagram before prose, nothing written to the repo. Use on name or near-match
+  ("teach me X reprex-style", "minimal lesson on X", "teach me X minimally").
 metadata:
-  version: "2026-07-19"
+  version: "2026-08-15"
 ---
 
 # Reprex Teach

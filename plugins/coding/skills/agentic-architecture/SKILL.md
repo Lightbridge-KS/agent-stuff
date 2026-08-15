@@ -1,13 +1,11 @@
 ---
 name: agentic-architecture
 description: >-
-  Explain an existing agentic system — a codebase where an AI agent is the central "CPU"
-  surrounded by agent-native organs (reasoning loop, memory, context, tools, skills, MCP,
-  subagents, hooks) — or design one from requirements. Covers agent runtimes/harnesses and
-  capability/steering packs. Use when the user invokes it by name
-  (`agentic-architecture`) or near-match.
+  Explain an existing agentic system — an AI agent as the central "CPU" with its organs
+  (loop, memory, tools, skills, MCP, subagents, hooks) — or design one from requirements.
+  Use on name or near-match.
 metadata:
-  version: "2026-08-06"
+  version: "2026-08-15"
 ---
 
 # Agentic Architecture

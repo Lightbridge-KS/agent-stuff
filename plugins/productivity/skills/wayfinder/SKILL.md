@@ -1,10 +1,13 @@
 ---
 name: wayfinder
-description: Chart an effort too big and foggy for one session as a shared map of decision tickets — on GitHub Issues or docs/wayfinder/ — then resolve them one at a time until the way to the destination is clear. Use only when the user invokes it by name (/wayfinder).
+description: >-
+  Chart an effort too big and foggy for one session as a shared map of decision tickets —
+  on GitHub Issues or docs/wayfinder/ — then resolve them one at a time until the way to
+  the destination is clear. Use only when invoked by name.
 argument-hint: "Loose idea to chart, or a map (URL / effort name) to work"
 disable-model-invocation: false
 metadata:
-  version: "2026-07-18"
+  version: "2026-08-15"
 ---
 
 A loose idea has arrived — too big for one agent session, and wrapped in fog: the way from here to the **destination** isn't visible yet. Wayfinding is about finding that way, not charging at the destination. This skill charts the way as a **shared map** on a tracker, then works its **decision tickets** — questions whose resolution is a decision, not slices of a build to execute — one at a time until the route is clear.

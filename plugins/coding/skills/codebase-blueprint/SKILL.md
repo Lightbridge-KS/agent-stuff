@@ -1,14 +1,11 @@
 ---
 name: codebase-blueprint
 description: >-
-  The reconciliation pass between a settled design and the first line of code. Read the
-  design docs, hunt the places they disagree with each other and with the chosen framework,
-  then compile the object model that must satisfy all of them at once — turning prose rules
-  into machine-checked invariants and amending upstream docs it contradicts. Use when design
-  is settled and you are about to build, or when the user invokes it by name
-  (`codebase-blueprint`) or near-match.
+  Reconcile settled design docs with each other and the chosen framework, then compile the
+  object model that satisfies all of them — prose rules become machine-checked invariants.
+  Use when design is settled and you are about to build, or on name / near-match.
 metadata:
-  version: "2026-08-06"
+  version: "2026-08-15"
 ---
 
 # Codebase Blueprint

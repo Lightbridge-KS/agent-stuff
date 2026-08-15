@@ -1,8 +1,11 @@
 ---
 name: md-to-docx
-description: "Render Markdown files to DOCX (Word) via Quarto CLI, with plain Pandoc as fallback. Applies a Thai-friendly TH Sarabun New A4 template by default (color or black-and-white variant). Use when the user asks to convert, render, or export Markdown (.md) files to .docx format. This skill is for Markdown-to-DOCX conversion only — not for editing existing .docx files."
+description: >-
+  Render Markdown to DOCX via Quarto CLI (Pandoc fallback), Thai-friendly TH Sarabun New
+  A4 template by default. Use when asked to convert or export .md to .docx. Not for
+  editing existing .docx files.
 metadata:
-  version: "2026-08-10"
+  version: "2026-08-15"
 ---
 
 # Markdown to DOCX Rendering

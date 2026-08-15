@@ -1,10 +1,13 @@
 ---
 name: teach
-description: Turn the current directory into a stateful, multi-session learning workspace and teach the user one topic over time — a Quarto book of mission-grounded lessons, high-trust resources, learning records. Use only when the user invokes it by name (/teach) inside a dedicated learning repo; not for one-off explanations.
+description: >-
+  Turn the current directory into a stateful, multi-session learning workspace — a Quarto
+  book of lessons and learning records. Use only on explicit /teach inside a dedicated
+  learning repo; not for one-off explanations.
 argument-hint: "What would you like to learn about?"
 disable-model-invocation: false
 metadata:
-  version: "2026-08-06"
+  version: "2026-08-15"
 ---
 
 The user has asked you to teach them something. This is a stateful request - they intend to learn the topic over multiple sessions.

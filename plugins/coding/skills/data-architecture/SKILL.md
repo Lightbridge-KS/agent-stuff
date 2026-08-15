@@ -2,11 +2,10 @@
 name: data-architecture
 description: >-
   Explain an existing codebase's data architecture — where data rests (stores, schema) and
-  how it moves (dataflow, lineage) — or design one from requirements. One Markdown doc with
-  Mermaid diagrams. Use when the user invokes it by name
-  (`data-architecture`) or near-match.
+  how it moves (dataflow, lineage) — or design one from requirements. One Markdown doc
+  with Mermaid diagrams. Use on name or near-match.
 metadata:
-  version: "2026-08-06"
+  version: "2026-08-15"
 ---
 
 # Data Architecture

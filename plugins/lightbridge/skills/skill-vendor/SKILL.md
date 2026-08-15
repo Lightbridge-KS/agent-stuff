@@ -1,8 +1,11 @@
 ---
 name: skill-vendor
-description: Keep vendored agent skills in sync with their installed binaries via the skill-vendor CLI and ~/.lightbridge/skill-vendors.toml. Use after upgrading a skill-shipping CLI (brew/npm), when serving a third-party skill into ~/.claude/skills/ and ~/.codex/skills/, when a registry skill drifts from its binary, or when asked to add, pin, attest, or audit a vendored skill.
+description: >-
+  Keep vendored agent skills in sync with their installed binaries via the skill-vendor
+  CLI. Use after upgrading a skill-shipping CLI (brew/npm), when a registry skill drifts
+  from its binary, or when asked to add, pin, attest, or audit a vendored skill.
 metadata:
-  version: "2026-07-25"
+  version: "2026-08-15"
 ---
 
 # skill-vendor

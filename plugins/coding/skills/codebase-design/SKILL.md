@@ -1,8 +1,12 @@
 ---
 name: codebase-design
-description: Shared vocabulary for designing deep modules — terms and principles, no document produced. Use when the user wants to design or improve a module's interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary. For the pre-code structure and object-model document, use `codebase-blueprint` (which calls this one).
+description: >-
+  Shared vocabulary for designing deep modules — terms and principles, no document
+  produced. Use when designing or improving a module's interface, placing a seam, or
+  making code testable or AI-navigable; also loaded by other skills needing this
+  vocabulary. For the pre-code object-model document, use `codebase-blueprint`.
 metadata:
-  version: "2026-07-09"
+  version: "2026-08-15"
 ---
 
 # Codebase Design

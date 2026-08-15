@@ -1,8 +1,11 @@
 ---
 name: odoo-mcporter
-description: Access Odoo through the mcporter CLI using the locally configured `odoo` MCP server in `~/.mcporter/mcporter.json`. Use when an agent needs to inspect Odoo models, list the server schema, search records, or fetch records by ID through terminal commands instead of native MCP tools. Best for read-oriented Odoo work, debugging the local mcporter setup, or answering questions from Odoo with narrow, explicit queries.
+description: >-
+  Access Odoo through the mcporter CLI (locally configured `odoo` MCP server). Use to
+  inspect Odoo models, list the schema, or search/fetch records from the terminal instead
+  of native MCP tools — best for read-oriented work and narrow, explicit queries.
 metadata:
-  version: "2026-07-26"
+  version: "2026-08-15"
 ---
 
 # Odoo via mcporter

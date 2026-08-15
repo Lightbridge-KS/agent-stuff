@@ -1,13 +1,11 @@
 ---
 name: surface-architecture
 description: >-
-  Explain an existing codebase's user-facing surface — UX/DX/API as seen from outside the
-  boundary, whether the "user" is an end user, developer, or agent — or design that surface
-  from requirements. One Markdown doc with Mermaid diagrams. For a deep agent-only audit
-  against AX principles, use `ax-interface` instead. Use when the user invokes it by name
-  (`surface-architecture`) or near-match.
+  Explain or design a codebase's user-facing surface — UX/DX/API from outside the
+  boundary, for end user, developer, or agent. One Markdown doc with Mermaid diagrams. Use
+  on name or near-match.
 metadata:
-  version: "2026-08-06"
+  version: "2026-08-15"
 ---
 
 # Surface Architecture (UX / DX / API)

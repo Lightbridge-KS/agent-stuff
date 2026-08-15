@@ -1,15 +1,13 @@
 ---
 name: notebook-literate-python
-description: >
-  Notebook-native literate workflow for Python — author, execute, and iterate on
-  Jupyter `.ipynb` files directly with NotebookEdit → nbconvert → NotebookRead, keeping
-  code, results, and narration in one artifact. Use when building or running a Python
-  notebook for analysis, EDA, a data report, or model-prototyping; when the
-  edit→execute→verify loop on an .ipynb needs structure; when notebook outputs (tables,
-  plots, tracebacks) must be read back and verified; or when deciding between a notebook,
-  a plain .py script, and Quarto. Python only (uv-managed projects).
+description: >-
+  Author, execute, and iterate on Jupyter `.ipynb` files directly — code, results, and
+  narration in one artifact. Use when building or running a Python notebook (analysis,
+  EDA, reports, prototyping), when notebook outputs must be read back and verified, or
+  when choosing between a notebook, a plain .py script, and Quarto. Python only
+  (uv-managed).
 metadata:
-  version: "2026-07-25"
+  version: "2026-08-15"
 ---
 
 # Notebook-Literate Python

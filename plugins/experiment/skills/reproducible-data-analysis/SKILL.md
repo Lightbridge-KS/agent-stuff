@@ -1,8 +1,12 @@
 ---
 name: reproducible-data-analysis
-description: Build reproducible, reviewable data analysis projects for tabular data such as CSV, Excel, Parquet, JSON, and similar dataset files. Use when the user wants exploratory or reporting-oriented analysis that should be easy for a human or future agent to rerun and validate, especially when creating Jupyter notebooks, exporting plots/tables to structured folders, or scaffolding a clean project layout like data/, scripts/, plots/, outputs/, and reports/.
+description: >-
+  Build reproducible, reviewable data-analysis projects for tabular data (CSV, Excel,
+  Parquet, …). Use for exploratory or reporting analysis that a human or future agent
+  should rerun and validate — Jupyter notebooks, exported plots/tables, clean structured
+  project layout.
 metadata:
-  version: "2026-07-26"
+  version: "2026-08-15"
 ---
 
 # Reproducible Data Analysis

@@ -1,8 +1,11 @@
 ---
 name: orthanc-api
-description: "Reference for driving an Orthanc DICOM server via its REST API — upload/search/download/anonymize DICOM resources, DICOM networking through Orthanc (C-ECHO/STORE/FIND/MOVE/GET), peers/modalities, changes, jobs, PNG/NumPy decoding. Use whenever a task involves Orthanc, even if only an Orthanc URL (e.g. localhost:8042) is mentioned."
+description: >-
+  Reference for driving an Orthanc DICOM server via its REST API — resources, DICOM
+  networking, peers/modalities, jobs, image decoding. Use whenever a task involves
+  Orthanc, even if only an Orthanc URL (e.g. localhost:8042) is mentioned.
 metadata:
-  version: "2026-07-09"
+  version: "2026-08-15"
 ---
 
 # Orthanc REST API Reference

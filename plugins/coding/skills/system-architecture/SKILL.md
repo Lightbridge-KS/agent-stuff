@@ -2,11 +2,10 @@
 name: system-architecture
 description: >-
   Explain an existing codebase's system architecture, or design one from a PRD or rough
-  ideas — either way one C4-style Markdown doc with Mermaid diagrams. Use when the
-  user invokes it by name (`system-architecture`) or near-match. For fuzzy
-  requirements needing interactive elicitation, use `c4-architect` instead.
+  ideas — either way one C4-style Markdown doc with Mermaid diagrams. Use on name or
+  near-match.
 metadata:
-  version: "2026-08-06"
+  version: "2026-08-15"
 ---
 
 # System Architecture

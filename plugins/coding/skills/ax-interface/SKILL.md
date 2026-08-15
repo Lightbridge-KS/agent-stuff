@@ -1,15 +1,13 @@
 ---
 name: ax-interface
 description: >-
-  The agent-experience ("AX") lens for any interface an AI agent drives — a CLI, MCP
-  server, HTTP/REST API, or library/SDK. Judge an existing surface against the AX
-  principles and prescribe prioritized fixes, or apply the principles while designing a
-  new agent-facing surface. For a descriptive whole-surface doc across all audiences (end
-  user / developer / agent), use `surface-architecture` instead. Use when the user invokes
-  it by name (`ax-interface`) or near-match ("AX analysis", "agent experience of …",
-  "agent-friendly interface").
+  The agent-experience ("AX") lens for any interface an AI agent drives — CLI, MCP server,
+  REST API, or SDK. Audit an existing surface against the AX principles, or apply them
+  while designing a new one. Use on name or near-match ("AX analysis", "agent-friendly
+  interface"). For a whole-surface doc across all audiences, use `surface-architecture`
+  instead.
 metadata:
-  version: "2026-08-06"
+  version: "2026-08-15"
 ---
 
 # AX Interface

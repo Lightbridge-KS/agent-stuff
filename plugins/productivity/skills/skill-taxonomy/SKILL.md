@@ -1,8 +1,13 @@
 ---
 name: skill-taxonomy
-description: The two-axis classification of skills and instruction text — kind (Concept / Contract / Reference, by which deficit it compensates for) and vendor (Authored / Vendored / Harness-provided / Adopted, by who guarantees freshness). Use when creating, adopting, vendoring, classifying, or auditing a skill; when deciding where a skill or instruction text should live or how it will age as models improve; or whenever these terms or "castle gate", "context castle", "drain obligation", or "registry invariant" come up.
+description: >-
+  The two-axis classification of skills and instruction text: kind (Concept / Contract /
+  Reference) × vendor (Authored / Vendored / Harness-provided / Adopted). Use when
+  creating, adopting, vendoring, classifying, or auditing a skill; when deciding where
+  instruction text lives or how it ages; or whenever "castle gate", "context castle",
+  "drain obligation", or "registry invariant" come up.
 metadata:
-  version: "2026-07-28"
+  version: "2026-08-15"
 ---
 
 # Skill taxonomy
