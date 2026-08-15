@@ -49,4 +49,4 @@ jobs:
             scripts/*/*.py hooks/*/*.py tests/*.py \
             plugins/notebook-tools/mcp/*.py \
             plugins/notebook-tools/mcp/notebook_tools/*.py \
-            plugins/research/skills/research/scripts/research_kit.py
+            plugins/research/skills/research-deep/scripts/research_kit.py

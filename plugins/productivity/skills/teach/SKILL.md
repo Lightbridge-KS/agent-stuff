@@ -148,7 +148,7 @@ Lessons should be designed around a skill the user is going to learn. The knowle
 
 Knowledge should first be gathered from trusted resources. Use `RESOURCES.md` to keep track of them. Lessons should be littered with citations - links to external resources to back up any claim made. This increases the trustworthiness of the lesson.
 
-For topics needing deep source-gathering (especially medical/academic), a `/research` session can feed `RESOURCES.md` — optional, no coupling.
+For topics needing deep source-gathering (especially medical/academic), a `/research-deep` session can feed `RESOURCES.md` — optional, no coupling.
 
 For acquiring knowledge, difficulty is the enemy. It eats working memory you need for understanding.
 

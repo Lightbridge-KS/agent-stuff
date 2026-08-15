@@ -50,7 +50,7 @@ conventions. Adding a section? See [`extending.md`](extending.md).
 - **Purpose:** per-project defaults for the `research` skill (deep-research sessions) — where
   sessions live, preferred backends, output format, and local corpora offered to the
   planner.
-- **Reader:** `agent-stuff` → `plugins/research/skills/research/SKILL.md` reads this
+- **Reader:** `agent-stuff` → `plugins/research/skills/research-deep/SKILL.md` reads this
   section at plan time; when absent, the skill's capability probe + scoping questions
   cover everything.
 - **Opt-in:** presence of `[research]`; `enabled = false` to disable.
