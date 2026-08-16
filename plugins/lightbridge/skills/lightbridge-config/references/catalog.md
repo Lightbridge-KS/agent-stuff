@@ -100,33 +100,16 @@ conventions. Adding a section? See [`extending.md`](extending.md).
   Claude Code's transcripts (`--dry-run` first; idempotent; opt-in honored, so it reports
   the projects it skipped rather than creating configs for them).
 
-### `[repo-links]`
-
-- **Purpose:** declare *logical* links to sibling repos this project references (upstream
-  counterpart, live test service, OSS reference clone), resolved to verified absolute
-  paths and injected at Claude Code `SessionStart`. Replaces hand-maintained path lists
-  in `CLAUDE.local.md`.
-- **Reader:** `agent-stuff` → `hooks/repo-links-inject` (uses `scripts/repo-links`).
-  Internals: `hooks/repo-links-inject/README.md` in this repo.
-- **Opt-in:** presence of `[repo-links]`; `enabled = false` to disable. Additionally
-  gated on the **personal registry** `~/.lightbridge/repos.toml` (see "User level") —
-  registry absent → the hook stays silent.
-- **Keys:**
-  - `enabled` — bool, default `true`. Must precede the first `[[repo-links.link]]`
-    (TOML attaches later keys to the last `[[table]]` otherwise).
-  - `link` — array of tables (`[[repo-links.link]]`), each:
-    - `name` — string, **required**. Logical repo name, resolved via the registry.
-      Never a path.
-    - `role` — string, optional. Free-form relationship (`upstream`, `oss-reference`,
-      `live-test-service`, …).
-    - `note` — string, optional. One line on why/when the linked repo matters.
-- **Notes:** the section carries no filesystem paths — the name→path mapping lives in
-  `~/.lightbridge/repos.toml`. A declared name missing from the registry, or a
-  registered path that no longer exists, injects a compact WARNING line — the rot
-  detector dead `CLAUDE.local.md` paths never had. Audit on demand:
-  `scripts/repo-links/repo_links.py --check`.
-
 <!-- New sections are appended here via the extending.md recipe. -->
+
+### Retired sections
+
+- **`[repo-links]`** (retired 2026-08-16) — per-project link declarations moved to the
+  central **cross-repo graph**, `~/.lightbridge/graph.toml`: one typed edge per
+  relationship, both repos' session views projected from it. Spec: the **repo-graph**
+  skill; manage with `lb graph link|unlink|set|show|doctor`. A leftover section is no
+  longer read and earns a one-line deprecation warning from `repo_links.py` and the
+  SessionStart hook.
 
 ## User level (`~/.lightbridge/`)
 
@@ -141,8 +124,14 @@ feature owns a subtree **or file** registered here.
     - `handoffs/` — the `handoff` skill's journal + inbox.
   - `~/.lightbridge/repos.toml` — the personal repo registry: one `[repos]` table mapping
     logical repo names to local paths (`~`-relative or absolute). Machine-specific by
-    design; its *presence* is the per-machine opt-in for `[repo-links]` resolution.
-    Managed by `lb repos list|add|rm` (`add` never clobbers an existing name).
+    design; it is the node namespace of the cross-repo graph. Managed by
+    `lb repos list|add|rm` (`add` never clobbers an existing name).
+  - `~/.lightbridge/graph.toml` — the **cross-repo graph**: `[types.<name>]` vocabulary
+    (each type's `inverse` + default `backlink` mode) and `[[edge]]` blocks connecting
+    registered repo names. One edge per relationship; both repos' injected session
+    views project from it. Its *presence* is the per-machine opt-in for link injection.
+    Managed by `lb graph init|link|unlink|set|show|types|doctor|mermaid|html`;
+    spec: the **repo-graph** skill.
 - **Consumers:**
   - `lightbridge` resolver (agent-stuff `scripts/lightbridge`) — the canonical
     root/key/config resolution every reader imports, plus the CLI that writes, inspects,
@@ -152,8 +141,9 @@ feature owns a subtree **or file** registered here.
     `projects/<key>/handoffs/<YYYY-MM-DD_HHMM>_<slug>.md`. The filename/frontmatter contract
     lives in that skill, not re-documented here.
   - `repo-links` reader (agent-stuff `scripts/repo-links` + `hooks/repo-links-inject`) —
-    resolves the names declared in a project's `[repo-links]` section against
-    `repos.toml`. File absent → readers stay silent.
+    projects the session repo's ego view (outgoing edges, backlinks, compact mentions)
+    from `graph.toml`, paths verified via `repos.toml`. Graph absent → readers stay
+    silent.
 - **Trade-off (accepted):** nothing in the repo means nothing travels with a clone —
   config does not follow the repo to another machine. A moved/renamed repo is repaired
   with `lb mv OLD NEW` (`lightbridge doctor` detects the orphan and names the fix).

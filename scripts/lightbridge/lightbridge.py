@@ -13,6 +13,7 @@ loads this one. See `docs/lightbridge/adr/0001-modular-lightbridge.md`.
     lb_tomledit.py  surgical TOML line edits
     lb_catalog.py   the section catalog + config-document assembly
     lb_registry.py  ~/.lightbridge/repos.toml
+    lb_graph.py     ~/.lightbridge/graph.toml — the cross-repo graph document
     lb_doctor.py    tree audit
     lb_mv.py        plan_mv + apply_mv
     lb_commands.py  the cmd_* verb handlers
@@ -31,6 +32,15 @@ directory on `sys.path[0]` — so they work through the `~/.local/bin/lb` shim t
     lightbridge path                 # this project's config path (+ exists?)
     lightbridge path --start DIR     # another project's
     lightbridge repos list           # manage ~/.lightbridge/repos.toml (add NAME PATH · rm NAME)
+    lightbridge graph init           # seed ~/.lightbridge/graph.toml (types vocabulary)
+    lightbridge graph show [NAME]    # whole-graph summary, or one node's projected ego view
+    lightbridge graph types          # the edge vocabulary, each with its direction reading
+    lightbridge graph link A B --type upstream   # declare one edge (reverse auto-projects)
+    lightbridge graph unlink A B     # remove an edge (`--type` when parallel edges exist)
+    lightbridge graph set A B --from-note "..."  # edit one edge in place
+    lightbridge graph doctor         # audit the graph; exit 1 on problems
+    lightbridge graph mermaid        # flowchart of the whole graph, to stdout
+    lightbridge graph html --out g.html          # self-contained interactive viz
     lightbridge mv OLD NEW           # move/rename a repo (or parent dir) + repair all bookkeeping
     lightbridge doctor               # audit the whole tree; exit 1 on problems
     lightbridge doctor --json
@@ -51,6 +61,15 @@ from lb_catalog import SECTIONS, SectionName
 from lb_commands import (
     cmd_add,
     cmd_doctor,
+    cmd_graph_doctor,
+    cmd_graph_html,
+    cmd_graph_init,
+    cmd_graph_link,
+    cmd_graph_mermaid,
+    cmd_graph_set,
+    cmd_graph_show,
+    cmd_graph_types,
+    cmd_graph_unlink,
     cmd_init,
     cmd_mv,
     cmd_path,
@@ -62,14 +81,16 @@ from lb_commands import (
     cmd_status,
     cmd_toggle,
 )
+from lb_graph import BacklinkMode, BacklinkSetting
 from lb_resolve import (
+    DEFAULT_GRAPH,
     DEFAULT_REGISTRY,
     DEFAULT_STATE_DIR,
     STATE_DIR_ENV,
     use_utf8_console,
 )
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 DESCRIPTION = (
     "Create, inspect, and audit user-level .lightbridge project config "
@@ -79,8 +100,9 @@ EPILOG = (
     "Exit: 0 ok · 1 refused (doctor problems, would clobber, missing "
     "config/section/name, unreadable file) · 2 usage. "
     "Siblings (own their state, not wrapped here): plan_store.py (plans/), "
-    "handoff.py (handoffs/), repo_links.py ([repo-links] resolution), "
-    "docs-index ([docs-index] rendering). Spec: the lightbridge-config skill."
+    "handoff.py (handoffs/), repo_links.py (graph.toml ego-view projection; "
+    "spec: the repo-graph skill), docs-index ([docs-index] rendering). "
+    "Spec: the lightbridge-config skill."
 )
 START_HELP = "Directory whose project root is resolved (default: CWD)."
 
@@ -133,13 +155,19 @@ def main() -> None:
         help=f"Personal repo registry (default: {DEFAULT_REGISTRY}).",
     )
 
-    @app.command(help="One-shot dashboard: config, sections, sibling state, registry.")
+    @app.command(help="One-shot dashboard: config, sections, sibling state, registry, graph.")
     def status(
         start: str = start_opt,
         registry: str = registry_opt,
+        graph: str = typer.Option(
+            DEFAULT_GRAPH,
+            "--graph",
+            metavar="FILE",
+            help=f"Cross-repo graph file (default: {DEFAULT_GRAPH}).",
+        ),
         json_out: bool = json_opt,
     ) -> None:
-        raise typer.Exit(cmd_status(start, registry, json_out))
+        raise typer.Exit(cmd_status(start, registry, json_out, graph))
 
     @app.command(help="Create this project's config (never clobbers).")
     def init(
@@ -237,6 +265,167 @@ def main() -> None:
         json_out: bool = json_opt,
     ) -> None:
         raise typer.Exit(cmd_repos_rm(name, registry, json_out))
+
+    graph_app = typer.Typer(rich_markup_mode=None)
+    app.add_typer(
+        graph_app,
+        name="graph",
+        help="The cross-repo knowledge graph (~/.lightbridge/graph.toml): typed edges "
+        "between registered repos, projected into each repo's session context.",
+    )
+    graph_opt = typer.Option(
+        DEFAULT_GRAPH,
+        "--graph",
+        metavar="FILE",
+        help=f"Graph file (default: {DEFAULT_GRAPH}).",
+    )
+
+    @graph_app.command(
+        name="init", help="Seed the graph file with the types vocabulary (never clobbers)."
+    )
+    def graph_init(
+        graph: str = graph_opt,
+        dry_run: bool = typer.Option(
+            False, "--dry-run", help="Print the seeded document; write nothing."
+        ),
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_init(graph, dry_run, json_out))
+
+    @graph_app.command(
+        name="show", help="Whole-graph summary, or NAME's projected ego view (with backlinks)."
+    )
+    def graph_show(
+        name: str = typer.Argument(
+            None, metavar="NAME", help="A node (registered repo name); omitted: the summary."
+        ),
+        graph: str = graph_opt,
+        registry: str = repos_registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_show(name, graph, registry, json_out))
+
+    @graph_app.command(
+        name="types", help="The edge vocabulary: each type with its direction reading."
+    )
+    def graph_types(
+        graph: str = graph_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_types(graph, json_out))
+
+    from_arg = typer.Argument(..., metavar="FROM", help="Edge source (a registered repo name).")
+    to_arg = typer.Argument(..., metavar="TO", help="Edge target (a registered repo name).")
+
+    @graph_app.command(
+        name="link",
+        help="Declare FROM -[TYPE]-> TO once — the reverse direction projects "
+        "automatically as the type's inverse. Echoes the direction so a swapped "
+        "edge is caught on sight.",
+    )
+    def graph_link(
+        frm: str = from_arg,
+        to: str = to_arg,
+        etype: str = typer.Option(
+            ..., "--type", metavar="TYPE", help="Edge type — see `graph types`."
+        ),
+        from_note: str = typer.Option(
+            None, "--from-note", metavar="TEXT", help="Why TO matters when working in FROM."
+        ),
+        to_note: str = typer.Option(
+            None, "--to-note", metavar="TEXT", help="Why FROM matters when working in TO."
+        ),
+        backlink: BacklinkMode = typer.Option(
+            None,
+            "--backlink",
+            help="Per-edge override of the type's backlink mode.",
+        ),
+        graph: str = graph_opt,
+        registry: str = repos_registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(
+            cmd_graph_link(
+                frm, to, etype, from_note, to_note,
+                backlink.value if backlink else None,
+                graph, registry, json_out,
+            )
+        )
+
+    @graph_app.command(
+        name="unlink", help="Remove the FROM -> TO edge (its block only; the rest is untouched)."
+    )
+    def graph_unlink(
+        frm: str = from_arg,
+        to: str = to_arg,
+        etype: str = typer.Option(
+            None, "--type", metavar="TYPE", help="Required when parallel edges exist."
+        ),
+        graph: str = graph_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_unlink(frm, to, etype, graph, json_out))
+
+    @graph_app.command(
+        name="set",
+        help="Edit one existing edge's notes or backlink override in place. "
+        "An empty-string note clears it; `--backlink default` clears the override.",
+    )
+    def graph_set(
+        frm: str = from_arg,
+        to: str = to_arg,
+        etype: str = typer.Option(
+            None, "--type", metavar="TYPE", help="Required when parallel edges exist."
+        ),
+        from_note: str = typer.Option(
+            None, "--from-note", metavar="TEXT", help="Replace FROM's note ('' clears)."
+        ),
+        to_note: str = typer.Option(
+            None, "--to-note", metavar="TEXT", help="Replace TO's note ('' clears)."
+        ),
+        backlink: BacklinkSetting = typer.Option(
+            None, "--backlink", help="Override mode, or `default` to clear the override."
+        ),
+        graph: str = graph_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(
+            cmd_graph_set(
+                frm, to, etype, from_note, to_note,
+                backlink.value if backlink else None,
+                graph, json_out,
+            )
+        )
+
+    @graph_app.command(name="doctor", help="Audit the graph for rot; exit 1 on problems.")
+    def graph_doctor(
+        graph: str = graph_opt,
+        registry: str = repos_registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_doctor(graph, registry, json_out))
+
+    @graph_app.command(
+        name="mermaid", help="A flowchart of the whole graph (Mermaid, to stdout)."
+    )
+    def graph_mermaid(
+        graph: str = graph_opt,
+        registry: str = repos_registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_mermaid(graph, registry, json_out))
+
+    @graph_app.command(
+        name="html",
+        help="Write the self-contained interactive graph page (never clobbers OUT).",
+    )
+    def graph_html(
+        out: str = typer.Option(..., "--out", metavar="FILE", help="Output HTML path."),
+        graph: str = graph_opt,
+        registry: str = repos_registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_html(graph, registry, out, json_out))
 
     @app.command(
         help="Move/rename a repo (or parent dir) and repair all lightbridge bookkeeping. "

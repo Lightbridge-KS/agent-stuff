@@ -2,11 +2,12 @@
 name: lightbridge-config
 description: >-
   Bootstrap and manage the personal .lightbridge namespace — per-project config sections
-  plus user-level state (handoffs, plans, repos.toml). Use when setting up or extending
-  lightbridge config for a repo, enabling or adding a section, asking what .lightbridge
-  supports, or locating user-level lightbridge state.
+  plus user-level state (handoffs, plans, repos.toml, graph.toml). Use when setting up or
+  extending lightbridge config for a repo, enabling or adding a section, asking what
+  .lightbridge supports, or locating user-level lightbridge state. For linking repos in
+  the cross-repo graph, use the repo-graph skill.
 metadata:
-  version: "2026-08-15"
+  version: "2026-08-16"
 ---
 
 # .lightbridge config
@@ -26,7 +27,9 @@ key = root path with separators → `-`.
 
 The same tree holds durable, harness-neutral **state**: `projects/<key>/handoffs/` (the
 `handoff` skill), `projects/<key>/plans/` (approved plan-mode plans, filed by
-`hooks/plan-capture`), and `~/.lightbridge/repos.toml`, the personal name→path repo registry.
+`hooks/plan-capture`), `~/.lightbridge/repos.toml` (the personal name→path repo
+registry), and `~/.lightbridge/graph.toml` (the cross-repo graph — typed edges between
+registered repos; spec: the **repo-graph** skill).
 
 Full spec (conventions, sections, keys, who reads them): [`references/catalog.md`](references/catalog.md).
 
@@ -39,13 +42,14 @@ Linked onto PATH as `lightbridge` / `lb` (see its README); otherwise
 ```bash
 lb status                # FIRST MOVE for "what's lightbridge doing here?" — one dashboard
 lb init                  # create this project's config; detects docs/ → [docs-index]
-lb init research repo-links   # or name sections; --dry-run to preview
-lb add repo-links        # extend an existing config (skips sections already there)
+lb init research plans   # or name sections; --dry-run to preview
+lb add research          # extend an existing config (skips sections already there)
 lb show [SECTION]        # print the stored config (or one block); --json to parse
 lb enable|disable NAME   # flip a section's `enabled` in place (idempotent)
 lb sections              # what can go in a config, and who reads it
 lb path                  # where this project's config lives (+ exists?)
 lb repos list|add|rm     # manage ~/.lightbridge/repos.toml (add never clobbers a name)
+lb graph …               # the cross-repo graph — see the repo-graph skill
 lb mv OLD NEW            # move/rename a repo (or parent dir) + repair all bookkeeping
 lb doctor                # audit the whole tree (stale roots, legacy files)
 ```

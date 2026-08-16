@@ -3,22 +3,23 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Behavioral tests for repo-links: the resolver CLI and its SessionStart hook.
+"""Behavioral tests for repo-links: the graph projection CLI and its SessionStart hook.
 
 Each test builds a throwaway *project* dir and a throwaway *home* dir carrying BOTH
-user-level layers — the project's `~/.lightbridge/projects/<project-key>/config.toml`
-(the "local scope" model; nothing lives in the repo) and the personal
-`~/.lightbridge/repos.toml` registry — then drives the real hook.py / repo_links.py
-as a subprocess with `HOME` pointed at the fake home, so the `~` convention is
-exercised end to end. Files are executed directly, the same path as Claude Code's
-/bin/sh registration, so a missing executable bit or broken shebang fails here too
-(`UV_CACHE_DIR` is pinned to the real cache, since the fake `HOME` would otherwise
-cold-start uv on every subprocess). The hook resolves its paired repo_links.py and
-lb_resolve.py relative to its own location in this repo, so it is exercised in
-place — only the project and home under inspection are synthetic.
+user-level layers — the central `~/.lightbridge/graph.toml` (typed edges between
+logical names) and the personal `~/.lightbridge/repos.toml` registry that names the
+project itself — then drives the real hook.py / repo_links.py as a subprocess with
+`HOME` pointed at the fake home, so the `~` convention is exercised end to end.
+Files are executed directly, the same path as Claude Code's /bin/sh registration,
+so a missing executable bit or broken shebang fails here too (`UV_CACHE_DIR` is
+pinned to the real cache, since the fake `HOME` would otherwise cold-start uv on
+every subprocess). The hook resolves its paired repo_links.py and lb_resolve.py
+relative to its own location in this repo, so it is exercised in place — only the
+project and home under inspection are synthetic.
 
-Opt-in is twice: a `[repo-links]` section in the project's user-level config AND a
-`~/.lightbridge/repos.toml` registry on the machine.
+Opt-in is the graph file itself; the repo participates when it is a registered
+node with incident edges. The retired per-project `[repo-links]` section only
+appears here to prove its deprecation warning.
 
     uv run tests/test_repo_links.py
 """
@@ -43,11 +44,6 @@ def script_argv(script: Path, *args: str) -> list[str]:
     POSIX execs the file directly, keeping the executable bit and the `uv run`
     shebang under test. Windows CreateProcess cannot launch a shebang script at all
     (WinError 193), so go through `uv run` — the very interpreter the shebang names.
-
-    Deliberately NOT bare `bash`: on Windows that name is ambiguous, and
-    CreateProcess resolves it to WSL's System32\bash.exe at least as often as to
-    Git Bash, which then fails with a UTF-16 diagnostic and exit 1 regardless of
-    what shutil.which() reported.
     """
     if os.name != "nt":
         return [str(script), *args]
@@ -68,21 +64,27 @@ def home_vars(home: Path) -> dict[str, str]:
 # cache stays warm across the fake-HOME subprocesses.
 UV_CACHE_DIR = os.environ.get("UV_CACHE_DIR", str(Path("~/.cache/uv").expanduser()))
 
-# Common config.toml bodies.
-ONE_LINK = (
+# The standard one-edge graph: the project ("app") declares its upstream service.
+GRAPH_ONE = """\
+[types.upstream]
+inverse = "downstream"
+backlink = "full"
+
+[[edge]]
+from = 'app'
+to = 'example-service'
+type = 'upstream'
+from_note = 'Commercial counterpart'
+to_note = 'Derived variant'
+"""
+
+# The pre-graph per-project section — only used to prove its deprecation warning.
+LEGACY_SECTION = (
     "[repo-links]\n"
     "[[repo-links.link]]\n"
     'name = "example-service"\n'
     'role = "upstream"\n'
-    'note = "Commercial counterpart"\n'
 )
-NAME_ONLY = '[repo-links]\n[[repo-links.link]]\nname = "example-service"\n'
-EMPTY_SECTION = "[repo-links]\n"  # opted in, zero links declared
-DISABLED = "[repo-links]\nenabled = false\n[[repo-links.link]]\nname = \"example-service\"\n"
-NO_SECTION = "[something-else]\nkey = 1\n"
-
-# Common ~/.lightbridge/repos.toml bodies.
-REGISTRY_OK = '[repos]\nexample-service = "~/work/example-service"\n'
 
 
 def project_key(path: Path) -> str:
@@ -94,8 +96,6 @@ def project_key(path: Path) -> str:
 
 
 def run_hook(cwd: Path, home: Path) -> subprocess.CompletedProcess:
-    # Execute the file the way Claude Code's registration does, so +x and the uv
-    # shebang stay under test — see script_argv for the Windows equivalent.
     return subprocess.run(
         script_argv(HOOK),
         input=json.dumps({"cwd": str(cwd), "hook_event_name": "SessionStart"}),
@@ -114,29 +114,48 @@ def run_cli(args: list[str], home: Path) -> subprocess.CompletedProcess:
     )
 
 
-def make_home(base: Path, *, registry: str | None, repos: list[str] = ()) -> Path:
-    """Build a fake home: optional ~/.lightbridge/repos.toml plus target repo dirs."""
+def make_env(
+    base: Path,
+    *,
+    graph: str | None,
+    registry: str | None | object = "auto",
+    register_app: bool = True,
+    service_dir: bool = True,
+    extra_registry: str = "",
+) -> tuple[Path, Path]:
+    """Build the fake (project, home) pair.
+
+    `registry="auto"` writes the standard registry — the project itself as `app`
+    plus `example-service` under the fake home; None skips the file; any other
+    string is written verbatim (malformed-registry tests).
+    """
     home = base / "home"
-    home.mkdir(parents=True, exist_ok=True)
-    if registry is not None:
-        lb = home / ".lightbridge"
-        lb.mkdir(exist_ok=True)
-        (lb / "repos.toml").write_text(registry)
-    for rel in repos:
-        (home / rel).mkdir(parents=True)
-    return home
-
-
-def make_project(base: Path, *, config: str | None, home: Path) -> Path:
-    """Build a project dir; its config goes to the fake home's projects tree —
-    `~/.lightbridge/projects/<project-key>/config.toml` — never into the repo."""
+    (home / ".lightbridge").mkdir(parents=True)
     proj = base / "proj"
-    proj.mkdir(parents=True)
-    if config is not None:
-        cfg_dir = home / ".lightbridge" / "projects" / project_key(proj)
-        cfg_dir.mkdir(parents=True, exist_ok=True)
-        (cfg_dir / "config.toml").write_text(config)
-    return proj
+    proj.mkdir()
+    if service_dir:
+        (home / "work" / "example-service").mkdir(parents=True)
+    if registry == "auto":
+        registry = (
+            "[repos]\n"
+            + (f"app = '{proj}'\n" if register_app else "")
+            + 'example-service = "~/work/example-service"\n'
+            + extra_registry
+        )
+    if registry is not None:
+        (home / ".lightbridge" / "repos.toml").write_text(registry)
+    if graph is not None:
+        (home / ".lightbridge" / "graph.toml").write_text(graph)
+    return proj, home
+
+
+def write_project_config(proj: Path, home: Path, body: str) -> Path:
+    """A user-level project config for `proj` (only the legacy-section tests need one)."""
+    cfg_dir = home / ".lightbridge" / "projects" / project_key(proj)
+    cfg_dir.mkdir(parents=True, exist_ok=True)
+    config = cfg_dir / "config.toml"
+    config.write_text(body)
+    return config
 
 
 class RepoLinksHookTest(unittest.TestCase):
@@ -151,240 +170,264 @@ class RepoLinksHookTest(unittest.TestCase):
 
     # --- gating -------------------------------------------------------------
 
-    def test_no_config_is_silent(self):
+    def test_no_graph_is_silent(self):
+        # The graph file is the machine's opt-in; without it the hook says nothing.
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(Path(d), config=None, home=home)
+            proj, home = make_env(Path(d), graph=None)
             self.assert_silent(run_hook(proj, home))
 
-    def test_section_absent_is_silent(self):
+    def test_unregistered_repo_is_silent(self):
+        # The graph exists but this repo has no node name — not a participant.
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(Path(d), config=NO_SECTION, home=home)
+            proj, home = make_env(Path(d), graph=GRAPH_ONE, register_app=False)
             self.assert_silent(run_hook(proj, home))
 
-    def test_disabled_is_silent(self):
+    def test_node_without_edges_is_silent(self):
+        graph = "[types.upstream]\ninverse = 'downstream'\nbacklink = 'full'\n"
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(Path(d), config=DISABLED, home=home)
+            proj, home = make_env(Path(d), graph=graph)
             self.assert_silent(run_hook(proj, home))
 
-    def test_malformed_config_is_silent(self):
+    def test_malformed_graph_warns(self):
+        # A graph file can only exist on the owner's machine -> rot must show.
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(Path(d), config="[unclosed\n", home=home)
-            self.assert_silent(run_hook(proj, home))
-
-    def test_registry_absent_is_silent(self):
-        # Links declared, but this machine has no personal registry -> dead quiet.
-        with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=None)
-            # Config lives user-level, so the projects tree exists even without a registry.
-            proj = make_project(Path(d), config=ONE_LINK, home=home)
-            self.assert_silent(run_hook(proj, home))
-
-    def test_zero_links_is_silent(self):
-        with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK)
-            proj = make_project(Path(d), config=EMPTY_SECTION, home=home)
-            self.assert_silent(run_hook(proj, home))
-
-    def test_legacy_per_repo_config_warns(self):
-        # A stray pre-migration <repo>/.lightbridge/config.toml is NOT read, but
-        # earns a one-line deprecation warning.
-        with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(Path(d), config=None, home=home)
-            lb = proj / ".lightbridge"
-            lb.mkdir()
-            (lb / "config.toml").write_text(ONE_LINK)
+            proj, home = make_env(Path(d), graph="not toml [[[\n")
             ctx = self.context_of(run_hook(proj, home))
-            self.assertIn("no longer read", ctx)
-            self.assertNotIn("example-service →", ctx)  # legacy file must not opt in
+            self.assertIn("WARNING", ctx)
+            self.assertIn("unreadable", ctx)
+
+    def test_graph_without_registry_warns(self):
+        # Graph present, repos.toml absent: names cannot resolve — owner rot, not silence.
+        with tempfile.TemporaryDirectory() as d:
+            proj, home = make_env(Path(d), graph=GRAPH_ONE, registry=None)
+            ctx = self.context_of(run_hook(proj, home))
+            self.assertIn("WARNING", ctx)
+            self.assertIn("absent", ctx)
 
     def test_malformed_registry_warns(self):
-        # A registry file can only exist on the owner's machine -> rot must show.
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry="not toml [[[\n")
-            proj = make_project(Path(d), config=ONE_LINK, home=home)
+            proj, home = make_env(Path(d), graph=GRAPH_ONE, registry="not toml [[[\n")
             ctx = self.context_of(run_hook(proj, home))
             self.assertIn("WARNING", ctx)
             self.assertIn("unreadable", ctx)
 
     def test_registry_without_repos_table_warns(self):
-        # Flat root keys (no [repos] table) are a registry error, not a silent skip.
+        # Flat root keys (no [repos] table) are a registry error, not a silent skip;
+        # since #18 the message names the stranded key and the fix.
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry='example-service = "~/work/example-service"\n')
-            proj = make_project(Path(d), config=ONE_LINK, home=home)
+            proj, home = make_env(
+                Path(d), graph=GRAPH_ONE,
+                registry='example-service = "~/work/example-service"\n',
+            )
             ctx = self.context_of(run_hook(proj, home))
             self.assertIn("WARNING", ctx)
             self.assertIn("[repos]", ctx)
-            # Since #18 the message names the stranded key and the fix, so the reader is
-            # not left hunting for why a name they can see in the file did not resolve.
             self.assertIn("example-service", ctx)
             self.assertIn("indent", ctx)
 
-    def test_empty_registry_reports_per_link_not_a_file_error(self):
-        """A table-less but otherwise empty registry registers nothing — that is not a
-        malformed file (issue #18). It used to collapse to one file-level WARNING; now
-        each declared link is named, with the fix, which is what the reader can act on."""
-        for registry in ("", "# nothing yet\n", "[repos]\n"):
-            with self.subTest(registry=registry), tempfile.TemporaryDirectory() as d:
-                home = make_home(Path(d), registry=registry)
-                proj = make_project(Path(d), config=ONE_LINK, home=home)
-                ctx = self.context_of(run_hook(proj, home))
-                self.assertIn("example-service", ctx)
-                self.assertIn("not registered", ctx)
-                self.assertNotIn("missing a [repos] table", ctx)
-
-    # --- resolution ---------------------------------------------------------
-
-    def test_resolved_link_renders_path_role_note(self):
+    def test_legacy_per_repo_config_warns(self):
+        # A stray pre-migration <repo>/.lightbridge/config.toml earns its one-liner
+        # even when the machine has no graph at all.
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(Path(d), config=ONE_LINK, home=home)
+            proj, home = make_env(Path(d), graph=None)
+            lb_dir = proj / ".lightbridge"
+            lb_dir.mkdir()
+            (lb_dir / "config.toml").write_text(LEGACY_SECTION)
+            ctx = self.context_of(run_hook(proj, home))
+            self.assertIn("no longer read", ctx)
+            self.assertNotIn("example-service →", ctx)
+
+    def test_leftover_repo_links_section_warns_and_is_not_read(self):
+        """The pre-graph [repo-links] section deprecates: one warning line, and its
+        declared links must NOT render — the graph is the only source."""
+        with tempfile.TemporaryDirectory() as d:
+            proj, home = make_env(Path(d), graph=None)
+            write_project_config(proj, home, LEGACY_SECTION)
+            ctx = self.context_of(run_hook(proj, home))
+            self.assertIn("[repo-links]", ctx)
+            self.assertIn("no longer read", ctx)
+            self.assertNotIn("example-service →", ctx)
+
+    def test_section_warning_rides_along_with_the_map(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj, home = make_env(Path(d), graph=GRAPH_ONE)
+            write_project_config(proj, home, LEGACY_SECTION)
+            ctx = self.context_of(run_hook(proj, home))
+            self.assertIn("example-service →", ctx)  # the graph's map renders
+            self.assertIn("no longer read", ctx)  # and the nudge rides along
+
+    # --- projection ---------------------------------------------------------
+
+    def test_outgoing_edge_renders_path_type_note(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj, home = make_env(Path(d), graph=GRAPH_ONE)
             ctx = self.context_of(run_hook(proj, home))
             # Tilde in the registry expanded against the fake HOME.
             self.assertIn(f"example-service → {home / 'work' / 'example-service'}", ctx)
             self.assertIn("(upstream)", ctx)
             self.assertIn("— Commercial counterpart", ctx)
+            self.assertIn("absolute path above", ctx)
 
-    def test_name_only_link_renders_bare(self):
+    def test_one_edge_projects_both_ways(self):
+        """The SSOT promise: the same edge renders in the other repo's session as a
+        backlink labeled with the type's inverse, carrying the to_note."""
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(Path(d), config=NAME_ONLY, home=home)
+            proj, home = make_env(Path(d), graph=GRAPH_ONE)
+            service = home / "work" / "example-service"
+            ctx = self.context_of(run_hook(service, home))
+            self.assertIn("Backlinks:", ctx)
+            self.assertIn("(downstream)", ctx)
+            self.assertIn("— Derived variant", ctx)
+            self.assertIn(f"app → {proj}", ctx)  # as registered, not resolve()d
+
+    def test_compact_backlink_renders_one_mention_line(self):
+        graph = GRAPH_ONE + (
+            "\n[types.subject]\ninverse = 'studied-by'\nbacklink = 'compact'\n"
+            "\n[[edge]]\nfrom = 'docs'\nto = 'app'\ntype = 'subject'\n"
+        )
+        with tempfile.TemporaryDirectory() as d:
+            proj, home = make_env(Path(d), graph=graph)
             ctx = self.context_of(run_hook(proj, home))
-            self.assertIn("example-service →", ctx)
-            self.assertNotIn("(", ctx.split("\n")[1])  # no role parens on the link line
+            self.assertIn("Also referenced by: docs (studied-by)", ctx)
+            self.assertNotIn("docs →", ctx)  # compact means names-only, no path line
 
-    def test_unregistered_name_warns(self):
+    def test_off_backlink_stays_silent_in_the_targets_view(self):
+        graph = GRAPH_ONE + (
+            "\n[[edge]]\nfrom = 'spy'\nto = 'app'\ntype = 'upstream'\nbacklink = 'off'\n"
+        )
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(
-                Path(d), config='[repo-links]\n[[repo-links.link]]\nname = "ghost"\n', home=home
-            )
+            proj, home = make_env(Path(d), graph=graph)
+            ctx = self.context_of(run_hook(proj, home))
+            self.assertNotIn("spy", ctx)
+
+    def test_unregistered_edge_target_warns(self):
+        graph = GRAPH_ONE + "\n[[edge]]\nfrom = 'app'\nto = 'ghost'\ntype = 'upstream'\n"
+        with tempfile.TemporaryDirectory() as d:
+            proj, home = make_env(Path(d), graph=graph)
             ctx = self.context_of(run_hook(proj, home))
             self.assertIn("ghost: WARNING — not registered", ctx)
+            self.assertIn("example-service →", ctx)  # the resolved edge still renders
 
     def test_stale_path_warns(self):
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK)  # no work/ dir created
-            proj = make_project(Path(d), config=ONE_LINK, home=home)
+            proj, home = make_env(Path(d), graph=GRAPH_ONE, service_dir=False)
             ctx = self.context_of(run_hook(proj, home))
             self.assertIn("example-service: WARNING", ctx)
             self.assertIn("does not exist", ctx)
 
     def test_path_is_file_warns(self):
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work"])
-            proj = make_project(Path(d), config=ONE_LINK, home=home)
+            proj, home = make_env(Path(d), graph=GRAPH_ONE, service_dir=False)
+            (home / "work").mkdir()
             (home / "work" / "example-service").write_text("a file, not a repo")
             ctx = self.context_of(run_hook(proj, home))
             self.assertIn("not a directory", ctx)
 
     def test_symlinked_repo_is_ok_and_renders_as_declared(self):
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["elsewhere/real-repo", "work"])
-            proj = make_project(Path(d), config=ONE_LINK, home=home)
+            proj, home = make_env(Path(d), graph=GRAPH_ONE, service_dir=False)
+            (home / "elsewhere" / "real-repo").mkdir(parents=True)
+            (home / "work").mkdir()
             (home / "work" / "example-service").symlink_to(home / "elsewhere" / "real-repo")
             ctx = self.context_of(run_hook(proj, home))
-            # Resolves (is_dir follows symlinks) and renders the declared path, not realpath.
             self.assertIn(f"example-service → {home / 'work' / 'example-service'}", ctx)
             self.assertNotIn("real-repo", ctx)
             self.assertNotIn("WARNING", ctx)
 
-    def test_mixed_ok_and_warning_in_one_map(self):
-        config = ONE_LINK + '[[repo-links.link]]\nname = "ghost"\n'
+    def test_undeclared_edge_type_warns_but_renders(self):
+        graph = GRAPH_ONE + "\n[[edge]]\nfrom = 'app'\nto = 'example-service'\ntype = 'mystery'\n"
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(Path(d), config=config, home=home)
+            proj, home = make_env(Path(d), graph=graph)
             ctx = self.context_of(run_hook(proj, home))
-            self.assertIn("example-service →", ctx)
-            self.assertIn("ghost: WARNING", ctx)
+            self.assertIn("(mystery)", ctx)  # rot surfaces, never vanishes
+            self.assertIn("not declared", ctx)
 
-    def test_duplicate_name_first_wins_with_warning(self):
-        config = ONE_LINK + '[[repo-links.link]]\nname = "example-service"\nrole = "dup"\n'
+    def test_skipped_edge_blocks_warn(self):
+        graph = GRAPH_ONE + "\n[[edge]]\nfrom = 'app'\nto = ''\ntype = 'upstream'\n"
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(Path(d), config=config, home=home)
+            proj, home = make_env(Path(d), graph=graph)
             ctx = self.context_of(run_hook(proj, home))
-            self.assertIn("(upstream)", ctx)  # first occurrence kept
-            self.assertNotIn("(dup)", ctx)
-            self.assertIn("duplicate name", ctx)
-
-    def test_link_missing_name_skipped_with_warning(self):
-        config = '[repo-links]\n[[repo-links.link]]\nrole = "upstream"\n' + (
-            '[[repo-links.link]]\nname = "example-service"\n'
-        )
-        with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(Path(d), config=config, home=home)
-            ctx = self.context_of(run_hook(proj, home))
-            self.assertIn("missing required key 'name'", ctx)
-            self.assertIn("example-service →", ctx)  # the valid link still resolves
+            self.assertIn("malformed edge block", ctx)
 
 
 class RepoLinksCliTest(unittest.TestCase):
     def test_json_schema(self):
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(Path(d), config=ONE_LINK, home=home)
+            proj, home = make_env(Path(d), graph=GRAPH_ONE)
             result = run_cli(["--start", str(proj), "--json"], home)
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
             self.assertEqual(
                 set(data),
-                {"config", "registry", "registry_found", "registry_error", "links", "warnings"},
+                {"graph", "registry", "registry_error", "root", "node",
+                 "out", "backlinks", "mentions", "warnings"},
             )
-            (link,) = data["links"]
+            self.assertEqual(data["node"], "app")
+            (edge,) = data["out"]
             self.assertEqual(
-                set(link), {"name", "role", "note", "path", "status", "detail"}
+                set(edge),
+                {"other", "type", "label", "note", "path", "status", "detail"},
             )
-            self.assertEqual(link["status"], "ok")
-            self.assertTrue(data["registry_found"])
-            self.assertIsNone(data["registry_error"])
+            self.assertEqual(edge["status"], "ok")
 
-    def test_no_config_exits_2_with_next_move(self):
+    def test_no_graph_exits_2_naming_init(self):
         with tempfile.TemporaryDirectory() as d:
-            bare = Path(d) / "bare"
-            bare.mkdir()
-            home = make_home(Path(d), registry=REGISTRY_OK)
-            result = run_cli(["--start", str(bare)], home)
+            proj, home = make_env(Path(d), graph=None)
+            result = run_cli(["--start", str(proj)], home)
             self.assertEqual(result.returncode, 2)
-            self.assertIn("lightbridge-config", result.stderr)
+            self.assertIn("lb graph init", result.stderr)
 
-    def test_legacy_per_repo_config_warns_on_stderr(self):
+    def test_unregistered_repo_exits_2_naming_repos_add(self):
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(Path(d), config=ONE_LINK, home=home)
-            lb = proj / ".lightbridge"
-            lb.mkdir()
-            (lb / "config.toml").write_text(ONE_LINK)
+            proj, home = make_env(Path(d), graph=GRAPH_ONE, register_app=False)
+            result = run_cli(["--start", str(proj)], home)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("lb repos add", result.stderr)
+
+    def test_node_without_edges_exits_2_naming_link(self):
+        graph = "[types.upstream]\ninverse = 'downstream'\nbacklink = 'full'\n"
+        with tempfile.TemporaryDirectory() as d:
+            proj, home = make_env(Path(d), graph=graph)
+            result = run_cli(["--start", str(proj)], home)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("lb graph link", result.stderr)
+
+    def test_leftover_section_warns_on_stderr_and_map_still_renders(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj, home = make_env(Path(d), graph=GRAPH_ONE)
+            write_project_config(proj, home, LEGACY_SECTION)
             result = run_cli(["--start", str(proj)], home)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("no longer read", result.stderr)
-            self.assertIn("example-service →", result.stdout)  # user-level config wins
+            self.assertIn("example-service →", result.stdout)
 
     def test_check_exit_codes(self):
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=REGISTRY_OK, repos=["work/example-service"])
-            proj = make_project(Path(d), config=ONE_LINK, home=home)
+            proj, home = make_env(Path(d), graph=GRAPH_ONE)
             self.assertEqual(run_cli(["--start", str(proj), "--check"], home).returncode, 0)
-            ghost_base = Path(d) / "g"
-            ghost = make_project(
-                ghost_base, config='[repo-links]\n[[repo-links.link]]\nname = "ghost"\n', home=home
-            )
-            self.assertEqual(run_cli(["--start", str(ghost), "--check"], home).returncode, 1)
-
-    def test_registry_override(self):
+        ghost_graph = GRAPH_ONE + "\n[[edge]]\nfrom = 'app'\nto = 'ghost'\ntype = 'upstream'\n"
         with tempfile.TemporaryDirectory() as d:
-            home = make_home(Path(d), registry=None, repos=["work/example-service"])
-            proj = make_project(Path(d), config=ONE_LINK, home=home)
-            alt = Path(d) / "alt.toml"
-            alt.write_text(REGISTRY_OK)
-            result = run_cli(["--start", str(proj), "--registry", str(alt), "--json"], home)
+            proj, home = make_env(Path(d), graph=ghost_graph)
+            self.assertEqual(run_cli(["--start", str(proj), "--check"], home).returncode, 1)
+
+    def test_graph_and_registry_overrides(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj, home = make_env(Path(d), graph=None, registry=None)
+            (home / "work" / "example-service").mkdir(parents=True, exist_ok=True)
+            alt_graph = Path(d) / "alt-graph.toml"
+            alt_graph.write_text(GRAPH_ONE)
+            alt_registry = Path(d) / "alt-repos.toml"
+            alt_registry.write_text(
+                f"[repos]\napp = '{proj}'\nexample-service = \"~/work/example-service\"\n"
+            )
+            result = run_cli(
+                ["--start", str(proj), "--graph", str(alt_graph),
+                 "--registry", str(alt_registry), "--json"],
+                home,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(result.stdout)
-            self.assertEqual(data["links"][0]["status"], "ok")
+            self.assertEqual(data["out"][0]["status"], "ok")
 
 
 if __name__ == "__main__":

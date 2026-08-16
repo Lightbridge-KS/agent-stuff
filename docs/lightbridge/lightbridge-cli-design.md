@@ -33,6 +33,7 @@ lb path                   # config path only (scripting primitive; status supers
 lb doctor                 # audit the whole tree; exit 1 on problems
 lb repos list|add|rm      # NEW — manage ~/.lightbridge/repos.toml
 lb mv OLD NEW             # NEW (v0.4) — move/rename a repo + repair all bookkeeping (own design doc)
+lb graph …                # NEW (repo-graph) — the cross-repo graph (own design doc)
 ```
 
 Every verb keeps `--json`; `init`/`add`/`show`/`enable`/`disable`/`path`/`status` take
@@ -88,6 +89,14 @@ flowchart TD
 | `lb path` | Print the config path; kept as the stable scripting primitive | as-is |
 | `lb doctor` | Audit: unreadable / missing-root / stale / key-mismatch / legacy | as-is |
 | `lb repos list/add/rm` | Manage `~/.lightbridge/repos.toml` — today hand-written, the last hand-edited file in the namespace | NEW |
+
+> *Amended (repo-graph, 2026-08-16):* `lb graph init·show·types·link·unlink·set·doctor·
+> mermaid·html` joined — the cross-repo graph (`~/.lightbridge/graph.toml`) is
+> resolver-domain like the registry (Decision 1's argument), and its write path needs
+> the same never-hand-edit temperament. `repo_links.py` stays standalone as the
+> *projection* engine the hook imports; graph-wide reads and writes live here. Design:
+> [lightbridge-graph.md](./lightbridge-graph.md), ADR
+> [0002](./adr/0002-central-repo-graph.md).
 
 **What `lb` deliberately does NOT absorb:** `plan_store.py`, `handoff.py`,
 `repo_links.py`, `docs-index` stay standalone. Each has its own contract, README, tests,
@@ -187,6 +196,8 @@ All five settled with the recommended option:
 ## Non-goals
 
 - Absorbing plan-store / handoff / repo-links / docs-index into `lb` (coupling > convenience).
+  *Amended (repo-graph):* graph state itself is resolver-domain and got `lb graph`;
+  `repo_links.py` remains the standalone projection engine this non-goal protects.
 - Injecting per-key defaults into `show` (defaults stay with readers + catalog).
 - `lb sync` / `lb relocate` — owned by the deferred [multi-machine design](./multi-machine-sync.md).
 - Colors, tables, interactive prompts — two-audience rule: nothing that needs a TTY.
