@@ -25,9 +25,9 @@ views, so the reverse direction can never be forgotten — only curated.
 
 ## Milestones
 
-- [ ] M1 — reader + bootstrap + read verbs: `load_graph`/`project_node`/`DEFAULT_GRAPH`
+- [x] M1 — reader + bootstrap + read verbs: `load_graph`/`project_node`/`DEFAULT_GRAPH`
       in `lb_resolve.py` (frozen-API amendment), new `lb_graph.py`, verbs
-      `lb graph init|show|types`, `tests/test_lb_graph.py`, justfile entry
+      `lb graph init|show|types`, `tests/test_lb_graph.py`, justfile entry — 6fef2a2
 - [ ] M2 — projection rewrite: `repo_links.py` reads graph.toml (full/compact/off
       backlinks, per-edge override, legacy `[repo-links]` deprecation warning),
       hook flow updated, `tests/test_repo_links.py` rewritten
