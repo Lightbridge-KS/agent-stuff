@@ -31,8 +31,8 @@ views, so the reverse direction can never be forgotten — only curated.
 - [x] M2 — projection rewrite: `repo_links.py` reads graph.toml (full/compact/off
       backlinks, per-edge override, legacy `[repo-links]` deprecation warning),
       hook flow updated, `tests/test_repo_links.py` rewritten — 6e7bb1d
-- [ ] M3 — write verbs: `lb graph link|unlink|set` with teaching refusals,
-      direction-echo sentence, byte-preservation tests
+- [x] M3 — write verbs: `lb graph link|unlink|set` with teaching refusals,
+      direction-echo sentence, byte-preservation tests — 141892d
 - [ ] M4 — graph-wide reads: `lb graph doctor|mermaid|html`, `lb status` graph line
 - [ ] M5 — migration (throwaway, in the spike session): backups, graph.toml written,
       9 registry names added, `[repo-links]` sections stripped, ego-regression

@@ -38,6 +38,9 @@ directory on `sys.path[0]` — so they work through the `~/.local/bin/lb` shim t
     lightbridge graph link A B --type upstream   # declare one edge (reverse auto-projects)
     lightbridge graph unlink A B     # remove an edge (`--type` when parallel edges exist)
     lightbridge graph set A B --from-note "..."  # edit one edge in place
+    lightbridge graph doctor         # audit the graph; exit 1 on problems
+    lightbridge graph mermaid        # flowchart of the whole graph, to stdout
+    lightbridge graph html --out g.html          # self-contained interactive viz
     lightbridge mv OLD NEW           # move/rename a repo (or parent dir) + repair all bookkeeping
     lightbridge doctor               # audit the whole tree; exit 1 on problems
     lightbridge doctor --json
@@ -58,8 +61,11 @@ from lb_catalog import SECTIONS, SectionName
 from lb_commands import (
     cmd_add,
     cmd_doctor,
+    cmd_graph_doctor,
+    cmd_graph_html,
     cmd_graph_init,
     cmd_graph_link,
+    cmd_graph_mermaid,
     cmd_graph_set,
     cmd_graph_show,
     cmd_graph_types,
@@ -148,13 +154,19 @@ def main() -> None:
         help=f"Personal repo registry (default: {DEFAULT_REGISTRY}).",
     )
 
-    @app.command(help="One-shot dashboard: config, sections, sibling state, registry.")
+    @app.command(help="One-shot dashboard: config, sections, sibling state, registry, graph.")
     def status(
         start: str = start_opt,
         registry: str = registry_opt,
+        graph: str = typer.Option(
+            DEFAULT_GRAPH,
+            "--graph",
+            metavar="FILE",
+            help=f"Cross-repo graph file (default: {DEFAULT_GRAPH}).",
+        ),
         json_out: bool = json_opt,
     ) -> None:
-        raise typer.Exit(cmd_status(start, registry, json_out))
+        raise typer.Exit(cmd_status(start, registry, json_out, graph))
 
     @app.command(help="Create this project's config (never clobbers).")
     def init(
@@ -383,6 +395,36 @@ def main() -> None:
                 graph, json_out,
             )
         )
+
+    @graph_app.command(name="doctor", help="Audit the graph for rot; exit 1 on problems.")
+    def graph_doctor(
+        graph: str = graph_opt,
+        registry: str = repos_registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_doctor(graph, registry, json_out))
+
+    @graph_app.command(
+        name="mermaid", help="A flowchart of the whole graph (Mermaid, to stdout)."
+    )
+    def graph_mermaid(
+        graph: str = graph_opt,
+        registry: str = repos_registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_mermaid(graph, registry, json_out))
+
+    @graph_app.command(
+        name="html",
+        help="Write the self-contained interactive graph page (never clobbers OUT).",
+    )
+    def graph_html(
+        out: str = typer.Option(..., "--out", metavar="FILE", help="Output HTML path."),
+        graph: str = graph_opt,
+        registry: str = repos_registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_html(graph, registry, out, json_out))
 
     @app.command(
         help="Move/rename a repo (or parent dir) and repair all lightbridge bookkeeping. "

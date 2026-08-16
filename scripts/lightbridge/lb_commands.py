@@ -30,15 +30,19 @@ from lb_graph import (
     SEED_TYPE_NAMES,
     SEED_TYPES_BLOCK,
     append_edge,
+    audit,
     edge_fields,
     edge_sentence,
     find_edge_spans,
+    html_text,
+    mermaid_text,
     remove_span,
     set_edge_key,
 )
 from lb_mv import apply_mv, plan_mv
 from lb_registry import REGISTRY_HEADER, REPO_NAME, append_repo, remove_repo
 from lb_resolve import (
+    DEFAULT_GRAPH,
     DEFAULT_REGISTRY,
     config_path,
     load_graph,
@@ -291,7 +295,9 @@ def cmd_toggle(section: str, start_dir: str, json_out: bool, value: bool) -> int
     return 0
 
 
-def cmd_status(start_dir: str, registry_file: str, json_out: bool) -> int:
+def cmd_status(
+    start_dir: str, registry_file: str, json_out: bool, graph_file: str = DEFAULT_GRAPH
+) -> int:
     start = Path(start_dir).expanduser().resolve()
     root = repo_root(start)
     config, path, error = load_config(start)
@@ -312,6 +318,8 @@ def cmd_status(start_dir: str, registry_file: str, json_out: bool) -> int:
         "inbox": len(list(project_dir.glob("handoffs/inbox/*.md"))),
         "plans": len(list(project_dir.glob("plans/*.md"))),
     }
+    graph_path = Path(graph_file).expanduser()
+    graph, graph_error = load_graph(graph_path)
 
     if json_out:
         print(
@@ -324,6 +332,12 @@ def cmd_status(start_dir: str, registry_file: str, json_out: bool) -> int:
                     "unknown_sections": unknown,
                     "state": state,
                     "registry": registry.is_file(),
+                    "graph": {
+                        "present": graph is not None or graph_error is not None,
+                        "error": graph_error,
+                        "edges": len(graph["edges"]) if graph else None,
+                        "types": len(graph["types"]) if graph else None,
+                    },
                     "legacy": str(legacy) if legacy else None,
                 },
                 indent=2,
@@ -354,6 +368,18 @@ def cmd_status(start_dir: str, registry_file: str, json_out: bool) -> int:
             f"{registry}  ({'present' if registry.is_file() else 'absent'} — repo_links.py)",
         )
     )
+    if graph_error is not None:
+        print(row("graph", f"{graph_path}  (UNREADABLE: {graph_error})"))
+    elif graph is None:
+        print(row("graph", f"{graph_path}  (absent — seed it with `graph init`)"))
+    else:
+        print(
+            row(
+                "graph",
+                f"{graph_path}  ({len(graph['edges'])} edges, {len(graph['types'])} types "
+                f"— repo_links.py)",
+            )
+        )
     if legacy:
         print(legacy_warning(legacy), file=sys.stderr)
     return 1 if error else 0
@@ -875,6 +901,72 @@ def cmd_graph_set(
         return 0
     print(row("updated", str(graph_path)))
     print(row("edge", edge_sentence(edge, graph["types"])))
+    return 0
+
+
+def cmd_graph_doctor(graph_file: str, registry_file: str, json_out: bool) -> int:
+    graph, graph_path, refused = _graph_write_preamble(graph_file)
+    if refused is not None:
+        return refused
+    registry = Path(registry_file).expanduser()
+    repos, reg_error = load_registry(registry)
+    problems = audit(graph, repos)
+    if reg_error is not None:
+        problems.insert(
+            0, {"kind": "bad-registry", "subject": str(registry), "detail": reg_error}
+        )
+    if json_out:
+        print(json.dumps({"graph": str(graph_path), "problems": problems}, indent=2))
+    elif not problems:
+        print(f"graph doctor: {graph_path} — no problems.")
+    else:
+        print(f"graph doctor: {len(problems)} problem(s) in {graph_path}:")
+        for problem in problems:
+            print(f"- [{problem['kind']}] {problem['subject']}: {problem['detail']}")
+    return 1 if problems else 0
+
+
+def cmd_graph_mermaid(graph_file: str, registry_file: str, json_out: bool) -> int:
+    graph, graph_path, refused = _graph_write_preamble(graph_file)
+    if refused is not None:
+        return refused
+    repos, _ = load_registry(Path(registry_file).expanduser())
+    text = mermaid_text(graph, repos)
+    if json_out:
+        print(json.dumps({"graph": str(graph_path), "mermaid": text}, indent=2))
+    else:
+        print(text, end="")
+    return 0
+
+
+def cmd_graph_html(
+    graph_file: str, registry_file: str, out_file: str, json_out: bool
+) -> int:
+    graph, graph_path, refused = _graph_write_preamble(graph_file)
+    if refused is not None:
+        return refused
+    out = Path(out_file).expanduser()
+    if out.exists():
+        print(
+            f"{out} already exists — this verb never clobbers; delete it first.",
+            file=sys.stderr,
+        )
+        return 1
+    repos, _ = load_registry(Path(registry_file).expanduser())
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(html_text(graph, repos), encoding="utf-8")
+    edges = len(graph["edges"])
+    nodes = len({e["from"] for e in graph["edges"]} | {e["to"] for e in graph["edges"]})
+    if json_out:
+        print(
+            json.dumps(
+                {"graph": str(graph_path), "out": str(out), "nodes": nodes, "edges": edges},
+                indent=2,
+            )
+        )
+        return 0
+    print(row("created", str(out)))
+    print(row("graph", f"{nodes} node(s), {edges} edge(s) — open it in a browser"))
     return 0
 
 

@@ -565,5 +565,100 @@ class GraphWriteCliTest(unittest.TestCase):
             self.assertEqual(json.loads(unlinked.stdout)["action"], "unlinked")
 
 
+class GraphAuditVizTest(unittest.TestCase):
+    """`lb graph doctor|mermaid|html` — the graph-wide reads."""
+
+    def run_graph(self, graph: Path, registry: Path, *args: str):
+        return subprocess.run(
+            script_argv(
+                SCRIPT, "graph", *args, "--graph", str(graph), "--registry", str(registry)
+            ),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+    def healthy(self, d: str) -> tuple[Path, Path]:
+        base = Path(d)
+        graph = base / "graph.toml"
+        graph.write_text(GRAPH_BODY, encoding="utf-8")
+        registry = base / "repos.toml"
+        for name in ("app", "pacs", "docs", "clone", "fork"):
+            (base / name).mkdir()
+        registry.write_text(
+            "[repos]\n" + "".join(f"{n} = '{base / n}'\n"
+                                  for n in ("app", "pacs", "docs", "clone", "fork"))
+        )
+        return graph, registry
+
+    def test_doctor_clean_graph_exits_0(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.healthy(d)
+            result = self.run_graph(graph, registry, "doctor")
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            self.assertIn("no problems", result.stdout)
+
+    def test_doctor_reports_every_rot_kind(self):
+        rotten = GRAPH_BODY + (
+            "\n[types.broken]\ninverse = ''\nbacklink = 'loud'\n"
+            "\n[[edge]]\nfrom = 'app'\nto = 'ghost'\ntype = 'mystery'\nbacklink = 'loud'\n"
+            "\n[[edge]]\nfrom = 'app'\nto = 'pacs'\ntype = 'live-test-service'\n"
+            "\n[[edge]]\nfrom = 'app'\nto = ''\ntype = 'upstream'\n"
+        )
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.healthy(d)
+            graph.write_text(rotten, encoding="utf-8")
+            (Path(d) / "pacs").rmdir()  # dead path for a registered node
+            result = self.run_graph(graph, registry, "doctor", "--json")
+            self.assertEqual(result.returncode, 1)
+            kinds = {p["kind"] for p in json.loads(result.stdout)["problems"]}
+            self.assertEqual(
+                kinds,
+                {"malformed-edge", "invalid-type", "undeclared-type", "invalid-backlink",
+                 "duplicate-edge", "unregistered-node", "dead-path"},
+            )
+
+    def test_doctor_flags_a_missing_registry(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.healthy(d)
+            result = self.run_graph(graph, Path(d) / "nope.toml", "doctor")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("no-registry", result.stdout)
+
+    def test_mermaid_groups_nodes_and_dashes_off_edges(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.healthy(d)
+            result = self.run_graph(graph, registry, "mermaid")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("flowchart LR", result.stdout)
+            self.assertIn("subgraph", result.stdout)
+            self.assertIn("-.->|oss-reference|", result.stdout)  # backlink-off renders dashed
+            self.assertIn("-->|live-test-service|", result.stdout)
+
+    def test_html_writes_once_and_embeds_the_data(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.healthy(d)
+            out = Path(d) / "graph.html"
+            result = self.run_graph(graph, registry, "html", "--out", str(out))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            text = out.read_text(encoding="utf-8")
+            self.assertNotIn("__DATA__", text)
+            self.assertIn('"pacs"', text)
+            again = self.run_graph(graph, registry, "html", "--out", str(out))
+            self.assertEqual(again.returncode, 1)
+            self.assertIn("never clobbers", again.stderr)
+
+    def test_viz_json_shapes(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.healthy(d)
+            mermaid = self.run_graph(graph, registry, "mermaid", "--json")
+            self.assertEqual(set(json.loads(mermaid.stdout)), {"graph", "mermaid"})
+            out = Path(d) / "g.html"
+            html = self.run_graph(graph, registry, "html", "--out", str(out), "--json")
+            self.assertEqual(
+                set(json.loads(html.stdout)), {"graph", "out", "nodes", "edges"}
+            )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -530,15 +530,16 @@ class ToggleCliTest(CliHarness):
 class StatusCliTest(CliHarness):
     JSON_KEYS = {
         "root", "key", "config", "exists", "error", "sections",
-        "unknown_sections", "state", "registry", "legacy",
+        "unknown_sections", "state", "registry", "graph", "legacy",
     }
 
     def status(self, state: Path, proj: Path, *extra: str) -> subprocess.CompletedProcess:
-        # --registry pinned to a missing file so the runner's real ~/.lightbridge
-        # never leaks into assertions.
+        # --registry and --graph pinned to missing files so the runner's real
+        # ~/.lightbridge never leaks into assertions.
         return self.run_cli(
             state, "status", "--start", str(proj),
-            "--registry", str(state / "no-registry.toml"), *extra,
+            "--registry", str(state / "no-registry.toml"),
+            "--graph", str(state / "no-graph.toml"), *extra,
         )
 
     def test_absent_config_exits_0_and_teaches_init(self):
