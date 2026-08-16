@@ -45,7 +45,7 @@ views, so the reverse direction can never be forgotten — only curated.
       catalog + `SECTIONS` in lockstep; Retired-sections note), ADR 0002,
       `lightbridge-graph.md` design doc, ADR 0001 + cli-design inline amendments,
       hook/script/CLI READMEs, epilog, `__version__` → 0.6.0, agent-instruction
-      AGENTS.qmd sync (2ce6b12 there; dist re-render pending)
+      AGENTS.qmd sync (2ce6b12 there; dist re-render pending) — f25722d
 - [x] Gates: `bin/validate.py` (37 skills) + full `just test` (16 suites) green
 
 ## Confirmed contracts
