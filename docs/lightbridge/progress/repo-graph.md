@@ -33,10 +33,13 @@ views, so the reverse direction can never be forgotten — only curated.
       hook flow updated, `tests/test_repo_links.py` rewritten — 6e7bb1d
 - [x] M3 — write verbs: `lb graph link|unlink|set` with teaching refusals,
       direction-echo sentence, byte-preservation tests — 141892d
-- [ ] M4 — graph-wide reads: `lb graph doctor|mermaid|html`, `lb status` graph line
-- [ ] M5 — migration (throwaway, in the spike session): backups, graph.toml written,
-      9 registry names added, `[repo-links]` sections stripped, ego-regression
-      report reviewed, doctor clean
+- [x] M4 — graph-wide reads: `lb graph doctor|mermaid|html`, `lb status` graph line
+      (+ `--graph` isolation flag on status) — a1c67c6
+- [x] M5 — migration ran 2026-08-16 (`migrate.py` in the spike session): backups at
+      `~/.lightbridge/backups/repo-graph-migration-20260816T200853/`, 55-edge
+      graph.toml written, 9 registry names added, `[repo-links]` stripped from 27
+      configs, regression report 0 lost links, doctor clean — report pending user
+      review (`outputs/migration-report.md`)
 - [ ] M6 — skill + docs: `repo-graph` skill, lightbridge-config catalog update
       (remove `[repo-links]` from catalog + `SECTIONS` in lockstep), ADR 0002,
       design doc, READMEs, epilog, `__version__` bump, agent-instruction sync
