@@ -367,16 +367,14 @@ class BootstrapCliTest(CliHarness):
         with tempfile.TemporaryDirectory() as d:
             state, proj = Path(d) / "state", self.repo(d, docs=True)
             self.run_cli(state, "init", "--start", str(proj))
-            result = self.run_cli(state, "add", "repo-links", "--start", str(proj), "--json")
+            result = self.run_cli(state, "add", "plans", "--start", str(proj), "--json")
             self.assertEqual(result.returncode, 0, result.stderr)
             payload = json.loads(result.stdout)
             self.assertFalse(payload["created"])
-            self.assertEqual(payload["sections_added"], ["repo-links"])
+            self.assertEqual(payload["sections_added"], ["plans"])
             data = tomllib.loads(self.config_of(state, proj).read_text())
-            self.assertEqual(set(data), {"root", "docs-index", "repo-links"})
-            # `enabled` must land on the section, not on the [[link]] appended after it
-            self.assertTrue(data["repo-links"]["enabled"])
-            self.assertEqual(data["repo-links"]["link"][0]["name"], "example-service")
+            self.assertEqual(set(data), {"root", "docs-index", "plans"})
+            self.assertTrue(data["plans"]["enabled"])
 
     def test_add_skips_present_section(self):
         with tempfile.TemporaryDirectory() as d:
@@ -511,20 +509,17 @@ class ToggleCliTest(CliHarness):
             self.assertEqual(result.returncode, 2)
             self.assertIn("docs-index", result.stderr)  # names the valid set
 
-    def test_disable_repo_links_enabled_precedes_links(self):
-        """The TOML invariant: `enabled` must stay attached to [repo-links], never to
-        the [[repo-links.link]] entries after it."""
-        with tempfile.TemporaryDirectory() as d:
-            state, proj = Path(d) / "state", self.repo(d, docs=False)
-            self.run_cli(state, "init", "--start", str(proj))
-            self.run_cli(state, "add", "repo-links", "--start", str(proj))
-            result = self.run_cli(state, "disable", "repo-links", "--start", str(proj))
-            self.assertEqual(result.returncode, 0, result.stderr)
-            text = self.config_of(state, proj).read_text()
-            self.assertLess(text.index("enabled = false"), text.index("[[repo-links.link]]"))
-            data = tomllib.loads(text)
-            self.assertFalse(data["repo-links"]["enabled"])
-            self.assertEqual(data["repo-links"]["link"][0]["name"], "example-service")
+    def test_set_enabled_precedes_array_of_tables(self):
+        """The TOML invariant `set_enabled` guarantees: the inserted `enabled` line
+        attaches to the [section], never to a [[section.entry]] after it. Library-level
+        since the retirement of `repo-links` — no catalog section carries an
+        array-of-tables anymore, but the substrate must keep the property."""
+        text = '[links]\n[[links.item]]\nname = "example"\n'
+        edited = lb_tomledit.set_enabled(text, "links", False)
+        self.assertLess(edited.index("enabled = false"), edited.index("[[links.item]]"))
+        data = tomllib.loads(edited)
+        self.assertFalse(data["links"]["enabled"])
+        self.assertEqual(data["links"]["item"][0]["name"], "example")
 
 
 class StatusCliTest(CliHarness):
@@ -553,8 +548,8 @@ class StatusCliTest(CliHarness):
         with tempfile.TemporaryDirectory() as d:
             state, proj = Path(d) / "state", self.repo(d, docs=True)
             self.run_cli(state, "init", "--start", str(proj))
-            self.run_cli(state, "add", "repo-links", "--start", str(proj))
-            self.run_cli(state, "disable", "repo-links", "--start", str(proj))
+            self.run_cli(state, "add", "plans", "--start", str(proj))
+            self.run_cli(state, "disable", "plans", "--start", str(proj))
             config = self.config_of(state, proj)
             config.write_text(config.read_text() + "\n[mystery]\n")
             project_dir = config.parent
@@ -571,7 +566,7 @@ class StatusCliTest(CliHarness):
             self.assertEqual(set(data), self.JSON_KEYS)
             self.assertTrue(data["exists"])
             self.assertIsNone(data["error"])
-            self.assertEqual(data["sections"], {"docs-index": True, "repo-links": False})
+            self.assertEqual(data["sections"], {"docs-index": True, "plans": False})
             self.assertEqual(data["unknown_sections"], ["mystery"])
             self.assertEqual(data["state"], {"handoffs": 2, "inbox": 1, "plans": 1})
             self.assertFalse(data["registry"])

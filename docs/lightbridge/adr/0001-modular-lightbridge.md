@@ -95,6 +95,13 @@ Binding consequences of that shape:
    (`append_repo`, `remove_repo`, `rename_registry_paths`) stays in `lb_registry.py`,
    where its `lb_tomledit` dependency belongs; splitting read from write is what let the
    duplicate go.
+
+   *Amended (repo-graph, [ADR 0002](0002-central-repo-graph.md)):* the graph trio
+   joined — `DEFAULT_GRAPH`, `load_graph` (same tri-state shape as `load_registry`),
+   and `project_node` (projection as data selection; both `repo_links.py`/the hook and
+   `lb graph show` need identical semantics, while rendering stays with each consumer).
+   The graph's *write* path lives in the new CLI-side `lb_graph.py`, on the same
+   read/write boundary as the registry.
 4. **The `lb_` filename prefix is load-bearing.** CLI-side modules are reached by plain
    `import`, so their filenames become real `sys.modules` keys — and this repo path-loads
    modules under generic names throughout (`"lightbridge"`, `"repo_links"`,

@@ -90,7 +90,7 @@ from lb_resolve import (
     use_utf8_console,
 )
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 DESCRIPTION = (
     "Create, inspect, and audit user-level .lightbridge project config "
@@ -100,8 +100,9 @@ EPILOG = (
     "Exit: 0 ok · 1 refused (doctor problems, would clobber, missing "
     "config/section/name, unreadable file) · 2 usage. "
     "Siblings (own their state, not wrapped here): plan_store.py (plans/), "
-    "handoff.py (handoffs/), repo_links.py ([repo-links] resolution), "
-    "docs-index ([docs-index] rendering). Spec: the lightbridge-config skill."
+    "handoff.py (handoffs/), repo_links.py (graph.toml ego-view projection; "
+    "spec: the repo-graph skill), docs-index ([docs-index] rendering). "
+    "Spec: the lightbridge-config skill."
 )
 START_HELP = "Directory whose project root is resolved (default: CWD)."
 

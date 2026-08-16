@@ -1,74 +1,65 @@
 # repo-links
 
-Resolve a repo's declared **cross-repo links** to verified local paths — so an agent
-working in one repo knows where its neighbors (upstream counterpart, live test service,
-OSS reference clone) live on *this* machine, without anyone committing personal paths.
+Project a repo's **ego view from the central cross-repo graph** — so an agent working
+in one repo knows where its neighbors (upstream counterpart, live test service, OSS
+reference clone) live on *this* machine, without anyone committing personal paths.
 
-Replaces the hand-maintained path list in a `CLAUDE.local.md`: names are declared once
-per project, resolved per machine, and **verified on every run** — a dead name or stale
-path surfaces as a WARNING line instead of rotting silently.
+Every relationship is one typed edge in `~/.lightbridge/graph.toml`, declared once;
+this tool projects the view for whichever repo you point it at — outgoing edges,
+backlinks labeled with each type's inverse, one compact mentions line — with every
+path **verified on every run**: a dead name, stale path, or undeclared type surfaces
+as a WARNING line instead of rotting silently.
 
 ## The two-layer model
 
 Both layers are user-level — nothing ever lives inside the repo:
 
 ```
-~/.lightbridge/projects/<key>/config.toml  [repo-links]  PER PROJECT — logical names only, never paths
-        │  resolved through                              (located via scripts/lightbridge)
+~/.lightbridge/graph.toml   [types] + [[edge]]   PER MACHINE — one typed edge per
+        │                                        relationship between logical names
+        │  repo at --start → registry name → incident edges
+        ▼                                        (managed by `lb graph`; spec: the
+~/.lightbridge/repos.toml   [repos]              repo-graph skill)
+        │  name → path; tilde-expand + verify    PER MACHINE — the node namespace
         ▼
-~/.lightbridge/repos.toml                  [repos]       PER MACHINE — name → path
-        │  tilde-expand + verify the path exists
-        ▼
-one line per link, or a WARNING line when resolution fails
+outgoing lines · Backlinks: · Also referenced by: · WARNING lines
 ```
 
-On a machine with no `~/.lightbridge/repos.toml`, the declared links simply don't
-resolve (and the companion hook stays completely silent).
+On a machine with no `~/.lightbridge/graph.toml`, there is nothing to project (and the
+companion hook stays completely silent).
 
-## Declaring links (per project, user-level)
+## Declaring edges
 
-`lightbridge path` prints where the project's config lives:
+Never hand-write the graph — `lb graph` owns it (see the **repo-graph** skill):
 
-```toml
-# ~/.lightbridge/projects/<project-key>/config.toml
-root = "/abs/path/to/repo"  # staleness marker for `lightbridge doctor`
-[repo-links]              # presence of this section = opt in
-enabled = true            # optional; default true. MUST precede the first link —
-                          # TOML attaches later keys to the last [[table]] otherwise.
-[[repo-links.link]]
-name = "example-service"  # required; logical name, resolved via the personal registry
-role = "upstream"         # optional; free-form (upstream, oss-reference, live-test-service, …)
-note = "Why this repo matters when working here"  # optional
+```sh
+lb repos add example-service ~/work/example-service
+lb graph link my-app example-service --type upstream \
+    --from-note "Commercial counterpart" --to-note "Derived variant tracks this repo"
 ```
 
-## The personal registry (per machine, never committed)
-
-```toml
-# ~/.lightbridge/repos.toml
-[repos]
-example-service = "~/work/example-service"   # ~-relative or absolute
-```
-
-One central file per machine: when a repo moves, one edit fixes every project that
-links to it.
+The edge direction rule, the `[types]` vocabulary (inverse labels, `full | compact |
+off` backlink defaults, per-edge override), and the editing verbs are documented there.
 
 ## Usage
 
 ```sh
 repo_links.py                       # human map for the repo at CWD
-repo_links.py --start path/to/repo  # resolve another repo's links
+repo_links.py --start path/to/repo  # another repo's view
 repo_links.py --json                # machine-readable (for hooks/tooling)
-repo_links.py --check               # audit mode: exit 1 if anything is unresolved
-repo_links.py --registry alt.toml   # nonstandard registry location
+repo_links.py --check               # audit mode: exit 1 if anything is rotten
+repo_links.py --graph alt.toml --registry alt-repos.toml   # nonstandard locations
 ```
 
 Human output:
 
 ```
-Linked repos (.lightbridge [repo-links]):
-- example-service → /Users/x/work/example-service (upstream) — Why this repo matters
-- old-name: WARNING — not registered in ~/.lightbridge/repos.toml (add it there, or fix the name in the project's lightbridge config)
+Linked repos (.lightbridge graph):
+- example-service → /Users/x/work/example-service (upstream) — Commercial counterpart
 - gone-repo: WARNING — registered path /Users/x/work/gone does not exist (stale registry entry?)
+Backlinks:
+- solution-tracker-repo → /Users/x/work/tracker (solution-tracker) — Epics live there
+Also referenced by: analytics (studied-by), qms-docs (studied-by)
 
 When a task involves a linked repo, work with it at the absolute path above.
 ```
@@ -77,35 +68,39 @@ When a task involves a linked repo, work with it at the absolute path above.
 
 ```json
 {
-  "config": "/abs/state/dir/<project-key>/config.toml",
+  "graph": "/abs/expanded/graph.toml",
   "registry": "/abs/expanded/repos.toml",
-  "registry_found": true,
   "registry_error": null,
-  "links": [
-    {"name": "example-service", "role": "upstream", "note": "…",
-     "path": "/abs/path", "status": "ok", "detail": null}
-  ],
-  "warnings": []
+  "root": "/abs/repo/root",
+  "node": "my-app",
+  "out":       [{"other": "example-service", "type": "upstream", "label": "upstream",
+                 "note": "…", "path": "/abs/path", "status": "ok", "detail": null}],
+  "backlinks": [],
+  "mentions":  [],
+  "warnings":  []
 }
 ```
 
-`status` per link: `ok` | `unregistered` | `relative-path` | `missing` | `not-a-dir`.
+`status` per entry: `ok` | `unregistered` | `relative-path` | `missing` | `not-a-dir`.
 
 ## Exit codes
 
 - `0` — ran and rendered (warnings included; warnings are payload, not errors)
-- `1` — `--check` only: at least one link unresolved
-- `2` — nothing to read: no lightbridge config for the project, no `[repo-links]`
-  section, or `enabled = false` (stderr names the next move)
+- `1` — `--check` only: something in this repo's view is unresolved or warned
+- `2` — nothing to read: no graph on this machine, unreadable graph, no registry, the
+  repo is not a registered node, or its node has no edges (stderr names the next move)
 
 ## Notes
 
 - Paths are tilde-expanded but **not** `resolve()`d — a symlinked path renders as you
   wrote it; existence checks follow symlinks, so a symlinked repo counts as resolved.
-- Duplicate link names: first wins, with a warning. Entries missing `name` are skipped
-  with a warning; other links still resolve.
+- Compact mentions are names-only by design (low salience, no path verification);
+  `full` tiers are verified line by line.
+- A leftover pre-graph `[repo-links]` section in the project's lightbridge config earns
+  a one-line deprecation warning (stderr for the CLI, appended context for the hook).
 - Pairs with [`hooks/repo-links-inject`](../../hooks/repo-links-inject) — a SessionStart
   hook that injects this map into agent context automatically. The hook imports this
   module as its single source of truth.
-- Registered in the `.lightbridge` catalog: the `lightbridge-config` skill
-  (`plugins/lightbridge/skills/lightbridge-config/references/catalog.md`).
+- Graph state is registered in the `.lightbridge` catalog's user-level section
+  (`plugins/lightbridge/skills/lightbridge-config/references/catalog.md`); the
+  agent-facing spec is the `repo-graph` skill.

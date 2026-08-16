@@ -63,22 +63,10 @@ auto_approve = false               # true = skip Claude Code's plan-approval dia
                                    # Read hooks/plan-gate/README.md before enabling.
 """,
     },
-    "repo-links": {
-        "purpose": "declare logical links to sibling repos, injected at SessionStart",
-        "reader": "hooks/repo-links-inject (resolved via ~/.lightbridge/repos.toml)",
-        # `enabled` MUST precede the first [[repo-links.link]] — TOML would otherwise
-        # attach it to the last array-of-tables entry rather than to the section.
-        "block": """\
-[repo-links]
-enabled = true                     # optional; default true. Must precede the first link.
-
-[[repo-links.link]]
-name = "example-service"           # required; logical name, resolved via ~/.lightbridge/repos.toml
-role = "upstream"                  # optional; free-form (upstream, oss-reference, live-test-service, …)
-note = "Why this repo matters when working here"  # optional
-""",
-    },
 }
+# Retired sections: `repo-links` (2026-08-16) — cross-repo links moved to the central
+# ~/.lightbridge/graph.toml (`lb graph`, spec: the repo-graph skill). A leftover
+# section earns a deprecation warning from repo_links.py / the SessionStart hook.
 
 
 # CLI-parsing concern only (handlers take plain strings): the choice type Typer
@@ -88,7 +76,6 @@ note = "Why this repo matters when working here"  # optional
 class SectionName(str, Enum):
     docs_index = "docs-index"
     plans = "plans"
-    repo_links = "repo-links"
     research = "research"
 
 

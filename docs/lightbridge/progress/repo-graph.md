@@ -40,10 +40,13 @@ views, so the reverse direction can never be forgotten — only curated.
       graph.toml written, 9 registry names added, `[repo-links]` stripped from 27
       configs, regression report 0 lost links, doctor clean — report pending user
       review (`outputs/migration-report.md`)
-- [ ] M6 — skill + docs: `repo-graph` skill, lightbridge-config catalog update
-      (remove `[repo-links]` from catalog + `SECTIONS` in lockstep), ADR 0002,
-      design doc, READMEs, epilog, `__version__` bump, agent-instruction sync
-- [ ] Gates: `bin/validate.py` + full `just test` green
+- [x] M6 — skill + docs: `repo-graph` skill (installed as a `~/.claude/skills`
+      symlink), lightbridge-config catalog update (`[repo-links]` removed from
+      catalog + `SECTIONS` in lockstep; Retired-sections note), ADR 0002,
+      `lightbridge-graph.md` design doc, ADR 0001 + cli-design inline amendments,
+      hook/script/CLI READMEs, epilog, `__version__` → 0.6.0, agent-instruction
+      AGENTS.qmd sync (2ce6b12 there; dist re-render pending)
+- [x] Gates: `bin/validate.py` (37 skills) + full `just test` (16 suites) green
 
 ## Confirmed contracts
 

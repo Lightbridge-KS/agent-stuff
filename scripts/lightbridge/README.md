@@ -60,7 +60,7 @@ lightbridge status                  # one-shot dashboard: config, sections, stat
 lightbridge init                    # create this project's config — never clobbers
 lightbridge init docs-index research
 lightbridge init --dry-run          # print it instead of writing it
-lightbridge add repo-links          # append section(s) to an existing config
+lightbridge add research            # append section(s) to an existing config
 lightbridge show                    # print the stored config; `show SECTION` for one block
 lightbridge enable research         # flip a section's `enabled` in place (or `disable`)
 lightbridge sections                # what can go in a config, and who reads it
@@ -69,13 +69,23 @@ lightbridge path --start DIR        # another project's
 lightbridge repos list              # manage ~/.lightbridge/repos.toml
 lightbridge repos add NAME PATH     # register a repo — never clobbers a name
 lightbridge repos rm NAME
+lightbridge graph init              # seed ~/.lightbridge/graph.toml (types vocabulary)
+lightbridge graph show [NAME]       # graph summary, or one node's projected ego view
+lightbridge graph types             # the edge vocabulary + direction readings
+lightbridge graph link A B --type T # declare one edge — the reverse projects automatically
+lightbridge graph unlink|set A B    # remove / edit an edge in place
+lightbridge graph doctor            # audit the graph; exit 1 on problems
+lightbridge graph mermaid           # flowchart to stdout
+lightbridge graph html --out FILE   # self-contained interactive viz
 lightbridge mv OLD NEW              # move/rename a repo (or parent dir) + repair all bookkeeping
 lightbridge doctor                  # audit the whole tree; exit 1 on problems
 ```
 
 Every verb takes `--json`; the project-scoped verbs (`status` / `init` / `add` / `show` /
-`enable` / `disable` / `path`) take `--start DIR`; `status`, `repos`, `mv`, and `doctor`
-take `--registry FILE`.
+`enable` / `disable` / `path`) take `--start DIR`; `status`, `repos`, `graph`, `mv`, and
+`doctor` take `--registry FILE`; `status` and every `graph` verb take `--graph FILE`.
+Graph design: [`docs/lightbridge/lightbridge-graph.md`](../../docs/lightbridge/lightbridge-graph.md);
+agent-facing usage: the `repo-graph` skill.
 
 **Status** is the read path — one bounded dashboard instead of a `path → cat → parse → ls`
 chain: root, key, config, each present section with its `enabled` state (unknown tables
@@ -124,16 +134,18 @@ unreadable) · `2` usage.
 
 ## Module layout
 
-Since v0.5 this tool is eight flat sibling modules rather than one file. The boundary is
+Since v0.5 this tool is flat sibling modules rather than one file (nine since v0.6,
+when `lb_graph.py` joined). The boundary is
 **the library is the read path; the CLI owns the write path** — decision and rationale in
 [`docs/lightbridge/adr/0001-modular-lightbridge.md`](../../docs/lightbridge/adr/0001-modular-lightbridge.md).
 
 | file | holds |
 |---|---|
-| `lb_resolve.py` | **the read path** — resolution, `toml_str`, `use_utf8_console` |
+| `lb_resolve.py` | **the read path** — resolution, graph reader + projection, `toml_str`, `use_utf8_console` |
 | `lb_tomledit.py` | surgical TOML line edits (comments and layout survive) |
 | `lb_catalog.py` | `SECTIONS`, `SectionName`, config-document assembly |
 | `lb_registry.py` | `~/.lightbridge/repos.toml` |
+| `lb_graph.py` | `~/.lightbridge/graph.toml` — document model, edge surgery, audit, viz |
 | `lb_doctor.py` | the tree audit |
 | `lb_mv.py` | `plan_mv` + `apply_mv` |
 | `lb_commands.py` | the `cmd_*` verb handlers |
