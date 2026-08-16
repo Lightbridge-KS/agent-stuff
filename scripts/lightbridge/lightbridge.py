@@ -13,6 +13,7 @@ loads this one. See `docs/lightbridge/adr/0001-modular-lightbridge.md`.
     lb_tomledit.py  surgical TOML line edits
     lb_catalog.py   the section catalog + config-document assembly
     lb_registry.py  ~/.lightbridge/repos.toml
+    lb_graph.py     ~/.lightbridge/graph.toml — the cross-repo graph document
     lb_doctor.py    tree audit
     lb_mv.py        plan_mv + apply_mv
     lb_commands.py  the cmd_* verb handlers
@@ -31,6 +32,9 @@ directory on `sys.path[0]` — so they work through the `~/.local/bin/lb` shim t
     lightbridge path                 # this project's config path (+ exists?)
     lightbridge path --start DIR     # another project's
     lightbridge repos list           # manage ~/.lightbridge/repos.toml (add NAME PATH · rm NAME)
+    lightbridge graph init           # seed ~/.lightbridge/graph.toml (types vocabulary)
+    lightbridge graph show [NAME]    # whole-graph summary, or one node's projected ego view
+    lightbridge graph types          # the edge vocabulary, each with its direction reading
     lightbridge mv OLD NEW           # move/rename a repo (or parent dir) + repair all bookkeeping
     lightbridge doctor               # audit the whole tree; exit 1 on problems
     lightbridge doctor --json
@@ -51,6 +55,9 @@ from lb_catalog import SECTIONS, SectionName
 from lb_commands import (
     cmd_add,
     cmd_doctor,
+    cmd_graph_init,
+    cmd_graph_show,
+    cmd_graph_types,
     cmd_init,
     cmd_mv,
     cmd_path,
@@ -63,6 +70,7 @@ from lb_commands import (
     cmd_toggle,
 )
 from lb_resolve import (
+    DEFAULT_GRAPH,
     DEFAULT_REGISTRY,
     DEFAULT_STATE_DIR,
     STATE_DIR_ENV,
@@ -237,6 +245,54 @@ def main() -> None:
         json_out: bool = json_opt,
     ) -> None:
         raise typer.Exit(cmd_repos_rm(name, registry, json_out))
+
+    graph_app = typer.Typer(rich_markup_mode=None)
+    app.add_typer(
+        graph_app,
+        name="graph",
+        help="The cross-repo knowledge graph (~/.lightbridge/graph.toml): typed edges "
+        "between registered repos, projected into each repo's session context.",
+    )
+    graph_opt = typer.Option(
+        DEFAULT_GRAPH,
+        "--graph",
+        metavar="FILE",
+        help=f"Graph file (default: {DEFAULT_GRAPH}).",
+    )
+
+    @graph_app.command(
+        name="init", help="Seed the graph file with the types vocabulary (never clobbers)."
+    )
+    def graph_init(
+        graph: str = graph_opt,
+        dry_run: bool = typer.Option(
+            False, "--dry-run", help="Print the seeded document; write nothing."
+        ),
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_init(graph, dry_run, json_out))
+
+    @graph_app.command(
+        name="show", help="Whole-graph summary, or NAME's projected ego view (with backlinks)."
+    )
+    def graph_show(
+        name: str = typer.Argument(
+            None, metavar="NAME", help="A node (registered repo name); omitted: the summary."
+        ),
+        graph: str = graph_opt,
+        registry: str = repos_registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_show(name, graph, registry, json_out))
+
+    @graph_app.command(
+        name="types", help="The edge vocabulary: each type with its direction reading."
+    )
+    def graph_types(
+        graph: str = graph_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_types(graph, json_out))
 
     @app.command(
         help="Move/rename a repo (or parent dir) and repair all lightbridge bookkeeping. "

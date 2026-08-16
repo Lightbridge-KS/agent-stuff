@@ -47,6 +47,7 @@ DEFAULT_STATE_DIR = "~/.lightbridge/projects"
 STATE_DIR_ENV = "LIGHTBRIDGE_STATE_DIR"  # override; exists so readers are testable in isolation
 CONFIG_NAME = "config.toml"
 DEFAULT_REGISTRY = "~/.lightbridge/repos.toml"
+DEFAULT_GRAPH = "~/.lightbridge/graph.toml"
 LEGACY_CONFIG_REL = Path(".lightbridge") / CONFIG_NAME  # pre-2026-07 per-repo location
 
 
@@ -158,6 +159,125 @@ def load_registry(registry: Path) -> tuple[dict[str, str] | None, str | None]:
             )
         return {}, None
     return {k: v for k, v in repos.items() if isinstance(v, str) and v.strip()}, None
+
+
+def load_graph(graph: Path) -> tuple[dict | None, str | None]:
+    """Read the personal cross-repo graph, `~/.lightbridge/graph.toml`.
+
+    The one implementation: `repo_links.py` and the SessionStart hook path-load this
+    module, and the `lb graph` verbs import it, so the graph is read one way everywhere
+    (the `load_registry` precedent, issue #18).
+
+    Returns (graph, error):
+
+    * `(None, None)` — the file is absent. This machine has not opted in; readers stay
+      silent, like an absent registry.
+    * `(None, reason)` — the file exists but is unusable (bad TOML, or `types`/`edge`
+      holding a shape that is not a table / array of tables).
+    * `({"types": {...}, "edges": [...], "skipped": N}, None)` — usable. Each edge is
+      normalized to `{from, to, type, from_note, to_note, backlink}` with None for
+      absent optionals; entries missing a non-blank `from`/`to`/`type` are dropped and
+      counted in `skipped` so callers can surface the loss instead of silently thinning
+      the graph. Semantic checks (undeclared types, unregistered names, bad backlink
+      modes) belong to `lb graph doctor`, not here.
+    """
+    if not graph.is_file():
+        return None, None
+    try:
+        data = tomllib.loads(graph.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError) as exc:
+        return None, f"unreadable ({exc})"
+
+    types = data.get("types", {})
+    if not isinstance(types, dict) or not all(isinstance(v, dict) for v in types.values()):
+        return None, "the [types] table is malformed (each type must be a [types.<name>] table)"
+    raw_edges = data.get("edge", [])
+    if not isinstance(raw_edges, list):
+        return None, "`edge` must be an array of tables ([[edge]] blocks)"
+
+    def _field(entry: dict, key: str) -> str | None:
+        value = entry.get(key)
+        return value.strip() if isinstance(value, str) and value.strip() else None
+
+    edges: list[dict] = []
+    skipped = 0
+    for entry in raw_edges:
+        if not isinstance(entry, dict):
+            skipped += 1
+            continue
+        frm, to, etype = _field(entry, "from"), _field(entry, "to"), _field(entry, "type")
+        if frm is None or to is None or etype is None:
+            skipped += 1
+            continue
+        edges.append(
+            {
+                "from": frm,
+                "to": to,
+                "type": etype,
+                "from_note": _field(entry, "from_note"),
+                "to_note": _field(entry, "to_note"),
+                "backlink": _field(entry, "backlink"),
+            }
+        )
+    return {"types": types, "edges": edges, "skipped": skipped}, None
+
+
+def project_node(graph: dict, name: str) -> dict:
+    """Select `name`'s incident edges from a loaded graph — the one projection rule.
+
+    Lives here (data selection, not rendering) because both projection consumers need
+    identical semantics: `repo_links.py`/the hook render the injected ego view, and
+    `lb graph show NAME` renders the same view for inspection. Formatting stays with
+    each caller.
+
+    Returns `{"out": [...], "backlinks": [...], "mentions": [...]}`. Every entry is
+    `{other, type, label, note, declared}`:
+
+    * `out` — edges where `name` is `from`; label = the edge type, note = from_note.
+    * `backlinks` — incoming edges whose effective backlink mode is `full`;
+      label = the type's declared inverse, note = to_note.
+    * `mentions` — incoming edges with mode `compact` (callers render these as one
+      names-only line). Mode `off` incoming edges are omitted entirely.
+
+    Effective mode: the edge's own `backlink` when it is a valid mode, else the
+    type's, else `full`. An undeclared type projects visibly (label falls back to the
+    type name, `declared` False, mode full) — rot should surface, not vanish.
+    """
+    types = graph.get("types", {})
+    out: list[dict] = []
+    backlinks: list[dict] = []
+    mentions: list[dict] = []
+    for edge in graph.get("edges", []):
+        spec = types.get(edge["type"])
+        declared = isinstance(spec, dict)
+        if edge["from"] == name:
+            out.append(
+                {
+                    "other": edge["to"],
+                    "type": edge["type"],
+                    "label": edge["type"],
+                    "note": edge["from_note"],
+                    "declared": declared,
+                }
+            )
+        elif edge["to"] == name:
+            mode = edge["backlink"]
+            if mode not in ("full", "compact", "off"):
+                mode = spec.get("backlink") if declared else None
+            if mode not in ("full", "compact", "off"):
+                mode = "full"
+            if mode == "off":
+                continue
+            inverse = spec.get("inverse") if declared else None
+            entry = {
+                "other": edge["from"],
+                "type": edge["type"],
+                "label": inverse if isinstance(inverse, str) and inverse else edge["type"],
+                "note": edge["to_note"],
+                "declared": declared,
+            }
+            (backlinks if mode == "full" else mentions).append(entry)
+    return {"out": out, "backlinks": backlinks, "mentions": mentions}
 
 
 def toml_str(value: str) -> str:

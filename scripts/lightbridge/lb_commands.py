@@ -25,17 +25,24 @@ from lb_catalog import (
     render_config,
 )
 from lb_doctor import doctor
+from lb_graph import (
+    GRAPH_HEADER,
+    SEED_TYPE_NAMES,
+    SEED_TYPES_BLOCK,
+)
 from lb_mv import apply_mv, plan_mv
 from lb_registry import REGISTRY_HEADER, REPO_NAME, append_repo, remove_repo
 from lb_resolve import (
     DEFAULT_REGISTRY,
     config_path,
+    load_graph,
     load_registry,
     default_state_dir,
     legacy_config,
     legacy_warning,
     load_config,
     project_key,
+    project_node,
     repo_root,
 )
 
@@ -483,6 +490,156 @@ def cmd_repos_rm(name: str, registry_file: str, json_out: bool) -> int:
         return 0
     print(row("updated", str(registry)))
     print(row("removed", name))
+    return 0
+
+
+# ── graph ───────────────────────────────────────────────────────────────────
+
+
+def _open_graph(graph_file: str) -> tuple[dict | None, Path, str | None]:
+    """The shared graph preamble: expanded path + parsed graph (or its error)."""
+    graph_path = Path(graph_file).expanduser()
+    graph, error = load_graph(graph_path)
+    if error is not None:
+        print(f"graph is unusable: {graph_path}\n{error}", file=sys.stderr)
+    return graph, graph_path, error
+
+
+def _node_path(name: str, repos: dict[str, str] | None) -> str | None:
+    """A node's registered path (as written, tilde-expanded), or None."""
+    raw = (repos or {}).get(name)
+    return str(Path(raw).expanduser()) if raw else None
+
+
+def cmd_graph_init(graph_file: str, dry_run: bool, json_out: bool) -> int:
+    graph_path = Path(graph_file).expanduser()
+    if graph_path.is_file():
+        print(
+            f"graph already exists: {graph_path}\n"
+            f"`graph init` never clobbers — edit the file, or use `graph link`.",
+            file=sys.stderr,
+        )
+        return 1
+    text = GRAPH_HEADER + "\n" + SEED_TYPES_BLOCK
+    if dry_run:
+        print(text, end="")
+        return 0
+    graph_path.parent.mkdir(parents=True, exist_ok=True)
+    graph_path.write_text(text, encoding="utf-8")
+    if json_out:
+        print(
+            json.dumps(
+                {"graph": str(graph_path), "created": True, "types": SEED_TYPE_NAMES},
+                indent=2,
+            )
+        )
+        return 0
+    print(row("created", str(graph_path)))
+    print(row("types", f"{len(SEED_TYPE_NAMES)} seeded — the file owns the vocabulary from here"))
+    print(row("next", "graph link FROM TO --type T  (names from `repos list`)"))
+    return 0
+
+
+def cmd_graph_types(graph_file: str, json_out: bool) -> int:
+    graph, graph_path, error = _open_graph(graph_file)
+    if error is not None:
+        return 1
+    if graph is None:
+        print(f"no graph: {graph_path}\nCreate it: `graph init`.", file=sys.stderr)
+        return 1
+    types = graph["types"]
+    if json_out:
+        print(json.dumps({"graph": str(graph_path), "types": types}, indent=2))
+        return 0
+    if not types:
+        print(f"{graph_path}: no [types] declared  (seed a vocabulary: `graph init` on a fresh file)")
+        return 0
+    width = max(len(name) for name in types)
+    for name, spec in types.items():
+        inverse = spec.get("inverse") if isinstance(spec.get("inverse"), str) else "?"
+        mode = spec.get("backlink") if isinstance(spec.get("backlink"), str) else "?"
+        print(
+            f"{name:<{width}}  A -[{name}]-> B: B is A's {name}; "
+            f"B sees A as ({inverse}); backlink {mode}"
+        )
+    return 0
+
+
+def cmd_graph_show(
+    name: str | None, graph_file: str, registry_file: str, json_out: bool
+) -> int:
+    graph, graph_path, error = _open_graph(graph_file)
+    if error is not None:
+        return 1
+    if graph is None:
+        print(f"no graph: {graph_path}\nCreate it: `graph init`.", file=sys.stderr)
+        return 1
+    repos, _ = load_registry(Path(registry_file).expanduser())
+    edges = graph["edges"]
+    nodes = sorted({e["from"] for e in edges} | {e["to"] for e in edges})
+
+    if name is None:
+        by_type: dict[str, int] = {}
+        for edge in edges:
+            by_type[edge["type"]] = by_type.get(edge["type"], 0) + 1
+        if json_out:
+            print(
+                json.dumps(
+                    {
+                        "graph": str(graph_path),
+                        "types": len(graph["types"]),
+                        "nodes": nodes,
+                        "edges": len(edges),
+                        "by_type": dict(sorted(by_type.items())),
+                        "skipped": graph["skipped"],
+                    },
+                    indent=2,
+                )
+            )
+            return 0
+        print(row("graph", str(graph_path)))
+        print(row("types", str(len(graph["types"]))))
+        print(row("nodes", str(len(nodes))))
+        breakdown = ", ".join(f"{t} {n}" for t, n in sorted(by_type.items()))
+        print(row("edges", f"{len(edges)}" + (f"  ({breakdown})" if breakdown else "")))
+        if graph["skipped"]:
+            print(row("skipped", f"{graph['skipped']} malformed edge block(s) — run `graph doctor`"))
+        return 0
+
+    if name not in nodes:
+        print(
+            f"'{name}' has no edges in {graph_path}\n"
+            f"Nodes: {', '.join(nodes) if nodes else '(none)'} — or link one: `graph link`.",
+            file=sys.stderr,
+        )
+        return 1
+    projection = project_node(graph, name)
+    if json_out:
+        enriched = {
+            group: [{**entry, "path": _node_path(entry["other"], repos)} for entry in entries]
+            for group, entries in projection.items()
+        }
+        print(json.dumps({"graph": str(graph_path), "node": name, **enriched}, indent=2))
+        return 0
+
+    print(row("node", f"{name} → {_node_path(name, repos) or '(not in repos.toml)'}"))
+    for entry in projection["out"]:
+        path = _node_path(entry["other"], repos) or "(not in repos.toml)"
+        line = f"- {entry['other']} → {path} ({entry['label']})"
+        if entry["note"]:
+            line += f" — {entry['note']}"
+        print(line)
+    if projection["backlinks"]:
+        print("Backlinks:")
+        for entry in projection["backlinks"]:
+            path = _node_path(entry["other"], repos) or "(not in repos.toml)"
+            line = f"- {entry['other']} → {path} ({entry['label']})"
+            if entry["note"]:
+                line += f" — {entry['note']}"
+            print(line)
+    if projection["mentions"]:
+        mentions = ", ".join(f"{m['other']} ({m['label']})" for m in projection["mentions"])
+        print(f"Also referenced by: {mentions}")
     return 0
 
 

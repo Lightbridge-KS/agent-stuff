@@ -1157,6 +1157,9 @@ class ResolveModuleContractTest(unittest.TestCase):
         "DEFAULT_STATE_DIR",
         "STATE_DIR_ENV",
         "load_registry",  # joined in v0.6 (issue #18) — repo_links.py path-loads it
+        "DEFAULT_GRAPH",  # the graph trio joined for repo-graph (ADR 0002) —
+        "load_graph",  # repo_links.py and the SessionStart hook path-load the graph
+        "project_node",  # read + projection; rendering stays with each consumer
         "toml_str",
         "use_utf8_console",
     )
