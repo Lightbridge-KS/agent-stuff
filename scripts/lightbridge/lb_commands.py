@@ -29,6 +29,12 @@ from lb_graph import (
     GRAPH_HEADER,
     SEED_TYPE_NAMES,
     SEED_TYPES_BLOCK,
+    append_edge,
+    edge_fields,
+    edge_sentence,
+    find_edge_spans,
+    remove_span,
+    set_edge_key,
 )
 from lb_mv import apply_mv, plan_mv
 from lb_registry import REGISTRY_HEADER, REPO_NAME, append_repo, remove_repo
@@ -640,6 +646,235 @@ def cmd_graph_show(
     if projection["mentions"]:
         mentions = ", ".join(f"{m['other']} ({m['label']})" for m in projection["mentions"])
         print(f"Also referenced by: {mentions}")
+    return 0
+
+
+def _graph_write_preamble(
+    graph_file: str,
+) -> tuple[dict | None, Path | None, int | None]:
+    """Shared open-for-writing checks: (graph, path, refusal-exit-code)."""
+    graph, graph_path, error = _open_graph(graph_file)
+    if error is not None:
+        return None, graph_path, 1
+    if graph is None:
+        print(f"no graph: {graph_path}\nCreate it: `graph init`.", file=sys.stderr)
+        return None, graph_path, 1
+    return graph, graph_path, None
+
+
+def _edge_json(graph_path: Path, action: str, edge: dict) -> str:
+    """The one JSON shape every graph write verb prints."""
+    return json.dumps({"graph": str(graph_path), "action": action, "edge": edge}, indent=2)
+
+
+def cmd_graph_link(
+    frm: str,
+    to: str,
+    etype: str,
+    from_note: str | None,
+    to_note: str | None,
+    backlink: str | None,
+    graph_file: str,
+    registry_file: str,
+    json_out: bool,
+) -> int:
+    graph, graph_path, refused = _graph_write_preamble(graph_file)
+    if refused is not None:
+        return refused
+
+    repos, registry, reg_error = _open_registry(registry_file)
+    if reg_error is not None:
+        return 1
+    if repos is None:
+        print(
+            f"no registry: {registry} — edge endpoints must be registered names.\n"
+            f"Create it: `repos add NAME PATH`.",
+            file=sys.stderr,
+        )
+        return 1
+    for name in (frm, to):
+        if name not in repos:
+            print(
+                f"{name!r} is not registered in {registry} — edges connect registered "
+                f"names.\nRegister it first: `repos add {name} PATH`.",
+                file=sys.stderr,
+            )
+            return 1
+    if etype not in graph["types"]:
+        declared = ", ".join(graph["types"]) or "(none)"
+        print(
+            f"type {etype!r} is not declared in {graph_path}'s [types].\n"
+            f"Declared: {declared}. See `graph types`; add new types in the file.",
+            file=sys.stderr,
+        )
+        return 1
+
+    edge = {
+        "from": frm,
+        "to": to,
+        "type": etype,
+        "from_note": from_note or None,
+        "to_note": to_note or None,
+        "backlink": backlink or None,
+    }
+    for existing in graph["edges"]:
+        if (existing["from"], existing["to"], existing["type"]) == (frm, to, etype):
+            if existing == edge:
+                if json_out:
+                    print(_edge_json(graph_path, "unchanged", edge))
+                else:
+                    print(row("unchanged", f"{frm} -[{etype}]-> {to} already declared"))
+                return 0
+            print(
+                f"{frm} -[{etype}]-> {to} exists with different notes/backlink.\n"
+                f"Edit it: `graph set {frm} {to} --type {etype} ...`.",
+                file=sys.stderr,
+            )
+            return 1
+        if (existing["from"], existing["to"], existing["type"]) == (to, frm, etype):
+            print(
+                f"the REVERSED edge {to} -[{etype}]-> {frm} already exists — one edge "
+                f"covers both directions (the inverse projects automatically).\n"
+                f"If the direction is wrong there, `graph unlink {to} {frm} --type {etype}` "
+                f"first.",
+                file=sys.stderr,
+            )
+            return 1
+    parallel = [
+        e["type"]
+        for e in graph["edges"]
+        if {e["from"], e["to"]} == {frm, to}
+    ]
+    if parallel:
+        print(
+            f"note: {frm} and {to} are already linked as {', '.join(sorted(parallel))} — "
+            f"adding a parallel {etype} edge.",
+            file=sys.stderr,
+        )
+
+    text = graph_path.read_text(encoding="utf-8")
+    graph_path.write_text(append_edge(text, edge), encoding="utf-8")
+
+    if json_out:
+        print(_edge_json(graph_path, "linked", edge))
+        return 0
+    print(row("updated", str(graph_path)))
+    print(row("linked", edge_sentence(edge, graph["types"])))
+    return 0
+
+
+def cmd_graph_unlink(
+    frm: str, to: str, etype: str | None, graph_file: str, json_out: bool
+) -> int:
+    graph, graph_path, refused = _graph_write_preamble(graph_file)
+    if refused is not None:
+        return refused
+
+    text = graph_path.read_text(encoding="utf-8")
+    spans = find_edge_spans(text, frm, to, etype)
+    if not spans:
+        reversed_types = sorted(
+            e["type"] for e in graph["edges"] if (e["from"], e["to"]) == (to, frm)
+        )
+        if reversed_types:
+            print(
+                f"note: no {frm} -> {to} edge, but the reverse direction exists "
+                f"({to} -[{', '.join(reversed_types)}]-> {frm}) — swap the arguments "
+                f"if that is the one to remove.",
+                file=sys.stderr,
+            )
+        if json_out:
+            print(_edge_json(graph_path, "unchanged", {"from": frm, "to": to, "type": etype}))
+        else:
+            print(row("unchanged", f"no {frm} -> {to} edge — nothing to do"))
+        return 0
+    matched_types = sorted(
+        {e["type"] for e in graph["edges"] if (e["from"], e["to"]) == (frm, to)}
+    )
+    if len(spans) > 1 and etype is None:
+        print(
+            f"{frm} -> {to} has {len(spans)} parallel edges: {', '.join(matched_types)}.\n"
+            f"Pass --type to pick one.",
+            file=sys.stderr,
+        )
+        return 1
+    for span in reversed(spans):
+        text = remove_span(text, span)
+    graph_path.write_text(text, encoding="utf-8")
+
+    removed = etype or matched_types[0]
+    if json_out:
+        print(_edge_json(graph_path, "unlinked", {"from": frm, "to": to, "type": removed}))
+        return 0
+    print(row("updated", str(graph_path)))
+    print(row("unlinked", f"{frm} -[{removed}]-> {to}"))
+    return 0
+
+
+def cmd_graph_set(
+    frm: str,
+    to: str,
+    etype: str | None,
+    from_note: str | None,
+    to_note: str | None,
+    backlink: str | None,
+    graph_file: str,
+    json_out: bool,
+) -> int:
+    if from_note is None and to_note is None and backlink is None:
+        print(
+            "nothing to set — pass --from-note, --to-note, and/or --backlink "
+            "(empty string / `default` clears).",
+            file=sys.stderr,
+        )
+        return 2
+    graph, graph_path, refused = _graph_write_preamble(graph_file)
+    if refused is not None:
+        return refused
+
+    text = graph_path.read_text(encoding="utf-8")
+    spans = find_edge_spans(text, frm, to, etype)
+    if not spans:
+        print(
+            f"no {frm} -> {to} edge"
+            + (f" of type {etype!r}" if etype else "")
+            + f" in {graph_path}.\nCreate it: `graph link {frm} {to} --type T`.",
+            file=sys.stderr,
+        )
+        return 1
+    if len(spans) > 1:
+        types = sorted(
+            {e["type"] for e in graph["edges"] if (e["from"], e["to"]) == (frm, to)}
+        )
+        print(
+            f"{frm} -> {to} has {len(spans)} parallel edges: {', '.join(types)}.\n"
+            f"Pass --type to pick one.",
+            file=sys.stderr,
+        )
+        return 1
+
+    changes = {
+        "from_note": from_note,
+        "to_note": to_note,
+        # `default` clears the per-edge override, falling back to the type's mode.
+        "backlink": None if backlink == "default" else backlink,
+    }
+    for key, value in changes.items():
+        if (key == "backlink" and backlink is None) or (
+            key != "backlink" and changes[key] is None
+        ):
+            continue
+        span = find_edge_spans(text, frm, to, etype)[0]
+        text = set_edge_key(text, span, key, value or None)
+    graph_path.write_text(text, encoding="utf-8")
+
+    span = find_edge_spans(text, frm, to, etype)[0]
+    edge = edge_fields(text, span)
+    if json_out:
+        print(_edge_json(graph_path, "updated", edge))
+        return 0
+    print(row("updated", str(graph_path)))
+    print(row("edge", edge_sentence(edge, graph["types"])))
     return 0
 
 

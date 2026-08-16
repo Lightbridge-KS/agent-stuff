@@ -391,5 +391,179 @@ class GraphCliTest(unittest.TestCase):
             self.assertIn("path", data["backlinks"][0])
 
 
+def write_registry(base: Path, *names: str) -> Path:
+    """A registry mapping every name to `base` (an existing dir) — endpoints resolve."""
+    registry = base / "repos.toml"
+    registry.write_text("[repos]\n" + "".join(f"{n} = '{base}'\n" for n in names))
+    return registry
+
+
+class GraphWriteCliTest(unittest.TestCase):
+    """`lb graph link|unlink|set`: teaching refusals, idempotency, surgical writes."""
+
+    def run_graph(self, graph: Path, registry: Path | None, *args: str):
+        argv = ["graph", *args, "--graph", str(graph)]
+        if registry is not None:
+            argv += ["--registry", str(registry)]
+        return subprocess.run(
+            script_argv(SCRIPT, *argv),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+    def seeded(self, d: str) -> tuple[Path, Path]:
+        base = Path(d)
+        graph = base / "graph.toml"
+        result = self.run_graph(graph, None, "init")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return graph, write_registry(base, "app", "svc", "other")
+
+    def test_link_appends_a_parseable_block_and_echoes_the_direction(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.seeded(d)
+            before = graph.read_text(encoding="utf-8")
+            result = self.run_graph(
+                graph, registry, "link", "app", "svc", "--type", "tooling",
+                "--from-note", "svc provisions keys",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("svc is app's tooling", result.stdout)
+            self.assertIn("show app as (tool-user)", result.stdout)
+            text = graph.read_text(encoding="utf-8")
+            self.assertTrue(text.startswith(before), "existing lines must be byte-identical")
+            (edge,) = tomllib.loads(text)["edge"]
+            self.assertEqual(edge["from_note"], "svc provisions keys")
+            self.assertNotIn("to_note", edge)
+
+    def test_link_is_idempotent_on_the_identical_edge(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.seeded(d)
+            args = ("link", "app", "svc", "--type", "tooling")
+            self.assertEqual(self.run_graph(graph, registry, *args).returncode, 0)
+            before = graph.read_bytes()
+            result = self.run_graph(graph, registry, *args)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("unchanged", result.stdout)
+            self.assertEqual(graph.read_bytes(), before)
+
+    def test_link_refuses_a_differing_duplicate_naming_set(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.seeded(d)
+            self.run_graph(graph, registry, "link", "app", "svc", "--type", "tooling")
+            result = self.run_graph(
+                graph, registry, "link", "app", "svc", "--type", "tooling",
+                "--from-note", "different",
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("graph set", result.stderr)
+
+    def test_link_refuses_the_reversed_edge(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.seeded(d)
+            self.run_graph(graph, registry, "link", "app", "svc", "--type", "upstream")
+            result = self.run_graph(graph, registry, "link", "svc", "app", "--type", "upstream")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("REVERSED", result.stderr)
+            self.assertIn("unlink app svc", result.stderr)
+
+    def test_link_refuses_unregistered_names_and_undeclared_types(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.seeded(d)
+            ghost = self.run_graph(graph, registry, "link", "app", "ghost", "--type", "tooling")
+            self.assertEqual(ghost.returncode, 1)
+            self.assertIn("repos add ghost", ghost.stderr)
+            typed = self.run_graph(graph, registry, "link", "app", "svc", "--type", "nope")
+            self.assertEqual(typed.returncode, 1)
+            self.assertIn("tooling", typed.stderr)  # the declared set is listed
+
+    def test_parallel_edge_of_another_type_is_allowed_with_a_note(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.seeded(d)
+            self.run_graph(graph, registry, "link", "app", "svc", "--type", "contracts")
+            result = self.run_graph(
+                graph, registry, "link", "app", "svc", "--type", "live-test-service"
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("parallel", result.stderr)
+            self.assertEqual(len(tomllib.loads(graph.read_text())["edge"]), 2)
+
+    def test_unlink_removes_only_its_block(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.seeded(d)
+            self.run_graph(graph, registry, "link", "app", "svc", "--type", "tooling")
+            after_one = graph.read_text(encoding="utf-8")
+            self.run_graph(graph, registry, "link", "app", "other", "--type", "upstream")
+            result = self.run_graph(graph, None, "unlink", "app", "other")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(graph.read_text(encoding="utf-8"), after_one)
+
+    def test_unlink_absent_edge_is_a_noop_that_flags_the_reverse(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.seeded(d)
+            self.run_graph(graph, registry, "link", "app", "svc", "--type", "tooling")
+            before = graph.read_bytes()
+            result = self.run_graph(graph, None, "unlink", "svc", "app")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("unchanged", result.stdout)
+            self.assertIn("reverse direction exists", result.stderr)
+            self.assertEqual(graph.read_bytes(), before)
+
+    def test_unlink_parallel_edges_needs_type(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.seeded(d)
+            self.run_graph(graph, registry, "link", "app", "svc", "--type", "contracts")
+            self.run_graph(graph, registry, "link", "app", "svc", "--type", "live-test-service")
+            result = self.run_graph(graph, None, "unlink", "app", "svc")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("--type", result.stderr)
+            typed = self.run_graph(graph, None, "unlink", "app", "svc", "--type", "contracts")
+            self.assertEqual(typed.returncode, 0, typed.stderr)
+            (edge,) = tomllib.loads(graph.read_text())["edge"]
+            self.assertEqual(edge["type"], "live-test-service")
+
+    def test_set_replaces_clears_and_overrides(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.seeded(d)
+            self.run_graph(
+                graph, registry, "link", "app", "svc", "--type", "tooling",
+                "--from-note", "old",
+            )
+            self.run_graph(graph, None, "set", "app", "svc", "--from-note", "new",
+                           "--backlink", "off")
+            (edge,) = tomllib.loads(graph.read_text())["edge"]
+            self.assertEqual((edge["from_note"], edge["backlink"]), ("new", "off"))
+            self.run_graph(graph, None, "set", "app", "svc", "--from-note", "",
+                           "--backlink", "default")
+            (edge,) = tomllib.loads(graph.read_text())["edge"]
+            self.assertNotIn("from_note", edge)
+            self.assertNotIn("backlink", edge)
+
+    def test_set_refusals(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.seeded(d)
+            nothing = self.run_graph(graph, None, "set", "app", "svc")
+            self.assertEqual(nothing.returncode, 2)
+            absent = self.run_graph(graph, None, "set", "app", "svc", "--from-note", "x")
+            self.assertEqual(absent.returncode, 1)
+            self.assertIn("graph link", absent.stderr)
+
+    def test_write_verbs_json_share_one_shape(self):
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.seeded(d)
+            linked = self.run_graph(
+                graph, registry, "link", "app", "svc", "--type", "tooling", "--json"
+            )
+            data = json.loads(linked.stdout)
+            self.assertEqual(set(data), {"graph", "action", "edge"})
+            self.assertEqual(data["action"], "linked")
+            updated = self.run_graph(
+                graph, None, "set", "app", "svc", "--to-note", "x", "--json"
+            )
+            self.assertEqual(json.loads(updated.stdout)["action"], "updated")
+            unlinked = self.run_graph(graph, None, "unlink", "app", "svc", "--json")
+            self.assertEqual(json.loads(unlinked.stdout)["action"], "unlinked")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

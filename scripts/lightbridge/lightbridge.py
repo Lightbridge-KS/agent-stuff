@@ -35,6 +35,9 @@ directory on `sys.path[0]` — so they work through the `~/.local/bin/lb` shim t
     lightbridge graph init           # seed ~/.lightbridge/graph.toml (types vocabulary)
     lightbridge graph show [NAME]    # whole-graph summary, or one node's projected ego view
     lightbridge graph types          # the edge vocabulary, each with its direction reading
+    lightbridge graph link A B --type upstream   # declare one edge (reverse auto-projects)
+    lightbridge graph unlink A B     # remove an edge (`--type` when parallel edges exist)
+    lightbridge graph set A B --from-note "..."  # edit one edge in place
     lightbridge mv OLD NEW           # move/rename a repo (or parent dir) + repair all bookkeeping
     lightbridge doctor               # audit the whole tree; exit 1 on problems
     lightbridge doctor --json
@@ -56,8 +59,11 @@ from lb_commands import (
     cmd_add,
     cmd_doctor,
     cmd_graph_init,
+    cmd_graph_link,
+    cmd_graph_set,
     cmd_graph_show,
     cmd_graph_types,
+    cmd_graph_unlink,
     cmd_init,
     cmd_mv,
     cmd_path,
@@ -69,6 +75,7 @@ from lb_commands import (
     cmd_status,
     cmd_toggle,
 )
+from lb_graph import BacklinkMode, BacklinkSetting
 from lb_resolve import (
     DEFAULT_GRAPH,
     DEFAULT_REGISTRY,
@@ -293,6 +300,89 @@ def main() -> None:
         json_out: bool = json_opt,
     ) -> None:
         raise typer.Exit(cmd_graph_types(graph, json_out))
+
+    from_arg = typer.Argument(..., metavar="FROM", help="Edge source (a registered repo name).")
+    to_arg = typer.Argument(..., metavar="TO", help="Edge target (a registered repo name).")
+
+    @graph_app.command(
+        name="link",
+        help="Declare FROM -[TYPE]-> TO once — the reverse direction projects "
+        "automatically as the type's inverse. Echoes the direction so a swapped "
+        "edge is caught on sight.",
+    )
+    def graph_link(
+        frm: str = from_arg,
+        to: str = to_arg,
+        etype: str = typer.Option(
+            ..., "--type", metavar="TYPE", help="Edge type — see `graph types`."
+        ),
+        from_note: str = typer.Option(
+            None, "--from-note", metavar="TEXT", help="Why TO matters when working in FROM."
+        ),
+        to_note: str = typer.Option(
+            None, "--to-note", metavar="TEXT", help="Why FROM matters when working in TO."
+        ),
+        backlink: BacklinkMode = typer.Option(
+            None,
+            "--backlink",
+            help="Per-edge override of the type's backlink mode.",
+        ),
+        graph: str = graph_opt,
+        registry: str = repos_registry_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(
+            cmd_graph_link(
+                frm, to, etype, from_note, to_note,
+                backlink.value if backlink else None,
+                graph, registry, json_out,
+            )
+        )
+
+    @graph_app.command(
+        name="unlink", help="Remove the FROM -> TO edge (its block only; the rest is untouched)."
+    )
+    def graph_unlink(
+        frm: str = from_arg,
+        to: str = to_arg,
+        etype: str = typer.Option(
+            None, "--type", metavar="TYPE", help="Required when parallel edges exist."
+        ),
+        graph: str = graph_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_graph_unlink(frm, to, etype, graph, json_out))
+
+    @graph_app.command(
+        name="set",
+        help="Edit one existing edge's notes or backlink override in place. "
+        "An empty-string note clears it; `--backlink default` clears the override.",
+    )
+    def graph_set(
+        frm: str = from_arg,
+        to: str = to_arg,
+        etype: str = typer.Option(
+            None, "--type", metavar="TYPE", help="Required when parallel edges exist."
+        ),
+        from_note: str = typer.Option(
+            None, "--from-note", metavar="TEXT", help="Replace FROM's note ('' clears)."
+        ),
+        to_note: str = typer.Option(
+            None, "--to-note", metavar="TEXT", help="Replace TO's note ('' clears)."
+        ),
+        backlink: BacklinkSetting = typer.Option(
+            None, "--backlink", help="Override mode, or `default` to clear the override."
+        ),
+        graph: str = graph_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(
+            cmd_graph_set(
+                frm, to, etype, from_note, to_note,
+                backlink.value if backlink else None,
+                graph, json_out,
+            )
+        )
 
     @app.command(
         help="Move/rename a repo (or parent dir) and repair all lightbridge bookkeeping. "

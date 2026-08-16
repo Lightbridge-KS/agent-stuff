@@ -110,6 +110,15 @@ class BacklinkMode(str, Enum):
     off = "off"
 
 
+class BacklinkSetting(str, Enum):
+    """`graph set --backlink` choices: a mode, or `default` to clear the override."""
+
+    full = "full"
+    compact = "compact"
+    off = "off"
+    default = "default"
+
+
 _EDGE_HEADER = re.compile(r"\s*\[\[edge\]\]\s*(#.*)?$")
 _EDGE_KEY = re.compile(r"\s*(from|to|type|from_note|to_note|backlink)\s*=\s*(.+?)\s*$")
 
