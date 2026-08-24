@@ -74,6 +74,7 @@ from lb_commands import (
     cmd_key_add,
     cmd_key_ls,
     cmd_key_rm,
+    cmd_key_run,
     cmd_mv,
     cmd_path,
     cmd_repos_add,
@@ -484,6 +485,34 @@ def main() -> None:
         json_out: bool = json_opt,
     ) -> None:
         raise typer.Exit(cmd_key_add(name, provider, env, scope, keys, secrets, json_out))
+
+    @key_app.command(
+        name="run",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+        help="Inject NAME's value(s) as env var(s) and exec CMD — the `--` is required. "
+        "The child's exit code passes through; 127 means the exec itself failed.",
+    )
+    def key_run(
+        names: str = typer.Argument(
+            ...,
+            metavar="NAME[,NAME...]",
+            help="Catalogued name(s); comma-separated to inject several.",
+        ),
+        cmd: list[str] = typer.Argument(None, metavar="CMD..."),
+        keys: str = keys_opt,
+        secrets: str = secrets_opt,
+    ) -> None:
+        # The `--` is mandatory so lb can never steal the child's flags; everything
+        # after the first `--` reaches `cmd` verbatim (a second `--` survives).
+        # sys.argv is entrypoint-only global access — this file is never imported.
+        if "--" not in sys.argv:
+            print(
+                "usage: lb key run NAME[,NAME...] -- CMD...\n"
+                "The `--` is required — everything after it is the child command.",
+                file=sys.stderr,
+            )
+            raise typer.Exit(2)
+        raise typer.Exit(cmd_key_run(names, cmd or [], keys, secrets))
 
     @key_app.command(name="rm", help="Remove NAME from the catalog and its stored value.")
     def key_rm(

@@ -485,5 +485,132 @@ class KeyCatalogCliTest(KeyCliBase):
 KEYS_HEADER_STUB = "# empty catalog\n"
 
 
+class KeyRunCliTest(KeyCliBase):
+    """`lb key run` — injection at exec; values only ever enter the child's env.
+
+    The isolation flags go BEFORE the `--` (everything after it belongs to the child),
+    so this class builds argv itself instead of using `run_key`.
+    """
+
+    CHECK = (
+        "import os, sys; "
+        f"sys.exit(0 if os.environ.get('OPENAI_API_KEY') == '{SENTINEL}' else 3)"
+    )
+
+    def run_run(self, base: Path, names: str, *child: str, raw: tuple[str, ...] = ()):
+        result = subprocess.run(
+            script_argv(
+                SCRIPT,
+                "key", "run", *((names,) if names else ()),
+                "--keys", str(base / "keys.toml"),
+                "--secrets", str(base / "secrets.toml"),
+                *raw,
+                *(("--",) + child if child else ()),
+            ),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        self.assert_no_secret(result)
+        return result
+
+    def test_injects_the_value_into_the_child_env_only(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(base, "openai-personal", sys.executable, "-c", self.CHECK)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_child_exit_code_passes_through(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(
+                base, "openai-personal", sys.executable, "-c", "import sys; sys.exit(7)"
+            )
+            self.assertEqual(result.returncode, 7)
+
+    def test_two_names_inject_both_vars(self):
+        check = (
+            "import os, sys; "
+            f"ok = os.environ.get('OPENAI_API_KEY') == '{SENTINEL}' "
+            f"and os.environ.get('ANTHROPIC_API_KEY') == '{SENTINEL}-2'; "
+            "sys.exit(0 if ok else 3)"
+        )
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(
+                base, "openai-personal,anthropic-personal", sys.executable, "-c", check
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_missing_separator_is_a_usage_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(base, "openai-personal", raw=(sys.executable, "-V"))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("`--` is required", result.stderr)
+
+    def test_unknown_name_teaches_ls(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(base, "nonexistent", sys.executable, "-V")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("key ls", result.stderr)
+
+    def test_env_collision_between_selected_names_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            keys, _ = write_pair(base)
+            grown = lb_keys.append_key(
+                keys.read_text(encoding="utf-8"),
+                "openai-image-gen", "openai", "OPENAI_API_KEY", "image gen",
+            )
+            keys.write_text(grown, encoding="utf-8")
+            result = self.run_run(
+                base, "openai-personal,openai-image-gen", sys.executable, "-V"
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("both inject $OPENAI_API_KEY", result.stderr)
+
+    def test_metadata_without_value_is_refused_teaching_doctor(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base, secrets_body="[secrets]\n")
+            result = self.run_run(base, "openai-personal", sys.executable, "-V")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("no stored value", result.stderr)
+            self.assertIn("key doctor", result.stderr)
+
+    def test_absent_catalog_is_refused_teaching_add(self):
+        with tempfile.TemporaryDirectory() as d:
+            result = self.run_run(Path(d), "any", sys.executable, "-V")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("key add", result.stderr)
+
+    def test_failed_exec_is_127(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(base, "openai-personal", "./no-such-binary-xyz")
+            self.assertEqual(result.returncode, 127)
+            self.assertIn("cannot exec", result.stderr)
+
+    def test_child_flags_and_a_second_separator_pass_through_untouched(self):
+        probe = "import sys; print(sys.argv[1:]); sys.exit(0)"
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(
+                base, "openai-personal",
+                sys.executable, "-c", probe, "--json", "--", "--keys",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), "['--json', '--', '--keys']")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import getpass
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -49,6 +51,7 @@ from lb_keys import (
     append_secret,
     load_keys,
     load_secret_names,
+    load_secrets,
     remove_key,
     remove_secret,
     write_secrets,
@@ -1123,6 +1126,64 @@ def cmd_key_add(
     print(row("added", f"{name}  {provider} → ${env}"))
     print(row("value", f"stored (never printed) — use it: `key run {name} -- CMD`"))
     return 0
+
+
+RUN_USAGE = "key run NAME[,NAME...] -- CMD..."
+
+
+def cmd_key_run(names_raw: str, cmd: list[str], keys_file: str, secrets_file: str) -> int:
+    """Inject the named values into a child env and exec CMD — the values' only exit
+    from the store. Never prints one; the child's own exit code passes through
+    untranslated, and a failed exec is 127 (the `env(1)` convention)."""
+    names = list(dict.fromkeys(n.strip() for n in names_raw.split(",") if n.strip()))
+    if not cmd or not names:
+        print(f"usage: {RUN_USAGE}", file=sys.stderr)
+        return 2
+    catalog, keys_path, error = _open_keys(keys_file)
+    if error is not None:
+        return 1
+    if catalog is None:
+        print(f"no key catalog: {keys_path}\nAdd one: `{ADD_USAGE}`.", file=sys.stderr)
+        return 1
+    unknown = [n for n in names if n not in catalog]
+    if unknown:
+        print(f"not catalogued: {', '.join(unknown)} — see `key ls`.", file=sys.stderr)
+        return 1
+    env_owner: dict[str, str] = {}  # env var → the selected name injecting it
+    for name in names:
+        var = catalog[name]["env"]
+        if var is None:
+            print(f"{name!r} has no usable `env` — see `key doctor`.", file=sys.stderr)
+            return 1
+        if var in env_owner:
+            print(
+                f"{env_owner[var]} and {name} both inject ${var} — pick one per run.",
+                file=sys.stderr,
+            )
+            return 1
+        env_owner[var] = name
+    secrets_path = Path(secrets_file).expanduser()
+    values, sec_error = load_secrets(secrets_path)
+    if sec_error is not None:
+        print(f"secrets file is unusable: {secrets_path}\n{sec_error}", file=sys.stderr)
+        return 1
+    missing = [n for n in names if n not in (values or {})]
+    if missing:
+        print(
+            f"no stored value for: {', '.join(missing)} — catalogued but valueless.\n"
+            f"Rotate one in: `key rm NAME` then `key add NAME ...` (see `key doctor`).",
+            file=sys.stderr,
+        )
+        return 1
+    child_env = {**os.environ, **{var: values[name] for var, name in env_owner.items()}}
+    if os.name != "nt":
+        try:
+            os.execvpe(cmd[0], cmd, child_env)  # never returns on success
+        except OSError as exc:
+            print(f"cannot exec {cmd[0]!r}: {exc}", file=sys.stderr)
+            return 127
+    proc = subprocess.run(cmd, env=child_env)
+    return proc.returncode
 
 
 def cmd_key_rm(name: str, keys_file: str, secrets_file: str, json_out: bool) -> int:
