@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "creative",
+  "description": "Creative asset generation — produce and edit images (logos, website/presentation assets, infographics, test fixtures) with AI image models through deterministic bundled CLIs.",
+  "author": {
+    "name": "Kittipos S.",
+    "url": "https://github.com/Lightbridge-KS"
+  },
+  "homepage": "https://github.com/Lightbridge-KS/agent-stuff",
+  "repository": "https://github.com/Lightbridge-KS/agent-stuff",
+  "license": "MIT",
+  "keywords": ["image-generation", "gpt-image", "logo", "infographic", "assets"]
+}
