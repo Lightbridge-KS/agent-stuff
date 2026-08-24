@@ -38,7 +38,7 @@ capabilities exist without touching a single value.
       tests — ecde2e8
 - [x] M5 — docs & skill: ADR 0003, `llm-keys` skill (usage + deny-rule snippet),
       lightbridge-config SKILL.md + catalog.md amendments ("no secrets *except*
-      secrets.toml"), scripts README, docstring/epilog, `__version__` → 0.7.0
+      secrets.toml"), scripts README, docstring/epilog, `__version__` → 0.7.0 — 2043b34
 - [x] Gates: `bin/validate.py` (38 skills) + full `just test` (17 suites) green
 
 ## Confirmed contracts
