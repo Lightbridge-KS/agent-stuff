@@ -26,6 +26,7 @@ test:
     uv run tests/test_install.py
     uv run tests/test_lightbridge.py
     uv run tests/test_lb_graph.py
+    uv run tests/test_lb_keys.py
     uv run tests/test_hooks.py
     uv run tests/test_repo_links.py
     uv run tests/test_island_path.py

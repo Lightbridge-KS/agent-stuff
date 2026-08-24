@@ -1,0 +1,816 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""Behavioral tests for personal LLM API key management: the document model in
+`lb_keys.py` and the `lb key` verb family.
+
+`lb_keys` is loaded the way its real consumer loads it — a plain import by the CLI
+(nothing here joins `lb_resolve`'s frozen API; ADR 0003). The CLI runs as a subprocess
+executing `lightbridge.py` directly, isolated through the `--keys FILE --secrets FILE`
+seams — the key family's `--registry`/`--graph` equivalent.
+
+The governing assertion, applied to every CLI result: **no secret value on stdout or
+stderr, ever** — the sentinel `sk-TESTSENTINEL` must never appear in any verb's output.
+
+    uv run tests/test_lb_keys.py
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import tomllib
+import unittest
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+LIGHTBRIDGE_DIR = REPO_ROOT / "scripts" / "lightbridge"
+SCRIPT = LIGHTBRIDGE_DIR / "lightbridge.py"
+
+sys.path.insert(0, str(LIGHTBRIDGE_DIR))
+
+import lb_keys  # noqa: E402
+
+SENTINEL = "sk-TESTSENTINEL"
+
+
+def script_argv(script: Path, *args: str) -> list[str]:
+    """argv launching a PEP 723 script the way its real consumer does (see
+    test_lightbridge.py for the Windows rationale)."""
+    if os.name != "nt":
+        return [str(script), *args]
+    return ["uv", "run", str(script), *args]
+
+
+KEYS_BODY = """\
+# hand-authored comment that must survive every edit
+[keys.openai-personal]
+provider = "openai"
+env = "OPENAI_API_KEY"
+scope = "personal general inference"
+
+[keys.anthropic-personal]
+provider = "anthropic"
+env = "ANTHROPIC_API_KEY"
+scope = "personal general inference"
+"""
+
+SECRETS_BODY = f"""\
+[secrets]
+openai-personal = '{SENTINEL}'
+anthropic-personal = '{SENTINEL}-2'
+"""
+
+
+def write_pair(base: Path, keys_body: str = KEYS_BODY, secrets_body: str = SECRETS_BODY):
+    keys = base / "keys.toml"
+    secrets = base / "secrets.toml"
+    keys.write_text(keys_body, encoding="utf-8")
+    secrets.write_text(secrets_body, encoding="utf-8")
+    if os.name != "nt":
+        secrets.chmod(0o600)
+    return keys, secrets
+
+
+class LoadKeysTest(unittest.TestCase):
+    """`load_keys`' tri-state contract — the `load_registry` shape, applied to the catalog."""
+
+    def load(self, body: str):
+        with tempfile.TemporaryDirectory() as d:
+            keys = Path(d) / "keys.toml"
+            keys.write_text(body, encoding="utf-8")
+            return lb_keys.load_keys(keys)
+
+    def test_absent_file_is_not_opted_in(self):
+        catalog, error = lb_keys.load_keys(Path("/nonexistent/keys.toml"))
+        self.assertIsNone(catalog)
+        self.assertIsNone(error)
+
+    def test_bad_toml_is_an_error(self):
+        catalog, error = self.load("not = toml = at all")
+        self.assertIsNone(catalog)
+        self.assertIn("unreadable", error)
+
+    def test_stranded_root_keys_are_an_error_not_an_empty_catalog(self):
+        catalog, error = self.load('openai = "OPENAI_API_KEY"\n')
+        self.assertIsNone(catalog)
+        self.assertIn("[keys.<name>]", error)
+
+    def test_non_table_entry_is_an_error(self):
+        catalog, error = self.load('[keys]\nopenai = "not a table"\n')
+        self.assertIsNone(catalog)
+        self.assertIn("non-table", error)
+
+    def test_empty_file_is_usable_and_empty(self):
+        catalog, error = self.load("")
+        self.assertEqual(catalog, {})
+        self.assertIsNone(error)
+
+    def test_usable_catalog_normalizes_missing_fields_to_none(self):
+        catalog, error = self.load(
+            '[keys.gemini]\nenv = "GEMINI_API_KEY"\nscope = "   "\n'
+        )
+        self.assertIsNone(error)
+        self.assertEqual(
+            catalog,
+            {"gemini": {"provider": None, "env": "GEMINI_API_KEY", "scope": None}},
+        )
+
+    def test_full_catalog_round_trips(self):
+        with tempfile.TemporaryDirectory() as d:
+            keys, _ = write_pair(Path(d))
+            catalog, error = lb_keys.load_keys(keys)
+        self.assertIsNone(error)
+        self.assertEqual(
+            catalog["openai-personal"],
+            {
+                "provider": "openai",
+                "env": "OPENAI_API_KEY",
+                "scope": "personal general inference",
+            },
+        )
+
+
+class LoadSecretsTest(unittest.TestCase):
+    """Both secrets readers share `load_keys`' tri-state; names-only is what ls/doctor use."""
+
+    def test_absent_file_is_not_opted_in(self):
+        names, error = lb_keys.load_secret_names(Path("/nonexistent/secrets.toml"))
+        self.assertIsNone(names)
+        self.assertIsNone(error)
+
+    def test_bad_toml_is_an_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            secrets = Path(d) / "secrets.toml"
+            secrets.write_text("not = toml = at all", encoding="utf-8")
+            names, error = lb_keys.load_secret_names(secrets)
+        self.assertIsNone(names)
+        self.assertIn("unreadable", error)
+
+    def test_stranded_root_keys_are_an_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            secrets = Path(d) / "secrets.toml"
+            secrets.write_text(f"openai = '{SENTINEL}'\n", encoding="utf-8")
+            names, error = lb_keys.load_secret_names(secrets)
+        self.assertIsNone(names)
+        self.assertIn("[secrets]", error)
+        self.assertNotIn(SENTINEL, error)
+
+    def test_names_carry_no_values(self):
+        with tempfile.TemporaryDirectory() as d:
+            _, secrets = write_pair(Path(d))
+            names, error = lb_keys.load_secret_names(secrets)
+        self.assertIsNone(error)
+        self.assertEqual(names, ["anthropic-personal", "openai-personal"])
+
+    def test_load_secrets_returns_values_for_run(self):
+        with tempfile.TemporaryDirectory() as d:
+            _, secrets = write_pair(Path(d))
+            table, error = lb_keys.load_secrets(secrets)
+        self.assertIsNone(error)
+        self.assertEqual(table["openai-personal"], SENTINEL)
+
+
+class KeySurgeryTest(unittest.TestCase):
+    """Catalog block edits — untargeted lines come out byte-identical."""
+
+    def test_append_key_parses_and_preserves_existing_lines(self):
+        text = lb_keys.append_key(
+            KEYS_BODY, "gemini-personal", "google", "GEMINI_API_KEY", "general inference"
+        )
+        self.assertTrue(text.startswith(KEYS_BODY))
+        data = tomllib.loads(text)
+        self.assertEqual(data["keys"]["gemini-personal"]["env"], "GEMINI_API_KEY")
+
+    def test_append_key_to_empty_text_needs_no_separator(self):
+        text = lb_keys.append_key("", "a", "p", "A_KEY", "s")
+        self.assertTrue(text.startswith("[keys.a]\n"))
+        tomllib.loads(text)
+
+    def test_append_key_terminates_an_unterminated_file(self):
+        text = lb_keys.append_key('[keys.a]\nenv = "A"', "b", "p", "B_KEY", "s")
+        data = tomllib.loads(text)
+        self.assertEqual(set(data["keys"]), {"a", "b"})
+
+    def test_remove_key_round_trips_byte_identical(self):
+        grown = lb_keys.append_key(KEYS_BODY, "tmp", "p", "TMP_KEY", "s")
+        self.assertEqual(lb_keys.remove_key(grown, "tmp"), KEYS_BODY)
+
+    def test_remove_key_absent_name_is_none(self):
+        self.assertIsNone(lb_keys.remove_key(KEYS_BODY, "nonexistent"))
+
+    def test_remove_key_middle_block_keeps_others_byte_identical(self):
+        text = lb_keys.remove_key(KEYS_BODY, "openai-personal")
+        self.assertIn("# hand-authored comment", text)
+        self.assertNotIn("openai-personal", text)
+        data = tomllib.loads(text)
+        self.assertEqual(list(data["keys"]), ["anthropic-personal"])
+
+
+class SecretSurgeryTest(unittest.TestCase):
+    """`[secrets]` line edits — `append_repo`'s behavior, applied to the values table."""
+
+    def test_append_secret_lands_inside_the_table(self):
+        text = lb_keys.append_secret(SECRETS_BODY, "gemini", "value-g")
+        data = tomllib.loads(text)
+        self.assertEqual(data["secrets"]["gemini"], "value-g")
+
+    def test_append_secret_headerless_file_gains_header(self):
+        text = lb_keys.append_secret("", "a", "v")
+        self.assertEqual(tomllib.loads(text)["secrets"]["a"], "v")
+
+    def test_append_secret_unterminated_final_line_is_safe(self):
+        text = lb_keys.append_secret("[secrets]\na = 'x'", "b", "y")
+        data = tomllib.loads(text)
+        self.assertEqual(data["secrets"], {"a": "x", "b": "y"})
+
+    def test_remove_secret_round_trips_byte_identical(self):
+        grown = lb_keys.append_secret(SECRETS_BODY, "tmp", "v")
+        self.assertEqual(lb_keys.remove_secret(grown, "tmp"), SECRETS_BODY)
+
+    def test_remove_secret_absent_name_is_none(self):
+        self.assertIsNone(lb_keys.remove_secret(SECRETS_BODY, "nonexistent"))
+
+
+@unittest.skipIf(os.name == "nt", "POSIX mode bits")
+class WriteSecretsTest(unittest.TestCase):
+    """The one write path for the values file keeps it owner-only."""
+
+    def test_fresh_file_is_0600(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "secrets.toml"
+            lb_keys.write_secrets(path, SECRETS_BODY)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(path.read_text(encoding="utf-8"), SECRETS_BODY)
+
+    def test_loose_preexisting_mode_is_repaired(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "secrets.toml"
+            path.write_text("[secrets]\n", encoding="utf-8")
+            path.chmod(0o644)
+            lb_keys.write_secrets(path, SECRETS_BODY)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_mode_problem_names_the_fix(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "secrets.toml"
+            path.write_text("[secrets]\n", encoding="utf-8")
+            path.chmod(0o644)
+            problem = lb_keys.secrets_mode_problem(path)
+            self.assertIn("chmod 600", problem)
+            path.chmod(0o600)
+            self.assertIsNone(lb_keys.secrets_mode_problem(path))
+        self.assertIsNone(lb_keys.secrets_mode_problem(Path("/nonexistent/s.toml")))
+
+
+class AuditTest(unittest.TestCase):
+    """One finding per mismatch kind; a clean pair audits empty."""
+
+    CLEAN = {
+        "openai-personal": {
+            "provider": "openai",
+            "env": "OPENAI_API_KEY",
+            "scope": "general",
+        }
+    }
+
+    def audit(self, keys, names, mode: int | None = 0o600):
+        with tempfile.TemporaryDirectory() as d:
+            secrets = Path(d) / "secrets.toml"
+            if mode is not None:
+                secrets.write_text("[secrets]\n", encoding="utf-8")
+                if os.name != "nt":
+                    secrets.chmod(mode)
+            return lb_keys.audit(keys, names, secrets)
+
+    def kinds(self, keys, names, mode=0o600):
+        return [p["kind"] for p in self.audit(keys, names, mode)]
+
+    def test_clean_pair_has_no_problems(self):
+        self.assertEqual(self.audit(self.CLEAN, ["openai-personal"]), [])
+
+    def test_missing_env(self):
+        keys = {"a": {"provider": "p", "env": None, "scope": "s"}}
+        self.assertIn("missing-env", self.kinds(keys, ["a"]))
+
+    def test_bad_env_name(self):
+        keys = {"a": {"provider": "p", "env": "lower_case", "scope": "s"}}
+        self.assertIn("bad-env-name", self.kinds(keys, ["a"]))
+
+    def test_bad_name(self):
+        keys = {"bad name!": {"provider": "p", "env": "A_KEY", "scope": "s"}}
+        self.assertIn("bad-name", self.kinds(keys, ["bad name!"]))
+
+    def test_no_value(self):
+        self.assertIn("no-value", self.kinds(self.CLEAN, []))
+
+    def test_orphan_value(self):
+        self.assertIn("orphan-value", self.kinds({}, ["stray"]))
+
+    @unittest.skipIf(os.name == "nt", "POSIX mode bits")
+    def test_bad_mode(self):
+        self.assertIn("bad-mode", self.kinds(self.CLEAN, ["openai-personal"], 0o644))
+
+    def test_shared_env_across_entries_is_not_a_finding(self):
+        keys = {
+            "openai-personal": {"provider": "openai", "env": "OPENAI_API_KEY", "scope": "a"},
+            "openai-image-gen": {"provider": "openai", "env": "OPENAI_API_KEY", "scope": "b"},
+        }
+        self.assertEqual(self.audit(keys, ["openai-personal", "openai-image-gen"]), [])
+
+
+class KeyCliBase(unittest.TestCase):
+    """Shared runner for the `lb key` verbs — isolated via `--keys`/`--secrets`, with
+    the governing no-secret-on-output assertion applied to every result."""
+
+    def run_key(self, base: Path, *args: str, stdin: str | None = None):
+        result = subprocess.run(
+            script_argv(
+                SCRIPT,
+                "key",
+                *args,
+                "--keys",
+                str(base / "keys.toml"),
+                "--secrets",
+                str(base / "secrets.toml"),
+            ),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            input=stdin,
+        )
+        self.assert_no_secret(result)
+        return result
+
+    def assert_no_secret(self, result):
+        self.assertNotIn(SENTINEL, result.stdout)
+        self.assertNotIn(SENTINEL, result.stderr)
+
+
+class KeyCatalogCliTest(KeyCliBase):
+    """`lb key ls|add|rm` as subprocesses."""
+
+    def test_add_creates_both_files_0600_and_never_prints_the_value(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            result = self.run_key(
+                base, "add", "openai-personal",
+                "--provider", "openai", "--env", "OPENAI_API_KEY", "--scope", "general",
+                stdin=f"{SENTINEL}\n",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            catalog = tomllib.loads((base / "keys.toml").read_text(encoding="utf-8"))
+            self.assertEqual(catalog["keys"]["openai-personal"]["env"], "OPENAI_API_KEY")
+            secrets = tomllib.loads((base / "secrets.toml").read_text(encoding="utf-8"))
+            self.assertEqual(secrets["secrets"]["openai-personal"], SENTINEL)
+            if os.name != "nt":
+                self.assertEqual((base / "secrets.toml").stat().st_mode & 0o777, 0o600)
+
+    def test_add_refuses_an_existing_name_teaching_rm_and_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            keys, secrets = write_pair(base)
+            before = keys.read_bytes(), secrets.read_bytes()
+            result = self.run_key(
+                base, "add", "openai-personal",
+                "--provider", "openai", "--env", "OPENAI_API_KEY", "--scope", "again",
+                stdin="sk-other\n",
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("key rm openai-personal", result.stderr)
+            self.assertEqual((keys.read_bytes(), secrets.read_bytes()), before)
+
+    def test_add_refusals_are_usage_errors_for_bad_shapes(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            bad_name = self.run_key(
+                base, "add", "bad name",
+                "--provider", "p", "--env", "A_KEY", "--scope", "s", stdin="v\n",
+            )
+            self.assertEqual(bad_name.returncode, 2)
+            bad_env = self.run_key(
+                base, "add", "ok-name",
+                "--provider", "p", "--env", "lower", "--scope", "s", stdin="v\n",
+            )
+            self.assertEqual(bad_env.returncode, 2)
+            self.assertFalse((base / "keys.toml").exists())
+
+    def test_add_refuses_an_empty_value(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            result = self.run_key(
+                base, "add", "a", "--provider", "p", "--env", "A_KEY", "--scope", "s",
+                stdin="  \n",
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("empty value", result.stderr)
+            self.assertFalse((base / "keys.toml").exists())
+            self.assertFalse((base / "secrets.toml").exists())
+
+    def test_ls_absent_catalog_teaches_add_and_exits_zero(self):
+        with tempfile.TemporaryDirectory() as d:
+            result = self.run_key(Path(d), "ls")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("key add", result.stdout)
+
+    def test_ls_shows_the_catalog_and_marks_missing_values(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            grown = lb_keys.append_key(
+                (base / "keys.toml").read_text(encoding="utf-8"),
+                "gemini-personal", "google", "GEMINI_API_KEY", "general",
+            )
+            (base / "keys.toml").write_text(grown, encoding="utf-8")
+            result = self.run_key(base, "ls")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("openai-personal", result.stdout)
+            self.assertIn("OPENAI_API_KEY", result.stdout)
+            marked = [l for l in result.stdout.splitlines() if "← NO VALUE" in l]
+            self.assertEqual(len(marked), 1)
+            self.assertIn("gemini-personal", marked[0])
+
+    def test_ls_json_has_value_booleans_and_no_values(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_key(base, "ls", "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            entry = data["entries"]["openai-personal"]
+            self.assertTrue(entry["has_value"])
+            self.assertEqual(
+                set(entry), {"provider", "env", "scope", "has_value"}
+            )
+
+    def test_rm_removes_catalog_and_value_preserving_other_entries(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            keys, secrets = write_pair(base)
+            result = self.run_key(base, "rm", "openai-personal")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            catalog = tomllib.loads(keys.read_text(encoding="utf-8"))
+            self.assertEqual(list(catalog["keys"]), ["anthropic-personal"])
+            stored = tomllib.loads(secrets.read_text(encoding="utf-8"))
+            self.assertEqual(list(stored["secrets"]), ["anthropic-personal"])
+            self.assertIn("# hand-authored comment", keys.read_text(encoding="utf-8"))
+
+    def test_rm_unknown_name_teaches_ls(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_key(base, "rm", "nonexistent")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("key ls", result.stderr)
+
+    def test_rm_removes_an_orphan_value_by_name(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            (base / "keys.toml").write_text(KEYS_HEADER_STUB, encoding="utf-8")
+            (base / "secrets.toml").write_text(
+                f"[secrets]\nstray = '{SENTINEL}'\n", encoding="utf-8"
+            )
+            result = self.run_key(base, "rm", "stray")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("orphan", result.stdout)
+            stored = tomllib.loads((base / "secrets.toml").read_text(encoding="utf-8"))
+            self.assertEqual(stored["secrets"], {})
+
+
+KEYS_HEADER_STUB = "# empty catalog\n"
+
+
+class KeyRunCliTest(KeyCliBase):
+    """`lb key run` — injection at exec; values only ever enter the child's env.
+
+    The isolation flags go BEFORE the `--` (everything after it belongs to the child),
+    so this class builds argv itself instead of using `run_key`.
+    """
+
+    CHECK = (
+        "import os, sys; "
+        f"sys.exit(0 if os.environ.get('OPENAI_API_KEY') == '{SENTINEL}' else 3)"
+    )
+
+    def run_run(self, base: Path, names: str, *child: str, raw: tuple[str, ...] = ()):
+        result = subprocess.run(
+            script_argv(
+                SCRIPT,
+                "key", "run", *((names,) if names else ()),
+                "--keys", str(base / "keys.toml"),
+                "--secrets", str(base / "secrets.toml"),
+                *raw,
+                *(("--",) + child if child else ()),
+            ),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        self.assert_no_secret(result)
+        return result
+
+    def test_injects_the_value_into_the_child_env_only(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(base, "openai-personal", sys.executable, "-c", self.CHECK)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_child_exit_code_passes_through(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(
+                base, "openai-personal", sys.executable, "-c", "import sys; sys.exit(7)"
+            )
+            self.assertEqual(result.returncode, 7)
+
+    def test_two_names_inject_both_vars(self):
+        check = (
+            "import os, sys; "
+            f"ok = os.environ.get('OPENAI_API_KEY') == '{SENTINEL}' "
+            f"and os.environ.get('ANTHROPIC_API_KEY') == '{SENTINEL}-2'; "
+            "sys.exit(0 if ok else 3)"
+        )
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(
+                base, "openai-personal,anthropic-personal", sys.executable, "-c", check
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_missing_separator_is_a_usage_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(base, "openai-personal", raw=(sys.executable, "-V"))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("`--` is required", result.stderr)
+
+    def test_unknown_name_teaches_ls(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(base, "nonexistent", sys.executable, "-V")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("key ls", result.stderr)
+
+    def test_env_collision_between_selected_names_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            keys, _ = write_pair(base)
+            grown = lb_keys.append_key(
+                keys.read_text(encoding="utf-8"),
+                "openai-image-gen", "openai", "OPENAI_API_KEY", "image gen",
+            )
+            keys.write_text(grown, encoding="utf-8")
+            result = self.run_run(
+                base, "openai-personal,openai-image-gen", sys.executable, "-V"
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("both inject $OPENAI_API_KEY", result.stderr)
+
+    def test_metadata_without_value_is_refused_teaching_doctor(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base, secrets_body="[secrets]\n")
+            result = self.run_run(base, "openai-personal", sys.executable, "-V")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("no stored value", result.stderr)
+            self.assertIn("key doctor", result.stderr)
+
+    def test_absent_catalog_is_refused_teaching_add(self):
+        with tempfile.TemporaryDirectory() as d:
+            result = self.run_run(Path(d), "any", sys.executable, "-V")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("key add", result.stderr)
+
+    def test_failed_exec_is_127(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(base, "openai-personal", "./no-such-binary-xyz")
+            self.assertEqual(result.returncode, 127)
+            self.assertIn("cannot exec", result.stderr)
+
+    def test_child_flags_and_a_second_separator_pass_through_untouched(self):
+        probe = "import sys; print(sys.argv[1:]); sys.exit(0)"
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_run(
+                base, "openai-personal",
+                sys.executable, "-c", probe, "--json", "--", "--keys",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), "['--json', '--', '--keys']")
+
+
+@unittest.skipIf(
+    os.name == "nt" or os.geteuid() == 0, "POSIX permission semantics (non-root)"
+)
+class DeniedSecretsTest(KeyCliBase):
+    """A secrets file this environment cannot even stat (the agent-sandbox deny) is an
+    expected state, not rot: reads degrade to notes, only `run` refuses — teaching the
+    sandbox-disabled move — and nothing ever tracebacks."""
+
+    def locked_pair(self, base: Path):
+        """keys.toml readable; secrets.toml behind a 0o000 directory."""
+        (base / "keys.toml").write_text(KEYS_BODY, encoding="utf-8")
+        locked = base / "locked"
+        locked.mkdir()
+        (locked / "secrets.toml").write_text(SECRETS_BODY, encoding="utf-8")
+        locked.chmod(0o000)
+        return locked / "secrets.toml", locked
+
+    def run_denied(self, base: Path, secrets: Path, *args: str):
+        return subprocess.run(
+            script_argv(
+                SCRIPT, "key", *args,
+                "--keys", str(base / "keys.toml"), "--secrets", str(secrets),
+            ),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+    def test_reader_returns_the_denied_state(self):
+        with tempfile.TemporaryDirectory() as d:
+            secrets, locked = self.locked_pair(Path(d))
+            try:
+                names, error = lb_keys.load_secret_names(secrets)
+            finally:
+                locked.chmod(0o700)
+            self.assertIsNone(names)
+            self.assertEqual(error, lb_keys.SECRETS_DENIED)
+
+    def test_ls_degrades_to_a_note_and_still_lists_the_catalog(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            secrets, locked = self.locked_pair(base)
+            try:
+                result = self.run_denied(base, secrets, "ls")
+            finally:
+                locked.chmod(0o700)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("openai-personal", result.stdout)
+            self.assertIn("guardrail", result.stderr)
+            self.assertNotIn("← NO VALUE", result.stdout)  # presence unknown ≠ missing
+
+    def test_doctor_notes_the_denial_without_calling_it_rot(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            secrets, locked = self.locked_pair(base)
+            try:
+                result = self.run_denied(base, secrets, "doctor")
+            finally:
+                locked.chmod(0o700)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("no problems", result.stdout)
+            self.assertIn("values unaudited", result.stderr)
+
+    def test_run_refuses_teaching_the_sandbox_disabled_move(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            secrets, locked = self.locked_pair(base)
+            try:
+                result = subprocess.run(
+                    script_argv(
+                        SCRIPT, "key", "run", "openai-personal",
+                        "--keys", str(base / "keys.toml"), "--secrets", str(secrets),
+                        "--", sys.executable, "-V",
+                    ),
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                )
+            finally:
+                locked.chmod(0o700)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("human-approved", result.stderr)
+            self.assert_no_secret(result)
+
+
+class KeyDoctorCliTest(KeyCliBase):
+    """`lb key doctor` — exit 1 iff problems; absent files audit clean (not opted in)."""
+
+    def test_clean_pair_has_no_problems(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_key(base, "doctor")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("no problems", result.stdout)
+
+    def test_absent_files_audit_clean(self):
+        with tempfile.TemporaryDirectory() as d:
+            result = self.run_key(Path(d), "doctor")
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_findings_exit_1_with_kind_tags(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(
+                base,
+                keys_body='[keys.valueless]\nprovider = "p"\nenv = "V_KEY"\nscope = "s"\n',
+                secrets_body=f"[secrets]\nstray = '{SENTINEL}'\n",
+            )
+            result = self.run_key(base, "doctor")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("[no-value]", result.stdout)
+            self.assertIn("[orphan-value]", result.stdout)
+
+    def test_unreadable_files_are_bad_kind_findings(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base, keys_body="not = toml = at all", secrets_body="also = bad =")
+            result = self.run_key(base, "doctor", "--json")
+            self.assertEqual(result.returncode, 1)
+            kinds = [p["kind"] for p in json.loads(result.stdout)["problems"]]
+            self.assertIn("bad-keys", kinds)
+            self.assertIn("bad-secrets", kinds)
+
+    @unittest.skipIf(os.name == "nt", "POSIX mode bits")
+    def test_loose_mode_is_a_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            _, secrets = write_pair(base)
+            secrets.chmod(0o644)
+            result = self.run_key(base, "doctor")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("[bad-mode]", result.stdout)
+
+    def test_json_shape(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_key(base, "doctor", "--json")
+            data = json.loads(result.stdout)
+            self.assertEqual(set(data), {"keys", "secrets", "problems"})
+            self.assertEqual(data["problems"], [])
+
+
+class StatusKeysLineTest(KeyCliBase):
+    """The `keys` line on `lb status` — three states, catalog only (secrets never opened)."""
+
+    def run_status(self, base: Path, *extra: str):
+        result = subprocess.run(
+            script_argv(
+                SCRIPT,
+                "status",
+                "--registry", str(base / "no-registry.toml"),
+                "--graph", str(base / "no-graph.toml"),
+                "--keys", str(base / "keys.toml"),
+                *extra,
+            ),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env={**os.environ, "LIGHTBRIDGE_STATE_DIR": str(base / "state")},
+        )
+        self.assert_no_secret(result)
+        return result
+
+    def test_absent_catalog_teaches_add(self):
+        with tempfile.TemporaryDirectory() as d:
+            result = self.run_status(Path(d))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            line = [l for l in result.stdout.splitlines() if l.startswith("keys")]
+            self.assertEqual(len(line), 1)
+            self.assertIn("absent", line[0])
+            self.assertIn("key add", line[0])
+
+    def test_present_catalog_counts_keys(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_status(base)
+            line = [l for l in result.stdout.splitlines() if l.startswith("keys")][0]
+            self.assertIn("2 key(s)", line)
+
+    def test_unreadable_catalog_is_flagged_not_fatal(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            (base / "keys.toml").write_text("not = toml = at all", encoding="utf-8")
+            result = self.run_status(base)
+            self.assertEqual(result.returncode, 0, result.stderr)  # config, not keys, gates exit
+            line = [l for l in result.stdout.splitlines() if l.startswith("keys")][0]
+            self.assertIn("UNREADABLE", line)
+
+    def test_json_sub_object(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_status(base, "--json")
+            data = json.loads(result.stdout)
+            self.assertEqual(data["keys"], {"present": True, "error": None, "count": 2})
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

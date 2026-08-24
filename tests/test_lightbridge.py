@@ -525,16 +525,17 @@ class ToggleCliTest(CliHarness):
 class StatusCliTest(CliHarness):
     JSON_KEYS = {
         "root", "key", "config", "exists", "error", "sections",
-        "unknown_sections", "state", "registry", "graph", "legacy",
+        "unknown_sections", "state", "registry", "graph", "keys", "legacy",
     }
 
     def status(self, state: Path, proj: Path, *extra: str) -> subprocess.CompletedProcess:
-        # --registry and --graph pinned to missing files so the runner's real
+        # --registry, --graph, and --keys pinned to missing files so the runner's real
         # ~/.lightbridge never leaks into assertions.
         return self.run_cli(
             state, "status", "--start", str(proj),
             "--registry", str(state / "no-registry.toml"),
-            "--graph", str(state / "no-graph.toml"), *extra,
+            "--graph", str(state / "no-graph.toml"),
+            "--keys", str(state / "no-keys.toml"), *extra,
         )
 
     def test_absent_config_exits_0_and_teaches_init(self):
@@ -1271,7 +1272,10 @@ class CliContractTest(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("╭", result.stdout)
-        self.assertIn("Spec: the lightbridge-config skill.", result.stdout)
+        # Whitespace-normalized: click reflows the epilog, so the sentence may wrap.
+        self.assertIn(
+            "Spec: the lightbridge-config skill.", " ".join(result.stdout.split())
+        )
 
 
 class SectionsTest(unittest.TestCase):

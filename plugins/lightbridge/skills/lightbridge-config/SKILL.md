@@ -2,12 +2,13 @@
 name: lightbridge-config
 description: >-
   Bootstrap and manage the personal .lightbridge namespace — per-project config sections
-  plus user-level state (handoffs, plans, repos.toml, graph.toml). Use when setting up or
-  extending lightbridge config for a repo, enabling or adding a section, asking what
-  .lightbridge supports, or locating user-level lightbridge state. For linking repos in
-  the cross-repo graph, use the repo-graph skill.
+  plus user-level state (handoffs, plans, repos.toml, graph.toml, keys.toml). Use when
+  setting up or extending lightbridge config for a repo, enabling or adding a section,
+  asking what .lightbridge supports, or locating user-level lightbridge state. For
+  linking repos in the cross-repo graph, use the repo-graph skill; for running
+  inference with personal LLM API keys, use the llm-keys skill.
 metadata:
-  version: "2026-08-16"
+  version: "2026-08-24"
 ---
 
 # .lightbridge config
@@ -28,8 +29,10 @@ key = root path with separators → `-`.
 The same tree holds durable, harness-neutral **state**: `projects/<key>/handoffs/` (the
 `handoff` skill), `projects/<key>/plans/` (approved plan-mode plans, filed by
 `hooks/plan-capture`), `~/.lightbridge/repos.toml` (the personal name→path repo
-registry), and `~/.lightbridge/graph.toml` (the cross-repo graph — typed edges between
-registered repos; spec: the **repo-graph** skill).
+registry), `~/.lightbridge/graph.toml` (the cross-repo graph — typed edges between
+registered repos; spec: the **repo-graph** skill), and `~/.lightbridge/keys.toml` +
+`secrets.toml` (personal LLM API keys: agent-readable catalog + injected-only values;
+spec: the **llm-keys** skill).
 
 Full spec (conventions, sections, keys, who reads them): [`references/catalog.md`](references/catalog.md).
 
@@ -50,6 +53,7 @@ lb sections              # what can go in a config, and who reads it
 lb path                  # where this project's config lives (+ exists?)
 lb repos list|add|rm     # manage ~/.lightbridge/repos.toml (add never clobbers a name)
 lb graph …               # the cross-repo graph — see the repo-graph skill
+lb key …                 # personal LLM API keys — see the llm-keys skill
 lb mv OLD NEW            # move/rename a repo (or parent dir) + repair all bookkeeping
 lb doctor                # audit the whole tree (stale roots, legacy files)
 ```

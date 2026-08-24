@@ -14,6 +14,7 @@ loads this one. See `docs/lightbridge/adr/0001-modular-lightbridge.md`.
     lb_catalog.py   the section catalog + config-document assembly
     lb_registry.py  ~/.lightbridge/repos.toml
     lb_graph.py     ~/.lightbridge/graph.toml — the cross-repo graph document
+    lb_keys.py      ~/.lightbridge/keys.toml + secrets.toml — personal LLM API keys
     lb_doctor.py    tree audit
     lb_mv.py        plan_mv + apply_mv
     lb_commands.py  the cmd_* verb handlers
@@ -41,6 +42,11 @@ directory on `sys.path[0]` — so they work through the `~/.local/bin/lb` shim t
     lightbridge graph doctor         # audit the graph; exit 1 on problems
     lightbridge graph mermaid        # flowchart of the whole graph, to stdout
     lightbridge graph html --out g.html          # self-contained interactive viz
+    lightbridge key ls               # personal LLM API keys: the catalog — never values
+    lightbridge key add NAME --provider P --env VAR --scope TEXT   # value via hidden prompt/stdin
+    lightbridge key run NAME -- CMD  # inject the value into CMD's env and exec (127: exec failed)
+    lightbridge key rm NAME          # remove entry + value (rm+add = rotate; no `key get` exists)
+    lightbridge key doctor           # audit the catalog/values pair; exit 1 on problems
     lightbridge mv OLD NEW           # move/rename a repo (or parent dir) + repair all bookkeeping
     lightbridge doctor               # audit the whole tree; exit 1 on problems
     lightbridge doctor --json
@@ -71,6 +77,11 @@ from lb_commands import (
     cmd_graph_types,
     cmd_graph_unlink,
     cmd_init,
+    cmd_key_add,
+    cmd_key_doctor,
+    cmd_key_ls,
+    cmd_key_rm,
+    cmd_key_run,
     cmd_mv,
     cmd_path,
     cmd_repos_add,
@@ -82,6 +93,7 @@ from lb_commands import (
     cmd_toggle,
 )
 from lb_graph import BacklinkMode, BacklinkSetting
+from lb_keys import DEFAULT_KEYS, DEFAULT_SECRETS
 from lb_resolve import (
     DEFAULT_GRAPH,
     DEFAULT_REGISTRY,
@@ -90,7 +102,7 @@ from lb_resolve import (
     use_utf8_console,
 )
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 DESCRIPTION = (
     "Create, inspect, and audit user-level .lightbridge project config "
@@ -98,11 +110,12 @@ DESCRIPTION = (
 )
 EPILOG = (
     "Exit: 0 ok · 1 refused (doctor problems, would clobber, missing "
-    "config/section/name, unreadable file) · 2 usage. "
+    "config/section/name, unreadable file) · 2 usage · 127 (`key run` only: "
+    "exec failed). "
     "Siblings (own their state, not wrapped here): plan_store.py (plans/), "
     "handoff.py (handoffs/), repo_links.py (graph.toml ego-view projection; "
-    "spec: the repo-graph skill), docs-index ([docs-index] rendering). "
-    "Spec: the lightbridge-config skill."
+    "spec: the repo-graph skill), docs-index ([docs-index] rendering), "
+    "LLM keys (the llm-keys skill). Spec: the lightbridge-config skill."
 )
 START_HELP = "Directory whose project root is resolved (default: CWD)."
 
@@ -155,7 +168,9 @@ def main() -> None:
         help=f"Personal repo registry (default: {DEFAULT_REGISTRY}).",
     )
 
-    @app.command(help="One-shot dashboard: config, sections, sibling state, registry, graph.")
+    @app.command(
+        help="One-shot dashboard: config, sections, sibling state, registry, graph, keys."
+    )
     def status(
         start: str = start_opt,
         registry: str = registry_opt,
@@ -165,9 +180,15 @@ def main() -> None:
             metavar="FILE",
             help=f"Cross-repo graph file (default: {DEFAULT_GRAPH}).",
         ),
+        keys: str = typer.Option(
+            DEFAULT_KEYS,
+            "--keys",
+            metavar="FILE",
+            help=f"LLM key catalog (default: {DEFAULT_KEYS}).",
+        ),
         json_out: bool = json_opt,
     ) -> None:
-        raise typer.Exit(cmd_status(start, registry, json_out, graph))
+        raise typer.Exit(cmd_status(start, registry, json_out, graph, keys))
 
     @app.command(help="Create this project's config (never clobbers).")
     def init(
@@ -426,6 +447,109 @@ def main() -> None:
         json_out: bool = json_opt,
     ) -> None:
         raise typer.Exit(cmd_graph_html(graph, registry, out, json_out))
+
+    key_app = typer.Typer(rich_markup_mode=None)
+    app.add_typer(
+        key_app,
+        name="key",
+        help="Personal LLM API keys: agent-readable catalog (keys.toml) + values "
+        "(secrets.toml) that are only ever injected into a child process by `key run` "
+        "— no verb prints a value, and there is no `key get`.",
+    )
+    keys_opt = typer.Option(
+        DEFAULT_KEYS,
+        "--keys",
+        metavar="FILE",
+        help=f"Key catalog (default: {DEFAULT_KEYS}).",
+    )
+    secrets_opt = typer.Option(
+        DEFAULT_SECRETS,
+        "--secrets",
+        metavar="FILE",
+        help=f"Secret values file (default: {DEFAULT_SECRETS}).",
+    )
+
+    @key_app.command(name="ls", help="The catalog: name, provider, env var, scope — never values.")
+    def key_ls(
+        keys: str = keys_opt,
+        secrets: str = secrets_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_key_ls(keys, secrets, json_out))
+
+    @key_app.command(
+        name="add",
+        help="Catalogue NAME and store its value (hidden prompt on a TTY; piped stdin "
+        "otherwise, e.g. `pbpaste | lb key add ...`). Refuses an existing name — "
+        "`key rm` first; that is how you rotate.",
+    )
+    def key_add(
+        name: str = typer.Argument(
+            ..., metavar="NAME", help="Per-scope key name, e.g. openai-image-gen."
+        ),
+        provider: str = typer.Option(
+            ..., "--provider", metavar="P", help="Who issued it (openai, anthropic, ...)."
+        ),
+        env: str = typer.Option(
+            ..., "--env", metavar="VAR", help="Env var `key run` injects, e.g. OPENAI_API_KEY."
+        ),
+        scope: str = typer.Option(
+            ..., "--scope", metavar="TEXT", help="One line: what this key is FOR."
+        ),
+        keys: str = keys_opt,
+        secrets: str = secrets_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_key_add(name, provider, env, scope, keys, secrets, json_out))
+
+    @key_app.command(
+        name="run",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+        help="Inject NAME's value(s) as env var(s) and exec CMD — the `--` is required. "
+        "The child's exit code passes through; 127 means the exec itself failed.",
+    )
+    def key_run(
+        names: str = typer.Argument(
+            ...,
+            metavar="NAME[,NAME...]",
+            help="Catalogued name(s); comma-separated to inject several.",
+        ),
+        cmd: list[str] = typer.Argument(None, metavar="CMD..."),
+        keys: str = keys_opt,
+        secrets: str = secrets_opt,
+    ) -> None:
+        # The `--` is mandatory so lb can never steal the child's flags; everything
+        # after the first `--` reaches `cmd` verbatim (a second `--` survives).
+        # sys.argv is entrypoint-only global access — this file is never imported.
+        if "--" not in sys.argv:
+            print(
+                "usage: lb key run NAME[,NAME...] -- CMD...\n"
+                "The `--` is required — everything after it is the child command.",
+                file=sys.stderr,
+            )
+            raise typer.Exit(2)
+        raise typer.Exit(cmd_key_run(names, cmd or [], keys, secrets))
+
+    @key_app.command(name="rm", help="Remove NAME from the catalog and its stored value.")
+    def key_rm(
+        name: str = typer.Argument(..., metavar="NAME", help="Catalogued name — see `key ls`."),
+        keys: str = keys_opt,
+        secrets: str = secrets_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_key_rm(name, keys, secrets, json_out))
+
+    @key_app.command(
+        name="doctor",
+        help="Audit the catalog/values pair for rot (valueless entries, orphan values, "
+        "loose file mode); exit 1 on problems.",
+    )
+    def key_doctor(
+        keys: str = keys_opt,
+        secrets: str = secrets_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_key_doctor(keys, secrets, json_out))
 
     @app.command(
         help="Move/rename a repo (or parent dir) and repair all lightbridge bookkeeping. "
