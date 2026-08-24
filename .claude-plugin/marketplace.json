@@ -72,6 +72,14 @@
       "tags": ["pdf", "docx", "markdown", "parsing"]
     },
     {
+      "name": "creative",
+      "displayName": "Creative",
+      "source": "./plugins/creative",
+      "description": "Creative asset generation — generate and edit images (logos, website/presentation assets, infographics, test fixtures) with OpenAI gpt-image-2 via a deterministic bundled CLI.",
+      "category": "productivity",
+      "tags": ["image-generation", "gpt-image", "logo", "infographic"]
+    },
+    {
       "name": "experiment",
       "displayName": "Experiment",
       "source": "./plugins/experiment",

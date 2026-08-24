@@ -33,6 +33,7 @@ test:
     uv run tests/test_handoff_hook.py
     uv run tests/test_package.py
     uv run tests/test_research_kit.py
+    uv run tests/test_imagegen.py
     uv run tests/test_plan_store.py
     uv run tests/test_notebook_tools.py
     uv run tests/test_codex_plugin.py
