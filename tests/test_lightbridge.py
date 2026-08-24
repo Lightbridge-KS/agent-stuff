@@ -1272,7 +1272,10 @@ class CliContractTest(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("╭", result.stdout)
-        self.assertIn("Spec: the lightbridge-config skill.", result.stdout)
+        # Whitespace-normalized: click reflows the epilog, so the sentence may wrap.
+        self.assertIn(
+            "Spec: the lightbridge-config skill.", " ".join(result.stdout.split())
+        )
 
 
 class SectionsTest(unittest.TestCase):

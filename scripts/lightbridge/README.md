@@ -77,13 +77,20 @@ lightbridge graph unlink|set A B    # remove / edit an edge in place
 lightbridge graph doctor            # audit the graph; exit 1 on problems
 lightbridge graph mermaid           # flowchart to stdout
 lightbridge graph html --out FILE   # self-contained interactive viz
+lightbridge key ls                  # personal LLM API keys: the catalog — never values
+lightbridge key add NAME --provider P --env VAR --scope TEXT   # value via hidden prompt / stdin
+lightbridge key run NAME -- CMD...  # inject the value into CMD's env and exec (127: exec failed)
+lightbridge key rm NAME             # remove catalog entry + stored value (rm+add = rotate)
+lightbridge key doctor              # audit catalog/values pair; exit 1 on problems
 lightbridge mv OLD NEW              # move/rename a repo (or parent dir) + repair all bookkeeping
 lightbridge doctor                  # audit the whole tree; exit 1 on problems
 ```
 
-Every verb takes `--json`; the project-scoped verbs (`status` / `init` / `add` / `show` /
-`enable` / `disable` / `path`) take `--start DIR`; `status`, `repos`, `graph`, `mv`, and
-`doctor` take `--registry FILE`; `status` and every `graph` verb take `--graph FILE`.
+Every verb takes `--json` (except `key run` — on success the process is replaced); the
+project-scoped verbs (`status` / `init` / `add` / `show` / `enable` / `disable` / `path`)
+take `--start DIR`; `status`, `repos`, `graph`, `mv`, and `doctor` take `--registry FILE`;
+`status` and every `graph` verb take `--graph FILE`; `status` and every `key` verb take
+`--keys FILE` (the `key` verbs also `--secrets FILE`).
 Graph design: [`docs/lightbridge/lightbridge-graph.md`](../../docs/lightbridge/lightbridge-graph.md);
 agent-facing usage: the `repo-graph` skill.
 
@@ -111,6 +118,18 @@ committed): `add` creates the file on first use and refuses to overwrite an exis
 (exit 1 — `rm` first); a path that doesn't exist yet registers with a note (pre-clone is
 legitimate); `list` marks dead paths instead of hiding them.
 
+**Key** manages personal LLM API keys as a two-layer split (ADR 0003):
+`~/.lightbridge/keys.toml` — the agent-readable catalog (`[keys.<name>]`: `provider`,
+`env`, `scope`; named per scope — `openai-personal`, `openai-image-gen`) — and
+`~/.lightbridge/secrets.toml` — the values (mode 0600, deny-listed in the agent
+harness). **No verb prints a value and there is no `key get`**: the one consumer is
+`key run NAME[,NAME...] -- CMD`, which injects each name's `env` variable into the
+child env and execs (POSIX `execvpe`; `subprocess` on Windows). The child's exit code
+passes through untranslated; a failed exec is `127` (the `env(1)` convention — the one
+deliberate step outside the 0/1/2 taxonomy). `add` acquires the value via hidden TTY
+prompt or piped stdin and refuses an existing name — rotation is `rm` + `add`.
+Agent-facing usage: the `llm-keys` skill.
+
 **Mv** repairs what a repo move/rename breaks (everything here is keyed by path): re-keys
 `projects/<key>/` with its state, rewrites the `root` marker, and fixes matching
 `repos.toml` paths — prefix-matched, so a parent-dir move re-keys every project beneath.
@@ -134,8 +153,8 @@ unreadable) · `2` usage.
 
 ## Module layout
 
-Since v0.5 this tool is flat sibling modules rather than one file (nine since v0.6,
-when `lb_graph.py` joined). The boundary is
+Since v0.5 this tool is flat sibling modules rather than one file (ten since v0.7,
+when `lb_keys.py` joined). The boundary is
 **the library is the read path; the CLI owns the write path** — decision and rationale in
 [`docs/lightbridge/adr/0001-modular-lightbridge.md`](../../docs/lightbridge/adr/0001-modular-lightbridge.md).
 
@@ -146,6 +165,7 @@ when `lb_graph.py` joined). The boundary is
 | `lb_catalog.py` | `SECTIONS`, `SectionName`, config-document assembly |
 | `lb_registry.py` | `~/.lightbridge/repos.toml` |
 | `lb_graph.py` | `~/.lightbridge/graph.toml` — document model, edge surgery, audit, viz |
+| `lb_keys.py` | `~/.lightbridge/keys.toml` + `secrets.toml` — LLM key catalog, 0600 write, audit |
 | `lb_doctor.py` | the tree audit |
 | `lb_mv.py` | `plan_mv` + `apply_mv` |
 | `lb_commands.py` | the `cmd_*` verb handlers |

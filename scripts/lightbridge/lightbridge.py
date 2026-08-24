@@ -14,6 +14,7 @@ loads this one. See `docs/lightbridge/adr/0001-modular-lightbridge.md`.
     lb_catalog.py   the section catalog + config-document assembly
     lb_registry.py  ~/.lightbridge/repos.toml
     lb_graph.py     ~/.lightbridge/graph.toml — the cross-repo graph document
+    lb_keys.py      ~/.lightbridge/keys.toml + secrets.toml — personal LLM API keys
     lb_doctor.py    tree audit
     lb_mv.py        plan_mv + apply_mv
     lb_commands.py  the cmd_* verb handlers
@@ -41,6 +42,11 @@ directory on `sys.path[0]` — so they work through the `~/.local/bin/lb` shim t
     lightbridge graph doctor         # audit the graph; exit 1 on problems
     lightbridge graph mermaid        # flowchart of the whole graph, to stdout
     lightbridge graph html --out g.html          # self-contained interactive viz
+    lightbridge key ls               # personal LLM API keys: the catalog — never values
+    lightbridge key add NAME --provider P --env VAR --scope TEXT   # value via hidden prompt/stdin
+    lightbridge key run NAME -- CMD  # inject the value into CMD's env and exec (127: exec failed)
+    lightbridge key rm NAME          # remove entry + value (rm+add = rotate; no `key get` exists)
+    lightbridge key doctor           # audit the catalog/values pair; exit 1 on problems
     lightbridge mv OLD NEW           # move/rename a repo (or parent dir) + repair all bookkeeping
     lightbridge doctor               # audit the whole tree; exit 1 on problems
     lightbridge doctor --json
@@ -96,7 +102,7 @@ from lb_resolve import (
     use_utf8_console,
 )
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 DESCRIPTION = (
     "Create, inspect, and audit user-level .lightbridge project config "
@@ -104,11 +110,12 @@ DESCRIPTION = (
 )
 EPILOG = (
     "Exit: 0 ok · 1 refused (doctor problems, would clobber, missing "
-    "config/section/name, unreadable file) · 2 usage. "
+    "config/section/name, unreadable file) · 2 usage · 127 (`key run` only: "
+    "exec failed). "
     "Siblings (own their state, not wrapped here): plan_store.py (plans/), "
     "handoff.py (handoffs/), repo_links.py (graph.toml ego-view projection; "
-    "spec: the repo-graph skill), docs-index ([docs-index] rendering). "
-    "Spec: the lightbridge-config skill."
+    "spec: the repo-graph skill), docs-index ([docs-index] rendering), "
+    "LLM keys (the llm-keys skill). Spec: the lightbridge-config skill."
 )
 START_HELP = "Directory whose project root is resolved (default: CWD)."
 

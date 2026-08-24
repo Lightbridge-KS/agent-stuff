@@ -25,20 +25,21 @@ capabilities exist without touching a single value.
 
 ## Milestones
 
-- [ ] M0 — this tracker (plan contracts recorded)
-- [ ] M1 — document model: `lb_keys.py` (constants, headers, KEY_NAME/ENV_NAME,
+- [x] M0 — this tracker (plan contracts recorded) — a4bfde0
+- [x] M1 — document model: `lb_keys.py` (constants, headers, KEY_NAME/ENV_NAME,
       tri-state readers, line surgery, `write_secrets` 0600, `secrets_mode_problem`,
-      `audit`) + unit-test classes of `tests/test_lb_keys.py` + justfile entry
-- [ ] M2 — catalog verbs: `lb key ls|add|rm` (wiring + `cmd_key_*` handlers) +
-      CLI tests incl. 0600 and no-secret-on-output asserts
-- [ ] M3 — `lb key run`: `--` guard, comma multi-name, env-collision refusal,
+      `audit`) + unit-test classes of `tests/test_lb_keys.py` + justfile entry — 3a28283
+- [x] M2 — catalog verbs: `lb key ls|add|rm` (wiring + `cmd_key_*` handlers) +
+      CLI tests incl. 0600 and no-secret-on-output asserts — db62e79
+- [x] M3 — `lb key run`: `--` guard, comma multi-name, env-collision refusal,
       POSIX execvpe / Windows subprocess fallback, exit-code passthrough, 127 on
-      exec failure + tests
-- [ ] M4 — `lb key doctor` + `lb status` keys line (+ `--keys` isolation flag) + tests
-- [ ] M5 — docs & skill: ADR 0003, `llm-keys` skill (usage + deny-rule snippet),
+      exec failure + tests — 8a4c609
+- [x] M4 — `lb key doctor` + `lb status` keys line (+ `--keys` isolation flag) +
+      tests — ecde2e8
+- [x] M5 — docs & skill: ADR 0003, `llm-keys` skill (usage + deny-rule snippet),
       lightbridge-config SKILL.md + catalog.md amendments ("no secrets *except*
       secrets.toml"), scripts README, docstring/epilog, `__version__` → 0.7.0
-- [ ] Gates: `bin/validate.py` + full `just test` green
+- [x] Gates: `bin/validate.py` (38 skills) + full `just test` (17 suites) green
 
 ## Confirmed contracts
 

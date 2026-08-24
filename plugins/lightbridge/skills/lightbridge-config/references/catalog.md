@@ -21,7 +21,9 @@ conventions. Adding a section? See [`extending.md`](extending.md).
   `enabled = false` disables it without deleting the block.
 - **Format:** TOML; one `[section]` per feature; keys optional unless noted.
 - **Hygiene:** the tree is personal and never committed anywhere; still no secrets,
-  tokens, or PHI.
+  tokens, or PHI — *except* `~/.lightbridge/secrets.toml`, which exists precisely to be
+  the one 0600, harness-deny-listed location for personal LLM API key values (spec: the
+  **llm-keys** skill).
 
 ## Sections
 
@@ -132,11 +134,19 @@ feature owns a subtree **or file** registered here.
     views project from it. Its *presence* is the per-machine opt-in for link injection.
     Managed by `lb graph init|link|unlink|set|show|types|doctor|mermaid|html`;
     spec: the **repo-graph** skill.
+  - `~/.lightbridge/keys.toml` + `~/.lightbridge/secrets.toml` — **personal LLM API
+    keys**, split in two layers: `keys.toml` is the agent-readable catalog (one
+    `[keys.<name>]` per key: `provider`, `env`, `scope`; named per scope —
+    `openai-personal`, `openai-image-gen`); `secrets.toml` holds the values (flat
+    `[secrets]` table, mode 0600, deny-listed in the agent harness) and is consumed
+    only by `lb key run NAME -- CMD`, which injects into a child process env and
+    execs — no verb prints a value and there is no `key get`. Managed by
+    `lb key ls|add|rm|run|doctor`; spec: the **llm-keys** skill, ADR 0003.
 - **Consumers:**
   - `lightbridge` resolver (agent-stuff `scripts/lightbridge`) — the canonical
     root/key/config resolution every reader imports, plus the CLI that writes, inspects,
     and audits configs (`status` · `init` · `add` · `show` · `enable`/`disable` ·
-    `sections` · `path` · `repos` · `mv` · `doctor`; linked onto PATH as `lb`).
+    `sections` · `path` · `repos` · `graph` · `key` · `mv` · `doctor`; linked onto PATH as `lb`).
   - `handoff` skill (agent-stuff `plugins/productivity`) — writes
     `projects/<key>/handoffs/<YYYY-MM-DD_HHMM>_<slug>.md`. The filename/frontmatter contract
     lives in that skill, not re-documented here.
@@ -150,6 +160,7 @@ feature owns a subtree **or file** registered here.
   Sync `projects/*/config.toml` via private dotfiles if it must roam; `handoffs/` is
   conversation-derived — keep it local.
 - **Hygiene:** never committed anywhere; may hold conversation-derived content, so treat the
-  tree as private. No secrets or PHI regardless.
+  tree as private. No secrets or PHI regardless — `secrets.toml` being the one deliberate
+  exception (0600, deny-listed, injected-only; see above).
 - **Growth:** a new user-level feature registers its subtree in this list and keeps its
   internals with the consumer — the [`extending.md`](extending.md) spirit applied to state.
