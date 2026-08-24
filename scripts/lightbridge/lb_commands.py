@@ -11,6 +11,7 @@ config/section/registry entry a verb needs is absent, would clobber, or is unrea
 
 from __future__ import annotations
 
+import getpass
 import json
 import sys
 from pathlib import Path
@@ -38,6 +39,19 @@ from lb_graph import (
     mermaid_text,
     remove_span,
     set_edge_key,
+)
+from lb_keys import (
+    ENV_NAME,
+    KEY_NAME,
+    KEYS_HEADER,
+    SECRETS_HEADER,
+    append_key,
+    append_secret,
+    load_keys,
+    load_secret_names,
+    remove_key,
+    remove_secret,
+    write_secrets,
 )
 from lb_mv import apply_mv, plan_mv
 from lb_registry import REGISTRY_HEADER, REPO_NAME, append_repo, remove_repo
@@ -967,6 +981,192 @@ def cmd_graph_html(
         return 0
     print(row("created", str(out)))
     print(row("graph", f"{nodes} node(s), {edges} edge(s) — open it in a browser"))
+    return 0
+
+
+# ── keys ────────────────────────────────────────────────────────────────────
+
+
+def _open_keys(keys_file: str) -> tuple[dict | None, Path, str | None]:
+    """The shared key-catalog preamble: expanded path + parsed catalog (or its error)."""
+    keys_path = Path(keys_file).expanduser()
+    catalog, error = load_keys(keys_path)
+    if error is not None:
+        print(f"key catalog is unusable: {keys_path}\n{error}", file=sys.stderr)
+    return catalog, keys_path, error
+
+
+def _key_json(keys_path: Path, action: str, name: str, entry: dict | None) -> str:
+    """The one JSON shape every key write verb prints — never a value field."""
+    return json.dumps(
+        {"keys": str(keys_path), "action": action, "name": name, "entry": entry},
+        indent=2,
+    )
+
+
+ADD_USAGE = "key add NAME --provider P --env VAR --scope TEXT"
+
+
+def cmd_key_ls(keys_file: str, secrets_file: str, json_out: bool) -> int:
+    catalog, keys_path, error = _open_keys(keys_file)
+    if error is not None:
+        return 1
+    if catalog is None:
+        print(f"no key catalog: {keys_path}  (add one: `{ADD_USAGE}`)")
+        return 0
+    stored, sec_error = load_secret_names(Path(secrets_file).expanduser())
+    if sec_error is not None:
+        print(f"note: secrets file unusable ({sec_error}) — value presence unknown.", file=sys.stderr)
+
+    if json_out:
+        print(
+            json.dumps(
+                {
+                    "keys": str(keys_path),
+                    "entries": {
+                        name: {
+                            **entry,
+                            "has_value": (name in stored) if sec_error is None else None,
+                        }
+                        for name, entry in catalog.items()
+                    },
+                },
+                indent=2,
+            )
+        )
+        return 0
+    if not catalog:
+        print(f"{keys_path}: no keys catalogued  (add one: `{ADD_USAGE}`)")
+        return 0
+    names = sorted(catalog)
+    widths = [
+        max(len(name) for name in names),
+        max(len(catalog[n]["provider"] or "?") for n in names),
+        max(len(catalog[n]["env"] or "?") for n in names),
+    ]
+    for name in names:
+        entry = catalog[name]
+        missing = ""
+        if sec_error is None and (stored is None or name not in stored):
+            missing = "   ← NO VALUE"
+        print(
+            f"{name:<{widths[0]}}  {(entry['provider'] or '?'):<{widths[1]}}  "
+            f"{(entry['env'] or '?'):<{widths[2]}}  {entry['scope'] or '?'}{missing}"
+        )
+    return 0
+
+
+def cmd_key_add(
+    name: str, provider: str, env: str, scope: str,
+    keys_file: str, secrets_file: str, json_out: bool,
+) -> int:
+    if not KEY_NAME.match(name):
+        print(f"invalid key name {name!r} — letters, digits, '-', '_' only.", file=sys.stderr)
+        return 2
+    if not ENV_NAME.match(env):
+        print(
+            f"invalid env var name {env!r} — [A-Z_][A-Z0-9_]* (e.g. OPENAI_API_KEY).",
+            file=sys.stderr,
+        )
+        return 2
+    catalog, keys_path, error = _open_keys(keys_file)
+    if error is not None:
+        return 1
+    if catalog is not None and name in catalog:
+        print(
+            f"{name!r} is already catalogued → ${catalog[name]['env']}\n"
+            f"`key rm {name}` first — values are write-only, so re-adding is how you rotate.",
+            file=sys.stderr,
+        )
+        return 1
+    secrets_path = Path(secrets_file).expanduser()
+    stored, sec_error = load_secret_names(secrets_path)
+    if sec_error is not None:
+        print(f"secrets file is unusable: {secrets_path}\n{sec_error}", file=sys.stderr)
+        return 1
+    if stored is not None and name in stored:
+        print(
+            f"a stored value for {name!r} already exists (no catalog entry — an orphan).\n"
+            f"`key rm {name}` removes it, then re-add.",
+            file=sys.stderr,
+        )
+        return 1
+
+    # The value never transits argv or any output — hidden prompt on a TTY, piped
+    # stdin otherwise (`pbpaste | lb key add ...`).
+    if sys.stdin.isatty():
+        value = getpass.getpass(f"value for {name} (hidden): ")
+    else:
+        value = sys.stdin.read().strip()
+    if not value:
+        print("empty value — nothing stored.", file=sys.stderr)
+        return 1
+
+    # Secrets first: a failed secret write must not leave catalog metadata pointing at
+    # nothing (the reverse orphan is harmless and doctor-visible).
+    secrets_path.parent.mkdir(parents=True, exist_ok=True)
+    secrets_text = (
+        secrets_path.read_text(encoding="utf-8") if secrets_path.is_file() else SECRETS_HEADER
+    )
+    write_secrets(secrets_path, append_secret(secrets_text, name, value))
+    keys_text = (
+        keys_path.read_text(encoding="utf-8") if keys_path.is_file() else KEYS_HEADER
+    )
+    keys_path.parent.mkdir(parents=True, exist_ok=True)
+    keys_path.write_text(append_key(keys_text, name, provider, env, scope), encoding="utf-8")
+
+    entry = {"provider": provider, "env": env, "scope": scope}
+    if json_out:
+        print(_key_json(keys_path, "added", name, entry))
+        return 0
+    print(row("updated", str(keys_path)))
+    print(row("added", f"{name}  {provider} → ${env}"))
+    print(row("value", f"stored (never printed) — use it: `key run {name} -- CMD`"))
+    return 0
+
+
+def cmd_key_rm(name: str, keys_file: str, secrets_file: str, json_out: bool) -> int:
+    catalog, keys_path, error = _open_keys(keys_file)
+    if error is not None:
+        return 1
+    secrets_path = Path(secrets_file).expanduser()
+    stored, sec_error = load_secret_names(secrets_path)
+    if sec_error is not None:
+        print(f"secrets file is unusable: {secrets_path}\n{sec_error}", file=sys.stderr)
+        return 1
+    in_catalog = catalog is not None and name in catalog
+    has_value = stored is not None and name in stored
+    if not in_catalog and not has_value:
+        print(f"{name!r} is not catalogued — see `key ls`.", file=sys.stderr)
+        return 1
+
+    if in_catalog:
+        text = remove_key(keys_path.read_text(encoding="utf-8"), name)
+        if text is None:
+            print(
+                f"couldn't find {name!r}'s block in {keys_path} — a shape this tool "
+                f"doesn't manage; edit the file directly.",
+                file=sys.stderr,
+            )
+            return 1
+        keys_path.write_text(text, encoding="utf-8")
+    if has_value:
+        text = remove_secret(secrets_path.read_text(encoding="utf-8"), name)
+        if text is None:
+            print(
+                f"couldn't find {name!r}'s line in {secrets_path} — a shape this tool "
+                f"doesn't manage; edit the file directly.",
+                file=sys.stderr,
+            )
+            return 1
+        write_secrets(secrets_path, text)
+
+    if json_out:
+        print(_key_json(keys_path, "removed", name, None))
+        return 0
+    print(row("updated", str(keys_path)))
+    removed = name if in_catalog else f"{name} (orphan value only)"
+    print(row("removed", f"{removed}{' + stored value' if in_catalog and has_value else ''}"))
     return 0
 
 

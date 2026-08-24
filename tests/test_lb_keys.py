@@ -324,5 +324,166 @@ class AuditTest(unittest.TestCase):
         self.assertEqual(self.audit(keys, ["openai-personal", "openai-image-gen"]), [])
 
 
+class KeyCliBase(unittest.TestCase):
+    """Shared runner for the `lb key` verbs — isolated via `--keys`/`--secrets`, with
+    the governing no-secret-on-output assertion applied to every result."""
+
+    def run_key(self, base: Path, *args: str, stdin: str | None = None):
+        result = subprocess.run(
+            script_argv(
+                SCRIPT,
+                "key",
+                *args,
+                "--keys",
+                str(base / "keys.toml"),
+                "--secrets",
+                str(base / "secrets.toml"),
+            ),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            input=stdin,
+        )
+        self.assert_no_secret(result)
+        return result
+
+    def assert_no_secret(self, result):
+        self.assertNotIn(SENTINEL, result.stdout)
+        self.assertNotIn(SENTINEL, result.stderr)
+
+
+class KeyCatalogCliTest(KeyCliBase):
+    """`lb key ls|add|rm` as subprocesses."""
+
+    def test_add_creates_both_files_0600_and_never_prints_the_value(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            result = self.run_key(
+                base, "add", "openai-personal",
+                "--provider", "openai", "--env", "OPENAI_API_KEY", "--scope", "general",
+                stdin=f"{SENTINEL}\n",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            catalog = tomllib.loads((base / "keys.toml").read_text(encoding="utf-8"))
+            self.assertEqual(catalog["keys"]["openai-personal"]["env"], "OPENAI_API_KEY")
+            secrets = tomllib.loads((base / "secrets.toml").read_text(encoding="utf-8"))
+            self.assertEqual(secrets["secrets"]["openai-personal"], SENTINEL)
+            if os.name != "nt":
+                self.assertEqual((base / "secrets.toml").stat().st_mode & 0o777, 0o600)
+
+    def test_add_refuses_an_existing_name_teaching_rm_and_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            keys, secrets = write_pair(base)
+            before = keys.read_bytes(), secrets.read_bytes()
+            result = self.run_key(
+                base, "add", "openai-personal",
+                "--provider", "openai", "--env", "OPENAI_API_KEY", "--scope", "again",
+                stdin="sk-other\n",
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("key rm openai-personal", result.stderr)
+            self.assertEqual((keys.read_bytes(), secrets.read_bytes()), before)
+
+    def test_add_refusals_are_usage_errors_for_bad_shapes(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            bad_name = self.run_key(
+                base, "add", "bad name",
+                "--provider", "p", "--env", "A_KEY", "--scope", "s", stdin="v\n",
+            )
+            self.assertEqual(bad_name.returncode, 2)
+            bad_env = self.run_key(
+                base, "add", "ok-name",
+                "--provider", "p", "--env", "lower", "--scope", "s", stdin="v\n",
+            )
+            self.assertEqual(bad_env.returncode, 2)
+            self.assertFalse((base / "keys.toml").exists())
+
+    def test_add_refuses_an_empty_value(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            result = self.run_key(
+                base, "add", "a", "--provider", "p", "--env", "A_KEY", "--scope", "s",
+                stdin="  \n",
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("empty value", result.stderr)
+            self.assertFalse((base / "keys.toml").exists())
+            self.assertFalse((base / "secrets.toml").exists())
+
+    def test_ls_absent_catalog_teaches_add_and_exits_zero(self):
+        with tempfile.TemporaryDirectory() as d:
+            result = self.run_key(Path(d), "ls")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("key add", result.stdout)
+
+    def test_ls_shows_the_catalog_and_marks_missing_values(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            grown = lb_keys.append_key(
+                (base / "keys.toml").read_text(encoding="utf-8"),
+                "gemini-personal", "google", "GEMINI_API_KEY", "general",
+            )
+            (base / "keys.toml").write_text(grown, encoding="utf-8")
+            result = self.run_key(base, "ls")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("openai-personal", result.stdout)
+            self.assertIn("OPENAI_API_KEY", result.stdout)
+            marked = [l for l in result.stdout.splitlines() if "← NO VALUE" in l]
+            self.assertEqual(len(marked), 1)
+            self.assertIn("gemini-personal", marked[0])
+
+    def test_ls_json_has_value_booleans_and_no_values(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_key(base, "ls", "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(result.stdout)
+            entry = data["entries"]["openai-personal"]
+            self.assertTrue(entry["has_value"])
+            self.assertEqual(
+                set(entry), {"provider", "env", "scope", "has_value"}
+            )
+
+    def test_rm_removes_catalog_and_value_preserving_other_entries(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            keys, secrets = write_pair(base)
+            result = self.run_key(base, "rm", "openai-personal")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            catalog = tomllib.loads(keys.read_text(encoding="utf-8"))
+            self.assertEqual(list(catalog["keys"]), ["anthropic-personal"])
+            stored = tomllib.loads(secrets.read_text(encoding="utf-8"))
+            self.assertEqual(list(stored["secrets"]), ["anthropic-personal"])
+            self.assertIn("# hand-authored comment", keys.read_text(encoding="utf-8"))
+
+    def test_rm_unknown_name_teaches_ls(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_key(base, "rm", "nonexistent")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("key ls", result.stderr)
+
+    def test_rm_removes_an_orphan_value_by_name(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            (base / "keys.toml").write_text(KEYS_HEADER_STUB, encoding="utf-8")
+            (base / "secrets.toml").write_text(
+                f"[secrets]\nstray = '{SENTINEL}'\n", encoding="utf-8"
+            )
+            result = self.run_key(base, "rm", "stray")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("orphan", result.stdout)
+            stored = tomllib.loads((base / "secrets.toml").read_text(encoding="utf-8"))
+            self.assertEqual(stored["secrets"], {})
+
+
+KEYS_HEADER_STUB = "# empty catalog\n"
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

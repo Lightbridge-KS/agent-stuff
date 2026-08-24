@@ -71,6 +71,9 @@ from lb_commands import (
     cmd_graph_types,
     cmd_graph_unlink,
     cmd_init,
+    cmd_key_add,
+    cmd_key_ls,
+    cmd_key_rm,
     cmd_mv,
     cmd_path,
     cmd_repos_add,
@@ -82,6 +85,7 @@ from lb_commands import (
     cmd_toggle,
 )
 from lb_graph import BacklinkMode, BacklinkSetting
+from lb_keys import DEFAULT_KEYS, DEFAULT_SECRETS
 from lb_resolve import (
     DEFAULT_GRAPH,
     DEFAULT_REGISTRY,
@@ -426,6 +430,69 @@ def main() -> None:
         json_out: bool = json_opt,
     ) -> None:
         raise typer.Exit(cmd_graph_html(graph, registry, out, json_out))
+
+    key_app = typer.Typer(rich_markup_mode=None)
+    app.add_typer(
+        key_app,
+        name="key",
+        help="Personal LLM API keys: agent-readable catalog (keys.toml) + values "
+        "(secrets.toml) that are only ever injected into a child process by `key run` "
+        "— no verb prints a value, and there is no `key get`.",
+    )
+    keys_opt = typer.Option(
+        DEFAULT_KEYS,
+        "--keys",
+        metavar="FILE",
+        help=f"Key catalog (default: {DEFAULT_KEYS}).",
+    )
+    secrets_opt = typer.Option(
+        DEFAULT_SECRETS,
+        "--secrets",
+        metavar="FILE",
+        help=f"Secret values file (default: {DEFAULT_SECRETS}).",
+    )
+
+    @key_app.command(name="ls", help="The catalog: name, provider, env var, scope — never values.")
+    def key_ls(
+        keys: str = keys_opt,
+        secrets: str = secrets_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_key_ls(keys, secrets, json_out))
+
+    @key_app.command(
+        name="add",
+        help="Catalogue NAME and store its value (hidden prompt on a TTY; piped stdin "
+        "otherwise, e.g. `pbpaste | lb key add ...`). Refuses an existing name — "
+        "`key rm` first; that is how you rotate.",
+    )
+    def key_add(
+        name: str = typer.Argument(
+            ..., metavar="NAME", help="Per-scope key name, e.g. openai-image-gen."
+        ),
+        provider: str = typer.Option(
+            ..., "--provider", metavar="P", help="Who issued it (openai, anthropic, ...)."
+        ),
+        env: str = typer.Option(
+            ..., "--env", metavar="VAR", help="Env var `key run` injects, e.g. OPENAI_API_KEY."
+        ),
+        scope: str = typer.Option(
+            ..., "--scope", metavar="TEXT", help="One line: what this key is FOR."
+        ),
+        keys: str = keys_opt,
+        secrets: str = secrets_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_key_add(name, provider, env, scope, keys, secrets, json_out))
+
+    @key_app.command(name="rm", help="Remove NAME from the catalog and its stored value.")
+    def key_rm(
+        name: str = typer.Argument(..., metavar="NAME", help="Catalogued name — see `key ls`."),
+        keys: str = keys_opt,
+        secrets: str = secrets_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_key_rm(name, keys, secrets, json_out))
 
     @app.command(
         help="Move/rename a repo (or parent dir) and repair all lightbridge bookkeeping. "
