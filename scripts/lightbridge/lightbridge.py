@@ -72,6 +72,7 @@ from lb_commands import (
     cmd_graph_unlink,
     cmd_init,
     cmd_key_add,
+    cmd_key_doctor,
     cmd_key_ls,
     cmd_key_rm,
     cmd_key_run,
@@ -160,7 +161,9 @@ def main() -> None:
         help=f"Personal repo registry (default: {DEFAULT_REGISTRY}).",
     )
 
-    @app.command(help="One-shot dashboard: config, sections, sibling state, registry, graph.")
+    @app.command(
+        help="One-shot dashboard: config, sections, sibling state, registry, graph, keys."
+    )
     def status(
         start: str = start_opt,
         registry: str = registry_opt,
@@ -170,9 +173,15 @@ def main() -> None:
             metavar="FILE",
             help=f"Cross-repo graph file (default: {DEFAULT_GRAPH}).",
         ),
+        keys: str = typer.Option(
+            DEFAULT_KEYS,
+            "--keys",
+            metavar="FILE",
+            help=f"LLM key catalog (default: {DEFAULT_KEYS}).",
+        ),
         json_out: bool = json_opt,
     ) -> None:
-        raise typer.Exit(cmd_status(start, registry, json_out, graph))
+        raise typer.Exit(cmd_status(start, registry, json_out, graph, keys))
 
     @app.command(help="Create this project's config (never clobbers).")
     def init(
@@ -522,6 +531,18 @@ def main() -> None:
         json_out: bool = json_opt,
     ) -> None:
         raise typer.Exit(cmd_key_rm(name, keys, secrets, json_out))
+
+    @key_app.command(
+        name="doctor",
+        help="Audit the catalog/values pair for rot (valueless entries, orphan values, "
+        "loose file mode); exit 1 on problems.",
+    )
+    def key_doctor(
+        keys: str = keys_opt,
+        secrets: str = secrets_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_key_doctor(keys, secrets, json_out))
 
     @app.command(
         help="Move/rename a repo (or parent dir) and repair all lightbridge bookkeeping. "

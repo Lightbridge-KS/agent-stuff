@@ -612,5 +612,120 @@ class KeyRunCliTest(KeyCliBase):
             self.assertEqual(result.stdout.strip(), "['--json', '--', '--keys']")
 
 
+class KeyDoctorCliTest(KeyCliBase):
+    """`lb key doctor` — exit 1 iff problems; absent files audit clean (not opted in)."""
+
+    def test_clean_pair_has_no_problems(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_key(base, "doctor")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("no problems", result.stdout)
+
+    def test_absent_files_audit_clean(self):
+        with tempfile.TemporaryDirectory() as d:
+            result = self.run_key(Path(d), "doctor")
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_findings_exit_1_with_kind_tags(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(
+                base,
+                keys_body='[keys.valueless]\nprovider = "p"\nenv = "V_KEY"\nscope = "s"\n',
+                secrets_body=f"[secrets]\nstray = '{SENTINEL}'\n",
+            )
+            result = self.run_key(base, "doctor")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("[no-value]", result.stdout)
+            self.assertIn("[orphan-value]", result.stdout)
+
+    def test_unreadable_files_are_bad_kind_findings(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base, keys_body="not = toml = at all", secrets_body="also = bad =")
+            result = self.run_key(base, "doctor", "--json")
+            self.assertEqual(result.returncode, 1)
+            kinds = [p["kind"] for p in json.loads(result.stdout)["problems"]]
+            self.assertIn("bad-keys", kinds)
+            self.assertIn("bad-secrets", kinds)
+
+    @unittest.skipIf(os.name == "nt", "POSIX mode bits")
+    def test_loose_mode_is_a_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            _, secrets = write_pair(base)
+            secrets.chmod(0o644)
+            result = self.run_key(base, "doctor")
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("[bad-mode]", result.stdout)
+
+    def test_json_shape(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_key(base, "doctor", "--json")
+            data = json.loads(result.stdout)
+            self.assertEqual(set(data), {"keys", "secrets", "problems"})
+            self.assertEqual(data["problems"], [])
+
+
+class StatusKeysLineTest(KeyCliBase):
+    """The `keys` line on `lb status` — three states, catalog only (secrets never opened)."""
+
+    def run_status(self, base: Path, *extra: str):
+        result = subprocess.run(
+            script_argv(
+                SCRIPT,
+                "status",
+                "--registry", str(base / "no-registry.toml"),
+                "--graph", str(base / "no-graph.toml"),
+                "--keys", str(base / "keys.toml"),
+                *extra,
+            ),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env={**os.environ, "LIGHTBRIDGE_STATE_DIR": str(base / "state")},
+        )
+        self.assert_no_secret(result)
+        return result
+
+    def test_absent_catalog_teaches_add(self):
+        with tempfile.TemporaryDirectory() as d:
+            result = self.run_status(Path(d))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            line = [l for l in result.stdout.splitlines() if l.startswith("keys")]
+            self.assertEqual(len(line), 1)
+            self.assertIn("absent", line[0])
+            self.assertIn("key add", line[0])
+
+    def test_present_catalog_counts_keys(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_status(base)
+            line = [l for l in result.stdout.splitlines() if l.startswith("keys")][0]
+            self.assertIn("2 key(s)", line)
+
+    def test_unreadable_catalog_is_flagged_not_fatal(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            (base / "keys.toml").write_text("not = toml = at all", encoding="utf-8")
+            result = self.run_status(base)
+            self.assertEqual(result.returncode, 0, result.stderr)  # config, not keys, gates exit
+            line = [l for l in result.stdout.splitlines() if l.startswith("keys")][0]
+            self.assertIn("UNREADABLE", line)
+
+    def test_json_sub_object(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            write_pair(base)
+            result = self.run_status(base, "--json")
+            data = json.loads(result.stdout)
+            self.assertEqual(data["keys"], {"present": True, "error": None, "count": 2})
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

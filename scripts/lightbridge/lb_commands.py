@@ -43,12 +43,14 @@ from lb_graph import (
     set_edge_key,
 )
 from lb_keys import (
+    DEFAULT_KEYS,
     ENV_NAME,
     KEY_NAME,
     KEYS_HEADER,
     SECRETS_HEADER,
     append_key,
     append_secret,
+    audit as keys_audit,
     load_keys,
     load_secret_names,
     load_secrets,
@@ -313,7 +315,11 @@ def cmd_toggle(section: str, start_dir: str, json_out: bool, value: bool) -> int
 
 
 def cmd_status(
-    start_dir: str, registry_file: str, json_out: bool, graph_file: str = DEFAULT_GRAPH
+    start_dir: str,
+    registry_file: str,
+    json_out: bool,
+    graph_file: str = DEFAULT_GRAPH,
+    keys_file: str = DEFAULT_KEYS,
 ) -> int:
     start = Path(start_dir).expanduser().resolve()
     root = repo_root(start)
@@ -337,6 +343,9 @@ def cmd_status(
     }
     graph_path = Path(graph_file).expanduser()
     graph, graph_error = load_graph(graph_path)
+    # The dashboard reads only the catalog — the values file is never opened here.
+    keys_path = Path(keys_file).expanduser()
+    key_catalog, keys_error = load_keys(keys_path)
 
     if json_out:
         print(
@@ -354,6 +363,11 @@ def cmd_status(
                         "error": graph_error,
                         "edges": len(graph["edges"]) if graph else None,
                         "types": len(graph["types"]) if graph else None,
+                    },
+                    "keys": {
+                        "present": key_catalog is not None or keys_error is not None,
+                        "error": keys_error,
+                        "count": len(key_catalog) if key_catalog is not None else None,
                     },
                     "legacy": str(legacy) if legacy else None,
                 },
@@ -397,6 +411,12 @@ def cmd_status(
                 f"— repo_links.py)",
             )
         )
+    if keys_error is not None:
+        print(row("keys", f"{keys_path}  (UNREADABLE: {keys_error})"))
+    elif key_catalog is None:
+        print(row("keys", f"{keys_path}  (absent — add one with `key add`)"))
+    else:
+        print(row("keys", f"{keys_path}  ({len(key_catalog)} key(s) — lb key)"))
     if legacy:
         print(legacy_warning(legacy), file=sys.stderr)
     return 1 if error else 0
@@ -1229,6 +1249,38 @@ def cmd_key_rm(name: str, keys_file: str, secrets_file: str, json_out: bool) -> 
     removed = name if in_catalog else f"{name} (orphan value only)"
     print(row("removed", f"{removed}{' + stored value' if in_catalog and has_value else ''}"))
     return 0
+
+
+def cmd_key_doctor(keys_file: str, secrets_file: str, json_out: bool) -> int:
+    """Audit the catalog/values pair. Absent files are the not-opted-in state, not a
+    problem — an empty audit of nothing is clean."""
+    keys_path = Path(keys_file).expanduser()
+    secrets_path = Path(secrets_file).expanduser()
+    catalog, keys_error = load_keys(keys_path)
+    stored, sec_error = load_secret_names(secrets_path)
+    problems = keys_audit(catalog or {}, stored, secrets_path)
+    if sec_error is not None:
+        problems.insert(
+            0, {"kind": "bad-secrets", "subject": str(secrets_path), "detail": sec_error}
+        )
+    if keys_error is not None:
+        problems.insert(
+            0, {"kind": "bad-keys", "subject": str(keys_path), "detail": keys_error}
+        )
+    if json_out:
+        print(
+            json.dumps(
+                {"keys": str(keys_path), "secrets": str(secrets_path), "problems": problems},
+                indent=2,
+            )
+        )
+    elif not problems:
+        print(f"key doctor: {keys_path} — no problems.")
+    else:
+        print(f"key doctor: {len(problems)} problem(s) in {keys_path}:")
+        for problem in problems:
+            print(f"- [{problem['kind']}] {problem['subject']}: {problem['detail']}")
+    return 1 if problems else 0
 
 
 # ── audit ───────────────────────────────────────────────────────────────────
