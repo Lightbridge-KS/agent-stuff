@@ -24,9 +24,9 @@ function usage(exitCode = 0) {
   const stream = exitCode === 0 ? process.stdout : process.stderr;
   stream.write(`LlamaParse CLI
 
-Usage:
-  node scripts/llamaparse.cjs health
-  node scripts/llamaparse.cjs parse <input-file> [options]
+Usage (always via lb key run — it injects the key):
+  lb key run llama-cloud-personal -- node scripts/llamaparse.cjs health
+  lb key run llama-cloud-personal -- node scripts/llamaparse.cjs parse <input-file> [options]
 
 Parse options:
   --output, -o <path>              Output path. Defaults beside input.
@@ -39,9 +39,10 @@ Parse options:
   --pretty-json                    Pretty-print JSON output.
   --quiet                          Suppress progress logs.
 
-Requires LLAMA_CLOUD_API_KEY in the environment.
+Key: injected per invocation by lb key run llama-cloud-personal (llm-keys skill).
+Never paste or export a key value.
 
-Examples:
+Examples (prefix each with: lb key run llama-cloud-personal --):
   node scripts/llamaparse.cjs parse ~/Downloads/paper.pdf
   node scripts/llamaparse.cjs parse paper.pdf --output paper.md
   node scripts/llamaparse.cjs parse paper.pdf --format text
@@ -207,7 +208,10 @@ async function health(args) {
   checks.package = true;
 
   if (!checks.apiKey) {
-    process.stderr.write("ERROR: LLAMA_CLOUD_API_KEY is not set.\n");
+    process.stderr.write(
+      "ERROR: no key injected. Never paste a key — inject it per invocation:\n" +
+        "  lb key run llama-cloud-personal -- node scripts/llamaparse.cjs health\n",
+    );
     console.log(JSON.stringify(checks));
     process.exit(1);
   }
@@ -218,7 +222,10 @@ async function health(args) {
 
 async function parseFile(args) {
   if (!process.env.LLAMA_CLOUD_API_KEY) {
-    fail("LLAMA_CLOUD_API_KEY is not set.");
+    fail(
+      "no key injected. Never paste a key — inject it per invocation:\n" +
+        "  lb key run llama-cloud-personal -- node scripts/llamaparse.cjs parse ...",
+    );
   }
 
   const LlamaCloud = loadLlamaCloud();
