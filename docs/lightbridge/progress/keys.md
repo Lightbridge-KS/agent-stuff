@@ -59,6 +59,14 @@ capabilities exist without touching a single value.
 - **Exit 127 on exec failure** in `key run` — the `env(1)` convention, a
   documented step outside the 0/1/2 taxonomy; the child's own exit code passes
   through untranslated.
+- **The sandbox-denied state is expected, not rot** (found live 2026-08-24 when
+  the deny rules went in): a secrets.toml this environment cannot stat degrades
+  `ls`/`doctor` to stderr notes (exit 0; value-presence checks skipped, never
+  reported wrong) and refuses `run` with a message teaching the
+  sandbox-disabled move — every use of a key stays a human-approved act.
+  `audit(secret_names=None)` = presence unknown; absent file = `[]` = known
+  empty. Sandbox deny shape: `sandbox.filesystem.denyRead` (the llm-keys
+  skill's `references/guardrails.md`).
 
 ## Deferred (out of this effort)
 

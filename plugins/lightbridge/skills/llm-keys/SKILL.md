@@ -3,8 +3,7 @@ name: llm-keys
 description: >-
   Run inference with the user's personal LLM API keys — and manage them — via the
   `lb key` verbs (~/.lightbridge/keys.toml + secrets.toml). Use when a task needs a
-  user-level API key (OpenAI, Anthropic, Gemini, llama-cloud: image gen, OCR, document
-  parsing, general inference), when an *_API_KEY env var is missing, or when asked to
+  user-level API key, when an *_API_KEY env var is missing, or when asked to
   add, list, rotate, or audit personal keys. Values are injected-only: never read,
   print, or ask for a key value. Per-project config belongs to lightbridge-config.
 metadata:
@@ -43,6 +42,11 @@ lb key run llama-cloud -- uv run parse.py doc.pdf   # e.g. parse-to-md's LLAMA_C
 Never `lb key run NAME -- env` or otherwise echo the injected variable — the point of
 `run` is that the value bypasses you entirely.
 
+**Sandbox-denied `run` is expected**, not an error to debug: when the harness
+deny-lists secrets.toml, a sandboxed `run` is refused with exit 1 and a teaching
+message. Ask the user to approve a sandbox-disabled invocation — every use of a key
+stays a human-approved act.
+
 ## Add or rotate a key (human at the keyboard)
 
 ```bash
@@ -62,26 +66,10 @@ lb key doctor        # valueless entries, orphan values, loose file mode; exit 1
 lb status            # includes a one-line keys row
 ```
 
-## Guardrails (one-time setup, by the human)
+## Guardrails
 
-`secrets.toml` should be deny-listed in the agent harness so even a direct read is
-refused, in `~/.claude/settings.json`:
-
-```json
-{
-  "permissions": {
-    "deny": ["Read(//Users/USER/.lightbridge/secrets.toml)"]
-  },
-  "sandbox": {
-    "network": {},
-    "filesystemReadDeny": ["~/.lightbridge/secrets.toml"]
-  }
-}
-```
-
-(Adapt to the settings file's existing shape — the two entries are the point: a
-permission deny for the Read tool, and a sandbox read-deny next to the `.env*` ones.)
-The file is created 0600 by `lb key add`; `lb key doctor` flags a loosened mode.
+One-time harness setup (deny rules for secrets.toml) and how the verbs behave under
+the deny: [`references/guardrails.md`](references/guardrails.md).
 
 ## Source of truth
 

@@ -47,6 +47,7 @@ from lb_keys import (
     ENV_NAME,
     KEY_NAME,
     KEYS_HEADER,
+    SECRETS_DENIED,
     SECRETS_HEADER,
     append_key,
     append_secret,
@@ -1184,6 +1185,14 @@ def cmd_key_run(names_raw: str, cmd: list[str], keys_file: str, secrets_file: st
         env_owner[var] = name
     secrets_path = Path(secrets_file).expanduser()
     values, sec_error = load_secrets(secrets_path)
+    if sec_error == SECRETS_DENIED:
+        print(
+            f"{secrets_path}: {sec_error}.\n"
+            f"Agents: ask the user to approve a sandbox-disabled run — every use of a "
+            f"key stays a human-approved act.",
+            file=sys.stderr,
+        )
+        return 1
     if sec_error is not None:
         print(f"secrets file is unusable: {secrets_path}\n{sec_error}", file=sys.stderr)
         return 1
@@ -1258,8 +1267,16 @@ def cmd_key_doctor(keys_file: str, secrets_file: str, json_out: bool) -> int:
     secrets_path = Path(secrets_file).expanduser()
     catalog, keys_error = load_keys(keys_path)
     stored, sec_error = load_secret_names(secrets_path)
+    # Absent secrets = knowledge ([] → valueless keys are findings); denied/unreadable
+    # = ignorance (None → value-presence checks skipped, see below).
+    if stored is None and sec_error is None:
+        stored = []
     problems = keys_audit(catalog or {}, stored, secrets_path)
-    if sec_error is not None:
+    if sec_error == SECRETS_DENIED:
+        # The environment, not the file, is refusing — expected under an agent
+        # sandbox; a note, never a problem (doctor must not cry rot in every session).
+        print(f"note: {secrets_path}: {sec_error}; values unaudited.", file=sys.stderr)
+    elif sec_error is not None:
         problems.insert(
             0, {"kind": "bad-secrets", "subject": str(secrets_path), "detail": sec_error}
         )

@@ -51,6 +51,14 @@ SECRETS_HEADER = """\
 KEY_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")  # a bare TOML key (REPO_NAME's shape)
 ENV_NAME = re.compile(r"^[A-Z_][A-Z0-9_]*$")  # a conventional environment variable name
 
+# The one reason string for a secrets file this *environment* refuses to touch (an
+# agent-sandbox deny — the guardrail working, not rot). Callers compare against it to
+# tell the denied state from a genuinely unreadable file.
+SECRETS_DENIED = (
+    "access denied by this environment — an agent-sandbox deny on secrets.toml is the "
+    "guardrail working; the human can run this outside the sandbox"
+)
+
 
 def load_keys(keys: Path) -> tuple[dict[str, dict] | None, str | None]:
     """Read the key catalog, `~/.lightbridge/keys.toml`.
@@ -67,11 +75,12 @@ def load_keys(keys: Path) -> tuple[dict[str, dict] | None, str | None]:
       catalogued yet. Each field is a stripped string or None when absent/blank —
       normalization only; a missing `env` is `key doctor`'s finding, not a load error.
     """
-    if not keys.is_file():
-        return None, None
     try:
+        if not keys.is_file():
+            return None, None
         data = tomllib.loads(keys.read_text(encoding="utf-8"))
     except (tomllib.TOMLDecodeError, OSError) as exc:
+        # OSError covers a sandbox that refuses even stat() — refuse, never traceback.
         return None, f"unreadable ({exc})"
 
     table = data.get("keys")
@@ -111,10 +120,13 @@ def _load_secrets_table(secrets: Path) -> tuple[dict[str, str] | None, str | Non
 
     Error strings never embed file content — tomllib errors carry line/col, not values.
     """
-    if not secrets.is_file():
-        return None, None
     try:
+        if not secrets.is_file():
+            return None, None
         data = tomllib.loads(secrets.read_text(encoding="utf-8"))
+    except PermissionError:
+        # A sandbox deny blocks even stat(); that state is expected, not rot.
+        return None, SECRETS_DENIED
     except (tomllib.TOMLDecodeError, OSError) as exc:
         # tomllib errors carry line/col positions, never file content — safe to surface.
         return None, f"unreadable ({exc})"
@@ -237,9 +249,12 @@ def write_secrets(path: Path, text: str) -> None:
 def secrets_mode_problem(path: Path) -> str | None:
     """A one-line finding when the values file is group/other-readable; None when the
     mode is tight, the file is absent, or mode bits are meaningless (Windows)."""
-    if os.name == "nt" or not path.is_file():
-        return None
-    mode = path.stat().st_mode & 0o777
+    try:
+        if os.name == "nt" or not path.is_file():
+            return None
+        mode = path.stat().st_mode & 0o777
+    except OSError:
+        return None  # can't stat (e.g. a sandbox deny) → can't audit the mode
     if mode & 0o077 == 0:
         return None
     return f"mode {mode:03o} — group/other readable; run: chmod 600 {path}"
@@ -253,11 +268,17 @@ def audit(
 ) -> list[dict]:
     """Every catalog/values mismatch worth fixing — `{kind, subject, detail}` each.
 
+    `secret_names=None` means value presence is *unknown* (the secrets file is denied
+    or unreadable in this environment) — the value-presence checks are skipped rather
+    than reported wrong. An absent secrets file is knowledge, not ignorance: callers
+    pass `[]` for it, so every catalogued key is rightly flagged valueless.
+
     Two catalog entries sharing one `env` is deliberately NOT a finding: per-scope
     keys for one provider legitimately share a variable; only selecting both in a
     single `key run` collides, and that refusal lives there.
     """
     problems: list[dict] = []
+    presence_known = secret_names is not None
     stored = set(secret_names or [])
     for name, entry in sorted(keys.items()):
         if not KEY_NAME.match(name):
@@ -287,7 +308,7 @@ def audit(
                     "name ([A-Z_][A-Z0-9_]*)",
                 }
             )
-        if name not in stored:
+        if presence_known and name not in stored:
             problems.append(
                 {
                     "kind": "no-value",

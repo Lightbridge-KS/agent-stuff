@@ -612,6 +612,91 @@ class KeyRunCliTest(KeyCliBase):
             self.assertEqual(result.stdout.strip(), "['--json', '--', '--keys']")
 
 
+@unittest.skipIf(
+    os.name == "nt" or os.geteuid() == 0, "POSIX permission semantics (non-root)"
+)
+class DeniedSecretsTest(KeyCliBase):
+    """A secrets file this environment cannot even stat (the agent-sandbox deny) is an
+    expected state, not rot: reads degrade to notes, only `run` refuses — teaching the
+    sandbox-disabled move — and nothing ever tracebacks."""
+
+    def locked_pair(self, base: Path):
+        """keys.toml readable; secrets.toml behind a 0o000 directory."""
+        (base / "keys.toml").write_text(KEYS_BODY, encoding="utf-8")
+        locked = base / "locked"
+        locked.mkdir()
+        (locked / "secrets.toml").write_text(SECRETS_BODY, encoding="utf-8")
+        locked.chmod(0o000)
+        return locked / "secrets.toml", locked
+
+    def run_denied(self, base: Path, secrets: Path, *args: str):
+        return subprocess.run(
+            script_argv(
+                SCRIPT, "key", *args,
+                "--keys", str(base / "keys.toml"), "--secrets", str(secrets),
+            ),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+    def test_reader_returns_the_denied_state(self):
+        with tempfile.TemporaryDirectory() as d:
+            secrets, locked = self.locked_pair(Path(d))
+            try:
+                names, error = lb_keys.load_secret_names(secrets)
+            finally:
+                locked.chmod(0o700)
+            self.assertIsNone(names)
+            self.assertEqual(error, lb_keys.SECRETS_DENIED)
+
+    def test_ls_degrades_to_a_note_and_still_lists_the_catalog(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            secrets, locked = self.locked_pair(base)
+            try:
+                result = self.run_denied(base, secrets, "ls")
+            finally:
+                locked.chmod(0o700)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("openai-personal", result.stdout)
+            self.assertIn("guardrail", result.stderr)
+            self.assertNotIn("← NO VALUE", result.stdout)  # presence unknown ≠ missing
+
+    def test_doctor_notes_the_denial_without_calling_it_rot(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            secrets, locked = self.locked_pair(base)
+            try:
+                result = self.run_denied(base, secrets, "doctor")
+            finally:
+                locked.chmod(0o700)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("no problems", result.stdout)
+            self.assertIn("values unaudited", result.stderr)
+
+    def test_run_refuses_teaching_the_sandbox_disabled_move(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            secrets, locked = self.locked_pair(base)
+            try:
+                result = subprocess.run(
+                    script_argv(
+                        SCRIPT, "key", "run", "openai-personal",
+                        "--keys", str(base / "keys.toml"), "--secrets", str(secrets),
+                        "--", sys.executable, "-V",
+                    ),
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                )
+            finally:
+                locked.chmod(0o700)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("human-approved", result.stderr)
+            self.assert_no_secret(result)
+
+
 class KeyDoctorCliTest(KeyCliBase):
     """`lb key doctor` — exit 1 iff problems; absent files audit clean (not opted in)."""
 
