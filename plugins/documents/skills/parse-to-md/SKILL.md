@@ -2,7 +2,7 @@
 name: parse-to-md
 description: "Convert a document — PDF, DOCX, PPTX, XLSX, HTML — to Markdown. Routes between markitdown (simple, local), lit/liteparse (complex, local), and LlamaParse cloud (complex, highest quality). Use when the user asks to parse, convert, or extract a document into Markdown."
 metadata:
-  version: "2026-08-03"
+  version: "2026-08-24"
 ---
 
 # Parse to Markdown
@@ -59,8 +59,9 @@ lit parse "in.pdf" --format markdown -o out.md          # OCR on by default
 lit parse "in.pdf" --format markdown --no-ocr -o out.md # only if probe didn't flag OCR
 
 # LlamaParse — cloud, via the bundled deterministic CLI (paths relative to this skill's base dir)
-node scripts/llamaparse.cjs health                       # checks key + package
-node scripts/llamaparse.cjs parse "in.pdf" --output out.md
+# Every run goes through `lb key run` — it injects the key; never export or paste one.
+lb key run llama-cloud-personal -- node scripts/llamaparse.cjs health          # key + package
+lb key run llama-cloud-personal -- node scripts/llamaparse.cjs parse "in.pdf" --output out.md
 ```
 
 Depth: [references/liteparse.md](references/liteparse.md) (full `lit` flags, probe JSON,
@@ -72,10 +73,13 @@ flags, custom prompts, TypeScript escape hatch).
 - **`lit` first OCR run** downloads the Tesseract model (`eng.traineddata`) from GitHub
   and caches it. In a sandboxed shell this download can fail (`[ocr] failed for page N`)
   — run once outside the sandbox (or allow the cache path); subsequent runs work sandboxed.
-- **LlamaParse** needs `LLAMA_CLOUD_API_KEY` in the environment and network access to
-  `api.cloud.llamaindex.ai` (a sandboxed shell without that host allowed fails with
-  `Connection error`). `node scripts/llamaparse.cjs health` verifies both prerequisites
-  except the network.
+- **LlamaParse** gets its key only from `lb key run llama-cloud-personal -- ...`
+  (`llm-keys` skill) — never read, print, or ask for the value. Expect two sandbox
+  refusals by design: `api.cloud.llamaindex.ai` is not in the network allowlist, and
+  `lb key run` is refused under the secrets deny — so each cloud parse is a
+  **user-approved, sandbox-disabled invocation**, not an error to debug.
+  `lb key run llama-cloud-personal -- node scripts/llamaparse.cjs health` verifies key
+  injection and the package (not the network).
 - Installs, if missing: `pip install markitdown` (or `uv tool install markitdown`) ·
   `npm i -g @llamaindex/liteparse` (`lit`) · `npm i -g @llamaindex/llama-cloud`
   (LlamaParse SDK). `lit` needs LibreOffice for Office files, ImageMagick for images.

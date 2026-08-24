@@ -1,8 +1,9 @@
 # LlamaParse (cloud) reference
 
 Highest-quality parsing for complex layouts — **uploads the document to Llama Cloud**;
-route here only past the sensitivity gate. Requires `LLAMA_CLOUD_API_KEY` in the
-environment, the `@llamaindex/llama-cloud` npm package (global install works), and
+route here only past the sensitivity gate. Requires the key injected per invocation by
+`lb key run llama-cloud-personal -- ...` (`llm-keys` skill — never read, print, or ask
+for the value), the `@llamaindex/llama-cloud` npm package (global install works), and
 network access to `api.cloud.llamaindex.ai`.
 
 ## Bundled CLI — `scripts/llamaparse.cjs`
@@ -10,9 +11,13 @@ network access to `api.cloud.llamaindex.ai`.
 The deterministic shell for normal jobs. Prefer it over ad-hoc scripts.
 
 ```bash
-node scripts/llamaparse.cjs health                 # {"node":..., "apiKey":true, "package":true}
-node scripts/llamaparse.cjs parse "in.pdf" -o out.md
+lb key run llama-cloud-personal -- node scripts/llamaparse.cjs health
+# {"node":..., "apiKey":true, "package":true}
+lb key run llama-cloud-personal -- node scripts/llamaparse.cjs parse "in.pdf" -o out.md
 ```
+
+Run without `lb key run` and both verbs exit 1 with `no key injected` and the command to
+retry — the key is never exported into a shell.
 
 | Flag | Default | Notes |
 |---|---|---|
@@ -42,8 +47,10 @@ traces. Expect ~1–2 minutes wall clock for a few pages on the agentic tier.
 ## TypeScript escape hatch
 
 For jobs the CLI can't express — image extraction, per-page metadata, batch
-orchestration, custom post-processing — write a one-off script (`npx tsx script.ts`)
-against the SDK. Docs: <https://developers.llamaindex.ai/python/cloud/llamaparse/api-v2-guide/>
+orchestration, custom post-processing — write a one-off script and run it under the same
+injection: `lb key run llama-cloud-personal -- npx tsx script.ts`. The script reads the
+standard `LLAMA_CLOUD_API_KEY` variable and stays ignorant of the key's name.
+Docs: <https://developers.llamaindex.ai/python/cloud/llamaparse/api-v2-guide/>
 
 Core pattern (always two steps — upload for a `file_id`, then parse; never pass raw bytes):
 

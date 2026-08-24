@@ -19,8 +19,8 @@ injects it into a child process's environment and execs. That absence is the con
 a key value must never enter your context, your output, or a file you write.
 
 **The naming rule.** Keys are named per *scope*, not per provider — `openai-personal`,
-`openai-image-gen`, `llama-cloud` — so several keys per provider is normal. Each entry
-declares the env var it injects; scripts just read standard variables
+`openai-image-gen`, `llama-cloud-personal` — so several keys per provider is normal. Each
+entry declares the env var it injects; scripts just read standard variables
 (`OPENAI_API_KEY`, `LLAMA_CLOUD_API_KEY`) and stay ignorant of the scheme.
 
 ## Run something that needs a key
@@ -32,11 +32,12 @@ lb key run NAME -- CMD ARG...    # 2. inject NAME's env var into CMD's env and e
 
 The `--` is required; everything after it is the child command, untouched. The child's
 exit code passes through (127 = the exec itself failed). Several keys at once:
-`lb key run openai-image-gen,llama-cloud -- CMD` — refused if two selected names
+`lb key run openai-image-gen,llama-cloud-personal -- CMD` — refused if two selected names
 inject the same variable.
 
 ```bash
-lb key run llama-cloud -- uv run parse.py doc.pdf   # e.g. parse-to-md's LLAMA_CLOUD_API_KEY
+# e.g. parse-to-md's LLAMA_CLOUD_API_KEY
+lb key run llama-cloud-personal -- node scripts/llamaparse.cjs parse doc.pdf -o doc.md
 ```
 
 Never `lb key run NAME -- env` or otherwise echo the injected variable — the point of
