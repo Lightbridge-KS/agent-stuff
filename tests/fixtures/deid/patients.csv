@@ -1,0 +1,4 @@
+hn,name,dob,phone,email,report
+12345678,Jane Doe,1985-03-14,212-555-5555,jane.doe@example.com,"CT chest 12/06/2024: 2.1 cm RUL nodule. Reviewed with Dr. Somchai Prasert."
+23456789,John Smith,1972-11-02,415-555-0199,john.smith@example.org,"MRI brain 13/06/2024: no acute finding. Discussed with patient John Smith."
+34567890,Wipawee Srisuk,1990-07-21,081-234-5678,wipawee.s@example.net,"Chest X-ray normal."

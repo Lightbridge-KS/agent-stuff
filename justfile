@@ -41,6 +41,7 @@ test:
     uv run tests/test_skill_health.py
     uv run tests/test_skill_health_telegram_notify.py
     uv run tests/test_validate.py
+    uv run tests/test_deidentify.py
 
 # Remove build artifacts
 clean:

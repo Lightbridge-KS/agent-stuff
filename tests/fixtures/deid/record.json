@@ -1,0 +1,6 @@
+{
+  "patient": {"name": "Jane Doe", "dob": "1985-03-14", "hn": "12345678", "email": "jane.doe@example.com"},
+  "encounter": {"date": "12/06/2024", "physician": "Dr. Somchai Prasert", "site": "Ramathibodi Hospital"},
+  "report": "CT chest on 2024-06-12 for Jane Doe: 2.1 cm nodule, right upper lobe. Call 212-555-5555.",
+  "tags": ["outpatient", "ct"]
+}

@@ -1,0 +1,11 @@
+# mask — irreversible partial masking for eyeballing structure (last digits kept where useful).
+language: en
+threshold: 0.5
+operators:
+  DEFAULT:      {op: replace}
+  PHONE_NUMBER: {op: mask, masking_char: "*", chars_to_mask: 6, from_end: false}
+  EMAIL_ADDRESS: {op: mask, masking_char: "*", chars_to_mask: 5, from_end: false}
+  CREDIT_CARD:  {op: mask, masking_char: "*", chars_to_mask: 12, from_end: false}
+  TH_TNIN:      {op: mask, masking_char: "*", chars_to_mask: 9, from_end: false}
+  US_SSN:       {op: mask, masking_char: "*", chars_to_mask: 5, from_end: false}
+  DATE_TIME:    {op: keep}

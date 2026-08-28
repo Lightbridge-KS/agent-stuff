@@ -32,6 +32,8 @@ jobs:
         run: uv run tests/test_plan_store.py
       - name: Run image-gen CLI tests
         run: uv run tests/test_imagegen.py
+      - name: deidentify skill tests
+        run: uv run tests/test_deidentify.py
       - name: Run notebook-tools tests
         run: uv run tests/test_notebook_tools.py
       - name: Run Codex plugin packaging tests

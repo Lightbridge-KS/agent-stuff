@@ -1,0 +1,6 @@
+# redact — irreversible: every detected entity becomes <ENTITY_TYPE>. The safe default.
+language: en
+columns: {hn: ID, mrn: ID, patient_id: ID}   # csv/json: bare identifier columns NER cannot type
+threshold: 0.5
+operators:
+  DEFAULT: {op: replace}
