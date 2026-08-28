@@ -2,12 +2,12 @@
 name: wayfinder
 description: >-
   Chart an effort too big and foggy for one session as a shared map of decision tickets —
-  on GitHub Issues or docs/wayfinder/ — then resolve them one at a time until the way to
-  the destination is clear. Use only when invoked by name.
+  on GitHub Issues (docs/wayfinder/ when the repo has no remote) — then resolve them one at
+  a time until the way to the destination is clear. Use only when invoked by name.
 argument-hint: "Loose idea to chart, or a map (URL / effort name) to work"
 disable-model-invocation: false
 metadata:
-  version: "2026-08-15"
+  version: "2026-08-28"
 ---
 
 A loose idea has arrived — too big for one agent session, and wrapped in fog: the way from here to the **destination** isn't visible yet. Wayfinding is about finding that way, not charging at the destination. This skill charts the way as a **shared map** on a tracker, then works its **decision tickets** — questions whose resolution is a decision, not slices of a build to execute — one at a time until the route is clear.
@@ -32,10 +32,12 @@ The map is an **index**, not a store. It lists the decisions made and points at 
 
 Two backends ship with this skill; how each expresses the map, child tickets, blocking, claiming, and the frontier query lives in its reference file:
 
-- [`TRACKER-GITHUB.md`](./TRACKER-GITHUB.md) — the map is a GitHub issue, tickets are sub-issues. Use when the repo has a GitHub remote **and** the effort should be team-visible.
-- [`TRACKER-LOCAL.md`](./TRACKER-LOCAL.md) — the map lives in the repo at `docs/wayfinder/<effort>/`, committed repo memory (the frontier layer of `docs/`). The default for solo or local-only work.
+The rule is the repo-memory one — **the tracker is GitHub Issues whenever the repo has a GitHub remote**. Committed docs are *pushed* into every session by the docs-index hook; a tracker belongs on the pull side, fetched by query when a session needs it. Solo work is no exception: a remote is the trigger, not team size.
 
-When the heuristic doesn't decide it cleanly, ask the user once at charting time and record the choice in the map's `## Notes` — every later session reads it from there.
+- [`TRACKER-GITHUB.md`](./TRACKER-GITHUB.md) — the map is a GitHub issue, tickets are sub-issues. **Use whenever the repo has a GitHub remote.**
+- [`TRACKER-LOCAL.md`](./TRACKER-LOCAL.md) — the map lives in the repo at `docs/wayfinder/<effort>/`, committed repo memory (the frontier layer of `docs/`). Use when there is **no remote**, or the user explicitly asks for local at charting time.
+
+Record the choice in the map's `## Notes` either way — every later session reads it from there, and an explicit-local choice is invisible otherwise.
 
 ### The map body
 
