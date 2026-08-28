@@ -468,11 +468,15 @@ class RunState:
                 if reverse:
                     op = "decrypt"
             elif reverse:
-                continue  # replace/redact/mask/hash/keep are one-way; nothing to restore
+                continue  # replace/redact/mask/hash/keep are one-way; nothing to restore (and the
+                # deanonymizer has no `keep`) — restore only ever receives reversible items
             configs[entity] = OperatorConfig(op, params)
-        if reverse:
-            configs.setdefault("DEFAULT", OperatorConfig("keep"))
         return configs
+
+    def serialized_operators(self) -> dict[str, dict[str, Any]]:
+        """The policy's operator table as plain data — persisted in the sidecar so restore never
+        depends on the policy file still existing (keys are never in params)."""
+        return {ent: {"op": spec.op, **spec.params} for ent, spec in self.policy.operators.items()}
 
 
 def require_key() -> str:
@@ -861,7 +865,8 @@ def require_input(path: Path) -> Path:
 def sidecar_write(path: Path, state: RunState, kind: str, source: Path, extra: dict[str, Any]) -> None:
     data = {"version": SIDECAR_VERSION, "kind": kind, "source": str(source), "policy": state.policy.name,
             "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "date_offset_days": state.date_offset_days, "entity_mapping": state.entity_mapping, **extra}
+            "date_offset_days": state.date_offset_days, "entity_mapping": state.entity_mapping,
+            "operators": state.serialized_operators(), **extra}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -882,7 +887,18 @@ def sidecar_items(data: dict[str, Any]) -> Iterable[dict]:
         yield from cell.get("items", [])
 
 
-def state_from_sidecar(data: dict[str, Any], policy: Policy) -> RunState:
+def policy_from_sidecar(data: dict[str, Any]) -> Policy:
+    """Rebuild the operator table restore needs from the sidecar itself; the policy file may be gone."""
+    if isinstance(data.get("operators"), dict):
+        return Policy.from_dict({"operators": data["operators"]}, name=str(data.get("policy", "sidecar")))
+    try:  # sidecars written before `operators` was persisted: presets still resolve by name
+        return Policy.load(data.get("policy"))
+    except PolicyError:
+        fail(EXIT_PARAMS, f"sidecar has no operator table and policy '{data.get('policy')}' is not a preset — cannot restore")
+
+
+def state_from_sidecar(data: dict[str, Any], policy: Optional[Policy] = None) -> RunState:
+    policy = policy or policy_from_sidecar(data)
     state = RunState(policy=policy, entity_mapping=data.get("entity_mapping", {}), date_offset_days=data.get("date_offset_days", 0))
     if any(i.get("operator") == "encrypt" for i in sidecar_items(data)):
         state.key = require_key()
@@ -1176,11 +1192,7 @@ def restore(
     if kind not in {"text", *STRUCTURED}:
         fail(EXIT_PARAMS, f"restore supports text/csv/json sidecars, not '{kind}' (image redaction is destructive by design)")
     _quiet_presidio(verbose)
-    try:
-        pol = Policy.load(data.get("policy"))
-    except PolicyError:
-        pol = Policy()
-    state = state_from_sidecar(data, pol)
+    state = state_from_sidecar(data)
     deanonymizer = build_deanonymizer()
 
     if kind == "text":

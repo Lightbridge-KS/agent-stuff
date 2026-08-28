@@ -62,6 +62,7 @@ lost — the safe-harbor default).
   "created": "2026-08-28T14:02:11+00:00",
   "date_offset_days": -37,
   "entity_mapping": {"PERSON": {"Jane Doe": "<PERSON_1>"}, "ID": {"12345678": "<ID_1>"}},
+  "operators": {"DEFAULT": {"op": "pseudonym", "format": "<{entity}_{n}>"}, "DATE_TIME": {"op": "date_shift", "days": "random", "range": 365}},
   "typed": {"hn": "ID", "name": "PERSON"},
   "cells": [{"column": "name", "row": 0, "items": [{"start": 0, "end": 10, "entity_type": "PERSON", "text": "<PERSON_1>", "operator": "pseudonym"}]}]
 }

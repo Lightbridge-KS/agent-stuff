@@ -236,7 +236,7 @@ class TestOperators(unittest.TestCase):
         self.assertEqual({k: v.operator_name for k, v in fwd.items()},
                          {"PERSON": "pseudonym", "DATE_TIME": "date_shift", "PHONE_NUMBER": "mask", "US_SSN": "encrypt", "DEFAULT": "replace"})
         self.assertEqual({k: v.operator_name for k, v in rev.items()},
-                         {"PERSON": "pseudonym", "DATE_TIME": "date_shift", "US_SSN": "decrypt", "DEFAULT": "keep"})
+                         {"PERSON": "pseudonym", "DATE_TIME": "date_shift", "US_SSN": "decrypt"})
 
     def test_random_offset_never_zero(self):
         pol = deid.Policy.from_dict({"operators": {"DATE_TIME": {"op": "date_shift", "range": 1}}})
@@ -274,6 +274,32 @@ class TestStructuredHelpers(unittest.TestCase):
         self.assertEqual(data["date_offset_days"], -3)
         restored = deid.state_from_sidecar(data, pol)
         self.assertEqual(restored.entity_mapping["PERSON"]["Jane"], "<PERSON_1>")
+        self.assertEqual(data["operators"]["PERSON"], {"op": "pseudonym", "format": "<{entity}_{n}>"})
+
+    def test_restore_rebuilds_custom_policy_from_sidecar(self):
+        """A custom policy YAML (not a preset) must restore even after the file is gone."""
+        custom = deid.Policy.from_dict({"operators": {"DEFAULT": "replace", "PERSON": "pseudonym", "ID": "pseudonym",
+                                                       "DATE_TIME": {"op": "date_shift", "days": 4}}}, name="my-policy")
+        state = deid.RunState.start(custom)
+        with tempfile.TemporaryDirectory() as d:
+            side = Path(d) / "map.json"
+            deid.sidecar_write(side, state, "text", Path("in.md"), {"items": []})
+            data = deid.sidecar_read(side)
+        rebuilt = deid.state_from_sidecar(data)
+        self.assertEqual(rebuilt.policy.name, "my-policy")
+        self.assertEqual({k: v.op for k, v in rebuilt.policy.operators.items()},
+                         {"DEFAULT": "replace", "PERSON": "pseudonym", "ID": "pseudonym", "DATE_TIME": "date_shift"})
+        self.assertEqual(rebuilt.date_offset_days, 4)
+        reverse = rebuilt.operator_configs(reverse=True)
+        self.assertNotIn("DEFAULT", reverse)  # never hand presidio's deanonymizer a `keep`
+        self.assertEqual({k: v.operator_name for k, v in reverse.items()}, {"PERSON": "pseudonym", "ID": "pseudonym", "DATE_TIME": "date_shift"})
+
+    def test_legacy_sidecar_without_operators(self):
+        preset = deid.state_from_sidecar({"version": 1, "kind": "text", "policy": "pseudonym"})
+        self.assertTrue(preset.policy.needs_sidecar)
+        with self.assertRaises(deid.typer.Exit) as cm:
+            deid.state_from_sidecar({"version": 1, "kind": "text", "policy": "gone.yaml"})
+        self.assertEqual(cm.exception.exit_code, deid.EXIT_PARAMS)
 
 
 @unittest.skipUnless(os.environ.get("DEID_LIVE"), "set DEID_LIVE=1 for the spaCy/Tesseract E2E")
@@ -302,6 +328,23 @@ class TestLiveEndToEnd(unittest.TestCase):
         restored = self.out / "r.md"
         self.assertEqual(self.run_cli("restore", str(out), "-o", str(restored), "--sidecar", str(side)).returncode, 0)
         self.assertEqual(restored.read_text(), (FIXTURES / "note.md").read_text())
+
+    def test_custom_policy_with_patterns_roundtrip(self):
+        """SKILL.md's documented path: copy a preset, add patterns:, restore later — the policy file may be gone by then."""
+        policy = self.out / "policy.yaml"
+        policy.write_text(
+            "operators:\n  DEFAULT: {op: pseudonym}\n  DATE_TIME: {op: date_shift}\n  ORGANIZATION: {op: keep}\n"
+            "patterns:\n  - {name: hn, entity: ID, regex: '\\bHN\\s?\\d{6,10}\\b', score: 0.7}\n"
+        )
+        out, side, back = self.out / "p.md", self.out / "map.json", self.out / "r.md"
+        r = self.run_cli("anonymize", str(FIXTURES / "note.md"), "-o", str(out), "--policy", str(policy), "--sidecar", str(side), "--json")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("ID", json.loads(r.stdout)["by_entity"])
+        self.assertNotIn("HN 12345678", out.read_text())
+        policy.unlink()
+        r = self.run_cli("restore", str(out), "-o", str(back), "--sidecar", str(side))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(back.read_text(), (FIXTURES / "note.md").read_text())
 
     def test_safe_harbor_verify_clean(self):
         out = self.out / "sh.md"
