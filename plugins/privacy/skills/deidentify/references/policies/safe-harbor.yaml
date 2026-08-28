@@ -1,0 +1,31 @@
+# safe-harbor — HIPAA §164.514(b)(2) Safe Harbor, as far as presidio's entities reach.
+# Irreversible. Dates are shifted (not removed) so intervals survive — a common research-grade
+# reading of "dates directly related to an individual"; switch DATE_TIME to {op: replace} for the
+# strict letter. See references/entities.md for the 18 identifiers, the mapping, and the GAPS
+# (ages > 89, small geographic units, free-text dates presidio misses) that still need a human.
+language: en
+columns: {hn: ID, mrn: ID, patient_id: ID}   # csv/json: bare identifier columns NER cannot type
+threshold: 0.4
+operators:
+  DEFAULT:                       {op: replace}                         # anything else detected → <TYPE>
+  PERSON:                        {op: replace}                         # 1  names
+  LOCATION:                      {op: replace}                         # 2  geographic subdivisions
+  DATE_TIME:                     {op: date_shift, days: random, range: 365}  # 3  dates (shifted, see header)
+  PHONE_NUMBER:                  {op: replace}                         # 4  phone
+  EMAIL_ADDRESS:                 {op: replace}                         # 6  email
+  US_SSN:                        {op: replace}                         # 7  SSN
+  TH_TNIN:                       {op: replace}                         #    Thai national ID (SSN analogue)
+  ID:                            {op: replace}                         # 8  MRN / HN (LLM or patterns)
+  US_HEALTH_INSURANCE_MEMBER_ID: {op: replace}                         # 9  health-plan beneficiary
+  US_MBI:                        {op: replace}                         # 9
+  US_BANK_NUMBER:                {op: replace}                         # 10 account numbers
+  IBAN_CODE:                     {op: replace}                         # 10
+  CREDIT_CARD:                   {op: replace}                         # 10
+  MEDICAL_LICENSE:               {op: replace}                         # 11 certificate/licence numbers
+  US_NPI:                        {op: replace}                         # 11
+  US_DRIVER_LICENSE:             {op: replace}                         # 12 vehicle/licence identifiers
+  URL:                           {op: replace}                         # 14 URLs
+  IP_ADDRESS:                    {op: replace}                         # 15 IP addresses
+  MAC_ADDRESS:                   {op: replace}                         # 16 device identifiers
+  UUID:                          {op: replace}                         # 18 any other unique identifier
+  GENERIC_PII_ENTITY:            {op: replace}                         # 18 (LLM catch-all, when enabled)

@@ -80,6 +80,20 @@
       "tags": ["image-generation", "gpt-image", "logo", "infographic"]
     },
     {
+      "name": "privacy",
+      "displayName": "Privacy",
+      "source": "./plugins/privacy",
+      "description": "Data privacy tooling — de-identify PHI/PII in text, JSON, CSV, images and DICOM (scan, anonymize, pseudonymize, verify, restore) with Microsoft Presidio via a deterministic, fully local bundled CLI.",
+      "category": "productivity",
+      "tags": [
+        "de-identification",
+        "phi",
+        "pii",
+        "presidio",
+        "dicom"
+      ]
+    },
+    {
       "name": "experiment",
       "displayName": "Experiment",
       "source": "./plugins/experiment",

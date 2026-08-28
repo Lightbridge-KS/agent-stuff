@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "privacy",
+  "description": "Data privacy tooling — de-identify PHI/PII in text, JSON, CSV, images and DICOM (scan, anonymize, pseudonymize, verify, restore) with Microsoft Presidio through a deterministic, fully local bundled CLI.",
+  "author": {
+    "name": "Kittipos S.",
+    "url": "https://github.com/Lightbridge-KS"
+  },
+  "homepage": "https://github.com/Lightbridge-KS/agent-stuff",
+  "repository": "https://github.com/Lightbridge-KS/agent-stuff",
+  "license": "MIT",
+  "keywords": ["de-identification", "phi", "pii", "presidio", "anonymization", "pseudonymization", "dicom"]
+}

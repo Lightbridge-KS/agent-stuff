@@ -48,26 +48,32 @@ are refused. No PHI leaves the device through this skill.
 
 ```
 deid.py entities  [--lang en] [--json]
-deid.py scan      <in> [--threshold 0.5] [--entities A,B] [--allow x,y] [--llm ollama:<model>] [--explain] [--json]
-deid.py anonymize <in> -o <out> --policy <preset|file> [--sidecar map.json] [--json]
-deid.py restore   <in> -o <out> --sidecar map.json
+deid.py scan      <in> [--policy] [--threshold 0.5] [--entities A,B] [--allow x,y] [--columns hn=ID] [--llm ollama:<model>] [--explain] [--json]
+deid.py anonymize <in> -o <out> --policy <preset|file> [--sidecar map.json] [--fill ...] [--json]
+deid.py verify    <out> --policy <same>          # re-scan; keep/date_shift types are expected residuals, the rest are leaks
+deid.py restore   <out> -o <orig> --sidecar map.json
 deid.py doctor
 ```
 
-**Exit codes:** `0` clean / done · `1` findings (scan only) · `2` request invalid — params or
-policy, validated *before* any engine loads · `3` environment — spaCy model, tesseract, or
-Ollama missing; the message names the fix.
+**Exit codes:** `0` clean / done · `1` findings (scan) or leaks (verify) · `2` request invalid —
+params or policy, validated *before* any engine loads · `3` environment — spaCy model,
+tesseract, Ollama, or `DEID_KEY` missing; the message names the fix.
 
 **Input routing** (by extension; the tool refuses what it can't route with exit 2):
 
 ```
 .txt .md          → text        AnalyzerEngine + AnonymizerEngine
-.json             → structured  StructuredEngine + JsonAnalysisBuilder   (key-level)
-.csv              → structured  StructuredEngine + PandasAnalysisBuilder (column-level)
-.png .jpg .tif    → image       ImageRedactorEngine (Tesseract OCR → boxes)
+.csv .tsv / .json → structured  one cell model: every string cell span-scanned in a batch with the
+                                column name / key path as presidio `context`; a group is typed as
+                                bare entities (whole-cell operator) when forced by `columns:` or when
+                                ≥60 % of cells hit with ≥80 % coverage — free text keeps its spans
+.png .jpg .tif    → image       ImageRedactorEngine (Tesseract OCR → boxes), irreversible
 .dcm / --dicom d  → dicom       DicomImageRedactorEngine (pixels ONLY — header scrub is dcmtk `dcmodify`)
 .pdf .docx        → refused     route through parse-to-md (local `lit`) first
 ```
+
+presidio-structured is **not** used: its column classifier typed free-text columns as a single
+entity and replaced whole cells; the heuristic above plus `columns:` replaced it (spike record).
 
 **Findings JSON** (`scan --json`):
 
@@ -84,6 +90,9 @@ language: en
 threshold: 0.5
 entities: []            # optional restriction to these entity types
 allow: []               # literals never flagged (exact match)
+columns: {hn: ID}       # csv/json: force column / key (full dotted path or last segment) → entity
+patterns:               # ad-hoc regex recognizers for local identifiers presidio lacks (HN, MRN)
+  - {name: hn, entity: ID, regex: "\\bHN\\s?\\d{6,10}\\b", score: 0.7, context: [hn]}
 operators:
   DEFAULT:         {op: replace}                    # → <ENTITY_TYPE>
   PERSON:          {op: pseudonym}                  # <PERSON_1>; consistent per run; reversible via sidecar
@@ -102,7 +111,10 @@ mapped to entities; see `references/entities.md` for the gaps), `pseudonym`, `ma
 
 ## Sidecar — re-identification key material
 
-`--sidecar map.json` is written when any reversible operator ran:
+`--sidecar map.json` is **required** when the policy uses `pseudonym` or `encrypt` (restore is
+impossible without it) and optional for `date_shift` alone — then the offset is simply lost,
+which is what `safe-harbor` wants. Text sidecars carry `items`; csv/json carry `cells` addressed
+by `{column,row}` / `{path}`:
 
 ```json
 {"source": "...", "policy": "...", "created": "...",
