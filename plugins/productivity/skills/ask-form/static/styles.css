@@ -337,6 +337,67 @@ input[type="number"].control { max-width: 200px; }
 .seg button[aria-pressed="true"][data-tone="revise"] { background: var(--amber-soft); color: var(--amber); }
 .seg button[aria-pressed="true"][data-tone="reject"] { background: var(--red-soft); color: var(--red); }
 
+/* recommendations: a badge on the recommended choice, a one-line callout under the help */
+
+.rec {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--blue);
+  color: var(--blue);
+  font-weight: 500;
+  font-size: 12px;
+  vertical-align: 0.1em;
+  white-space: nowrap;
+}
+.rec-line .rec { margin-left: 0; }
+.recommendation {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  background: var(--blue-soft);
+  color: var(--ink);
+  font-size: 14.5px;
+}
+.recommendation .rec-label { color: var(--blue); font-weight: 600; font-size: 13px; white-space: nowrap; }
+.seg button[data-rec="true"]::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--blue); vertical-align: 0.15em; }
+
+/* per-question note: a quiet toggle, textarea revealed underneath */
+
+.note-block { margin-top: 14px; }
+.note-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--faint);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease;
+}
+.note-toggle:hover { color: var(--ink); background: var(--control-hover); }
+.note-toggle .chev { display: inline-block; transition: transform 150ms ease; font-size: 15px; line-height: 1; }
+.note-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.note-toggle.has-note { color: var(--blue); }
+.note-toggle kbd {
+  font: 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  padding: 2px 5px;
+  border-radius: 5px;
+  border: 1px solid var(--line-strong);
+  color: var(--faint);
+}
+textarea.note { margin-top: 8px; min-height: 64px; }
+
+.card.comments { background: var(--glass); }
+
 /* ── footer ── */
 
 .footer {

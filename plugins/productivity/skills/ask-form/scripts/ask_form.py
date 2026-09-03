@@ -8,8 +8,9 @@
 The agent writes a JSON *spec* (title, intro, a list of question elements drawn from a fixed
 catalog of ten types); this tool validates it, serves a glass-styled page on 127.0.0.1, opens
 the browser, blocks until the user submits or cancels (no timeout unless --timeout), and prints the
-answers as one JSON document on stdout. The agent supplies the judgment (what to ask); this
-tool stays deterministic (what is rendered, how answers come back).
+answers as one JSON document on stdout. Every question carries an optional note and the form
+ends with optional comments; both return under `meta`. The agent supplies the judgment (what to
+ask); this tool stays deterministic (what is rendered, how answers come back).
 
     uv run ask_form.py [SPEC] [--no-open] [--timeout S]       # SPEC = path, '-' or stdin
     uv run ask_form.py --example                              # a spec exercising all 10 types
@@ -86,6 +87,8 @@ def _check_options(opts: Any, path: str, errors: list[dict[str, str]], key: str 
             continue
         vkey = "id" if key == "items" else "value"
         v, label = o.get(vkey), o.get("label")
+        if key != "items" and "recommended" in o and not isinstance(o["recommended"], bool):
+            errors.append({"path": f"{p}.recommended", "message": "recommended must be a boolean"})
         if not isinstance(v, str) or not v:
             errors.append({"path": f"{p}.{vkey}", "message": f"{vkey} must be a non-empty string"})
         elif v in values:
@@ -131,6 +134,36 @@ def _check_asset(src: Any, path: str, errors: list[dict[str, str]], compiled: Co
     compiled.assets.append(real)
 
 
+def _check_recommended_number(el: dict[str, Any], path: str, errors: list[dict[str, str]]) -> None:
+    if "recommended" not in el:
+        return
+    v, lo, hi = el["recommended"], el.get("min"), el.get("max")
+    if not _is_num(v) or (_is_num(lo) and v < lo) or (_is_num(hi) and v > hi):
+        errors.append({"path": f"{path}.recommended", "message": "recommended must be a number within min..max"})
+    else:
+        el["_recommended"] = v
+
+
+def diverged_ids(answers: dict[str, Any], compiled: Compiled) -> list[str]:
+    """Answered questions where a recommendation existed and the user chose otherwise."""
+    out: list[str] = []
+    for eid, val in answers.items():
+        el = compiled.elements.get(eid)
+        if el is None or "_recommended" not in el:
+            continue
+        rec = el["_recommended"]
+        t = el["type"]
+        if t == "multi_select":
+            same = isinstance(val, list) and set(val) == set(rec)
+        elif t == "review":
+            same = isinstance(val, dict) and all(val.get(i, {}).get("decision") == d for i, d in rec.items())
+        else:
+            same = val == rec
+        if not same:
+            out.append(eid)
+    return out
+
+
 def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
     """Return (errors, compiled). Empty errors means the spec is servable."""
     errors: list[dict[str, str]] = []
@@ -171,6 +204,8 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
             errors.append({"path": f"{path}.help", "message": "help must be a string"})
         if "required" in el and not isinstance(el["required"], bool):
             errors.append({"path": f"{path}.required", "message": "required must be a boolean"})
+        if "recommendation" in el and not (isinstance(el["recommendation"], str) and el["recommendation"].strip()):
+            errors.append({"path": f"{path}.recommendation", "message": "recommendation must be a non-empty one-line string"})
 
         if etype == "context":
             fmt = el.get("format")
@@ -182,16 +217,25 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
                 errors.append({"path": f"{path}.content", "message": "content must be a non-empty string"})
         elif etype in OPTION_TYPES:
             el["_values"] = _check_options(el.get("options"), path, errors)
+            recs = [o["value"] for o in el.get("options", []) if isinstance(o, dict) and o.get("recommended") is True and isinstance(o.get("value"), str)]
+            if etype == "single_select" and len(recs) > 1:
+                errors.append({"path": f"{path}.options", "message": "single_select may mark at most one option recommended"})
+            if etype == "ranking" and recs:
+                errors.append({"path": f"{path}.options", "message": "ranking has no recommended option; the given order is the recommendation"})
+            if recs:
+                el["_recommended"] = recs if etype == "multi_select" else recs[0]
             if "allow_other" in el and not isinstance(el["allow_other"], bool):
                 errors.append({"path": f"{path}.allow_other", "message": "allow_other must be a boolean"})
             if etype == "multi_select":
                 _check_range(el, path, errors, required=False)
         elif etype == "scale":
             _check_range(el, path, errors, required=True)
+            _check_recommended_number(el, path, errors)
             if "labels" in el and not (isinstance(el["labels"], dict) and all(isinstance(v, str) for v in el["labels"].values())):
                 errors.append({"path": f"{path}.labels", "message": "labels must map scale values to strings"})
         elif etype == "number":
             _check_range(el, path, errors, required=False)
+            _check_recommended_number(el, path, errors)
             if "unit" in el and not isinstance(el["unit"], str):
                 errors.append({"path": f"{path}.unit", "message": "unit must be a string"})
         elif etype == "short_text":
@@ -207,6 +251,16 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
                 errors.append({"path": f"{path}.decisions", "message": "decisions must be a list of at least two strings"})
             if "comment" in el and not isinstance(el["comment"], bool):
                 errors.append({"path": f"{path}.comment", "message": "comment must be a boolean"})
+            if isinstance(decisions, list):
+                recmap = {}
+                for j, it in enumerate(el.get("items", [])):
+                    if isinstance(it, dict) and "recommended" in it:
+                        if it["recommended"] not in decisions:
+                            errors.append({"path": f"{path}.items[{j}].recommended", "message": f"recommended must be one of {', '.join(map(str, decisions))}"})
+                        elif isinstance(it.get("id"), str):
+                            recmap[it["id"]] = it["recommended"]
+                if recmap:
+                    el["_recommended"] = recmap
 
         if isinstance(eid, str) and eid in seen and etype in ANSWER_TYPES:
             compiled.answerable.append(eid)
@@ -216,16 +270,30 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
     return errors, compiled
 
 
-def validate_answers(body: Any, compiled: Compiled) -> tuple[list[str], dict[str, Any], list[str]]:
-    """Check a submit body. Return (errors, answers, other_ids)."""
+def validate_answers(body: Any, compiled: Compiled) -> tuple[list[str], dict[str, Any], dict[str, Any]]:
+    """Check a submit body. Return (errors, answers, extras) where extras = {other, notes, comments}."""
+    empty = {"other": [], "notes": {}, "comments": ""}
     if not isinstance(body, dict) or not isinstance(body.get("answers"), dict):
-        return ["body must be {answers: {...}, other?: [...]}"], {}, []
+        return ["body must be {answers: {...}, other?: [...], notes?: {...}, comments?: str}"], {}, empty
     answers: dict[str, Any] = body["answers"]
     other = body.get("other", [])
     errors: list[str] = []
     if not isinstance(other, list) or not all(isinstance(x, str) for x in other):
         errors.append("other must be a list of ids")
         other = []
+    notes = body.get("notes", {})
+    if not isinstance(notes, dict) or not all(isinstance(v, str) for v in notes.values()):
+        errors.append("notes must map ids to strings")
+        notes = {}
+    for nid in notes:
+        if nid not in compiled.elements:
+            errors.append(f"note for unknown id '{nid}'")
+    notes = {k: v.strip() for k, v in notes.items() if isinstance(v, str) and v.strip()}
+    comments = body.get("comments", "")
+    if not isinstance(comments, str):
+        errors.append("comments must be a string")
+        comments = ""
+    extras = {"other": other, "notes": notes, "comments": comments.strip()}
     for eid in answers:
         if eid not in compiled.elements:
             errors.append(f"unknown id '{eid}'")
@@ -238,7 +306,7 @@ def validate_answers(body: Any, compiled: Compiled) -> tuple[list[str], dict[str
             continue
         t = el["type"]
         is_other = eid in other
-        if is_other and not (t in ("single_select", "multi_select") and el.get("allow_other")):
+        if is_other and not (t in ("single_select", "multi_select") and el.get("allow_other", True)):
             errors.append(f"'{eid}' does not allow other")
         if t == "single_select":
             if not isinstance(val, str) or (not is_other and val not in el["_values"]):
@@ -277,7 +345,7 @@ def validate_answers(body: Any, compiled: Compiled) -> tuple[list[str], dict[str
             )
             if not ok:
                 errors.append(f"'{eid}' must map item ids to {{decision, comment}}")
-    return errors, answers, other
+    return errors, answers, extras
 
 
 def strip_private(spec: dict[str, Any]) -> dict[str, Any]:
@@ -294,16 +362,17 @@ def strip_private(spec: dict[str, Any]) -> dict[str, Any]:
 EXAMPLE: dict[str, Any] = {
     "spec_version": 1,
     "title": "ask-form: every element type",
-    "intro": "A **sample form** the agent can start from. Every type below is optional except the first.",
+    "intro": "A **sample form** the agent can start from. Every type below is optional except the first. Each question takes a note (press `n`); the form ends with general comments.",
     "submit_label": "Send answers",
     "questions": [
         {"id": "s_choices", "type": "section", "label": "Choices"},
         {"id": "approach", "type": "single_select", "label": "Which approach should we take?", "required": True,
          "help": "One decision. Descriptions say what happens if chosen.",
+         "recommendation": "CLI first: the spike already proved loopback works from the sandbox, and MCP can wrap it later.",
          "options": [
-             {"value": "cli", "label": "CLI first", "description": "Zero daemon; ships this week."},
+             {"value": "cli", "label": "CLI first", "description": "Zero daemon; ships this week.", "recommended": True},
              {"value": "mcp", "label": "MCP first", "description": "Works in every harness; two more days."},
-         ], "allow_other": True},
+         ]},
         {"id": "surfaces", "type": "multi_select", "label": "Which surfaces matter for v1?", "min": 1, "max": 3,
          "options": [{"value": "web", "label": "Web"}, {"value": "mobile", "label": "Mobile"},
                      {"value": "tv", "label": "TV"}, {"value": "watch", "label": "Watch"}]},
@@ -312,7 +381,7 @@ EXAMPLE: dict[str, Any] = {
                      {"value": "polish", "label": "Polish"}]},
         {"id": "s_measures", "type": "section", "label": "Measures"},
         {"id": "confidence", "type": "scale", "label": "How confident are you in this plan?", "min": 1, "max": 5,
-         "labels": {"1": "not at all", "5": "very"}},
+         "labels": {"1": "not at all", "5": "very"}, "recommended": 4, "recommendation": "Two spikes passed; the unknowns left are UI taste, not feasibility."},
         {"id": "budget_days", "type": "number", "label": "Days you are willing to spend", "min": 0, "max": 30, "step": 0.5, "unit": "days"},
         {"id": "s_text", "type": "section", "label": "Words"},
         {"id": "codename", "type": "short_text", "label": "A codename for this effort", "max_length": 40, "placeholder": "e.g. glasshouse"},
@@ -324,16 +393,18 @@ EXAMPLE: dict[str, Any] = {
          "rows": [{"value": "cli", "label": "CLI"}, {"value": "renderer", "label": "Renderer"}],
          "columns": [{"value": "good", "label": "Good"}, {"value": "ok", "label": "OK"}, {"value": "bad", "label": "Bad"}]},
         {"id": "decisions", "type": "review", "label": "Decide on each item",
-         "items": [{"id": "name", "label": "Name: ask-form", "description": "Descriptive; the agent reaches for 'ask'."},
-                   {"id": "home", "label": "Home: inside the skill", "description": "Travels with the skill into every registry."}]},
+         "items": [{"id": "name", "label": "Name: ask-form", "description": "Descriptive; the agent reaches for 'ask'.", "recommended": "approve"},
+                   {"id": "home", "label": "Home: inside the skill", "description": "Travels with the skill into every registry.", "recommended": "approve"}]},
     ],
 }
 
 _OPTION_ITEMS = {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["value", "label"],
                  "properties": {"value": {"type": "string", "minLength": 1}, "label": {"type": "string", "minLength": 1},
-                                "description": {"type": "string"}}}}
+                                "description": {"type": "string"},
+                                "recommended": {"type": "boolean", "description": "badge this option; at most one per single_select; not for ranking"}}}}
 _BASE_PROPS = {"id": {"type": "string", "pattern": ID_RE.pattern}, "type": {"type": "string"},
-               "label": {"type": "string", "minLength": 1}, "help": {"type": "string"}, "required": {"type": "boolean"}}
+               "label": {"type": "string", "minLength": 1}, "help": {"type": "string"}, "required": {"type": "boolean"},
+               "recommendation": {"type": "string", "description": "one line: what the agent recommends and why; shown under the help text"}}
 
 
 def _el(type_name: str, props: dict[str, Any], required: list[str] | None = None) -> dict[str, Any]:
@@ -355,25 +426,28 @@ SCHEMA: dict[str, Any] = {
             _el("section", {}),
             _el("context", {"format": {"enum": ["markdown", "mermaid", "image"]}, "content": {"type": "string"},
                             "src": {"type": "string", "description": "local image path or http(s) URL"}}, ["format"]),
-            _el("single_select", {"options": _OPTION_ITEMS, "allow_other": {"type": "boolean"}}, ["options"]),
-            _el("multi_select", {"options": _OPTION_ITEMS, "allow_other": {"type": "boolean"},
+            _el("single_select", {"options": _OPTION_ITEMS, "allow_other": {"type": "boolean", "default": True}}, ["options"]),
+            _el("multi_select", {"options": _OPTION_ITEMS, "allow_other": {"type": "boolean", "default": True},
                                  "min": {"type": "integer"}, "max": {"type": "integer"}}, ["options"]),
             _el("scale", {"min": {"type": "number"}, "max": {"type": "number"}, "step": {"type": "number"},
-                          "labels": {"type": "object", "additionalProperties": {"type": "string"}}}, ["min", "max"]),
+                          "labels": {"type": "object", "additionalProperties": {"type": "string"}},
+                          "recommended": {"type": "number", "description": "marked on the slider; never preselected"}}, ["min", "max"]),
             _el("ranking", {"options": _OPTION_ITEMS}, ["options"]),
             _el("short_text", {"placeholder": {"type": "string"}, "max_length": {"type": "integer", "minimum": 1}}),
             _el("long_text", {"placeholder": {"type": "string"}}),
-            _el("number", {"min": {"type": "number"}, "max": {"type": "number"}, "step": {"type": "number"}, "unit": {"type": "string"}}),
+            _el("number", {"min": {"type": "number"}, "max": {"type": "number"}, "step": {"type": "number"}, "unit": {"type": "string"},
+                           "recommended": {"type": "number"}}),
             _el("matrix", {"rows": _OPTION_ITEMS, "columns": _OPTION_ITEMS}, ["rows", "columns"]),
             _el("review", {"items": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["id", "label"],
-                                     "properties": {"id": {"type": "string"}, "label": {"type": "string"}, "description": {"type": "string"}}}},
+                                     "properties": {"id": {"type": "string"}, "label": {"type": "string"}, "description": {"type": "string"},
+                                                    "recommended": {"type": "string", "description": "one of decisions"}}}},
                            "decisions": {"type": "array", "minItems": 2, "items": {"type": "string"}, "default": DEFAULT_DECISIONS},
                            "comment": {"type": "boolean", "default": True}}, ["items"]),
         ]}},
     },
     "$comment": "Answers: single_select → string · multi_select → [string] · scale/number → number · ranking → [value] full order · "
                 "short_text/long_text → string · matrix → {row: column} · review → {item: {decision, comment}}. "
-                "Ids answered through 'other' are listed in meta.other; unanswered optional ids in meta.skipped.",
+                "Ids answered through 'other' are listed in meta.other; unanswered optional ids in meta.skipped; per-question notes in meta.notes {id: text}; form-level comments in meta.comments; meta.diverged lists answered ids where the user chose against a recommendation.",
 }
 
 
@@ -389,17 +463,18 @@ class Run:
         self.event = threading.Event()
         self.outcome: str | None = None
         self.answers: dict[str, Any] = {}
-        self.other: list[str] = []
+        self.extras: dict[str, Any] = {"other": [], "notes": {}, "comments": ""}
         self.started = time.monotonic()
 
-    def finish(self, outcome: str, answers: dict[str, Any] | None = None, other: list[str] | None = None) -> bool:
+    def finish(self, outcome: str, answers: dict[str, Any] | None = None, extras: dict[str, Any] | None = None) -> bool:
         """First writer wins. Returns False when a terminal state already exists."""
         with self.lock:
             if self.outcome is not None:
                 return False
             self.outcome = outcome
             self.answers = answers or {}
-            self.other = other or []
+            if extras:
+                self.extras = extras
             return True
 
 
@@ -480,10 +555,10 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length) or b"{}")
         except json.JSONDecodeError:
             return self._json(HTTPStatus.BAD_REQUEST, {"errors": ["body is not valid JSON"]})
-        errors, answers, other = validate_answers(body, run.compiled)
+        errors, answers, extras = validate_answers(body, run.compiled)
         if errors:
             return self._json(HTTPStatus.BAD_REQUEST, {"errors": errors})
-        if not run.finish("submitted", answers, other):
+        if not run.finish("submitted", answers, extras):
             return self._json(HTTPStatus.CONFLICT, {"error": "already finished"})
         self._json(HTTPStatus.OK, {"status": "submitted"})
         run.event.set()  # after the response is written; the main thread shuts the server down
@@ -527,8 +602,15 @@ def serve(spec: dict[str, Any], compiled: Compiled, timeout: float | None, open_
 
     if run.outcome == "submitted":
         skipped = [i for i in compiled.answerable if i not in run.answers]
-        return 0, {"status": "submitted", "answers": run.answers,
-                   "meta": {"duration_s": round(time.monotonic() - run.started, 1), "skipped": skipped, "other": run.other}}
+        meta: dict[str, Any] = {"duration_s": round(time.monotonic() - run.started, 1), "skipped": skipped, "other": run.extras["other"]}
+        if run.extras["notes"]:
+            meta["notes"] = run.extras["notes"]
+        if run.extras["comments"]:
+            meta["comments"] = run.extras["comments"]
+        diverged = diverged_ids(run.answers, compiled)
+        if diverged:
+            meta["diverged"] = diverged
+        return 0, {"status": "submitted", "answers": run.answers, "meta": meta}
     return 1, {"status": run.outcome}
 
 

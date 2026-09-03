@@ -56,6 +56,11 @@ notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2
    - Put a `context` pane (markdown, mermaid, image) directly before the question it informs.
    - Use `review` for a list of 💡 decisions the user must approve, revise, or reject one by one.
    - Option descriptions say what happens if chosen. Labels in sentence case, no filler.
+   - **Recommend when you hold a view.** Mark the option with `recommended: true` (one per
+     `single_select`; several allowed in `multi_select`), a value with `recommended: 4` on `scale` /
+     `number`, a decision with `recommended: "approve"` on a `review` item, and say *why* in one line
+     with the element's `recommendation` field. The tool badges it and never preselects: the user
+     still chooses.
 3. **Run it** via stdin, **in the background** so the harness's shell timeout cannot cut the wait
    (Claude Code: `run_in_background: true`; stdout lands in the task's output file). The form has
    no timeout of its own; it waits until the user submits or cancels.
@@ -69,7 +74,11 @@ notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2
    in chat without answering, stop the background process instead of leaving it listening.
 4. **Read the answers** from stdout and branch on the exit code:
    - `0` → `answers` keyed by id; `meta.skipped` lists optional ids left blank; `meta.other` lists
-     ids answered with free text through "Other". Quote the user's answers back briefly, then act.
+     ids answered with free text through "Other"; `meta.notes` carries per-question notes the user
+     added ({id: text}) and `meta.comments` a form-level comment. Read the notes and comments as
+     carefully as the answers: they are where the user pushes back. `meta.diverged` lists the
+     questions where the user chose against your recommendation: ask about each before acting,
+     never override. Quote answers back briefly, then act.
    - `1` `cancelled` → the user declined this channel. Ask in chat why; do not re-open.
    - `1` `timeout` → only when you passed `--timeout`; ask in chat, do not re-open unasked.
    - `2` → fix the field named in `errors[].path` and rerun.
@@ -82,15 +91,18 @@ notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2
 | type | answer |
 |---|---|
 | `section` (heading), `context` (`markdown` · `mermaid` · `image`) | none |
-| `single_select` (`options`, `allow_other`) | the value, or the typed text |
-| `multi_select` (`options`, `min`, `max`, `allow_other`) | list of values |
+| `single_select` (`options`, `allow_other` default on) | the value, or the typed text |
+| `multi_select` (`options`, `min`, `max`, `allow_other` default on) | list of values |
 | `scale` (`min`, `max`, `step`, `labels`) · `number` (`min`, `max`, `step`, `unit`) | number |
 | `ranking` (`options`) | full ordering of values |
 | `short_text` (`max_length`) · `long_text` | string |
 | `matrix` (`rows`, `columns`) | `{row: column}` |
 | `review` (`items`, `decisions`, `comment`) | `{item: {decision, comment}}` |
 
-Fields and constraints: `--schema`. Closing the tab ends nothing: the run waits for Cancel or Send.
+Every question also takes an optional note (toggle, or `n` while the card has focus) and the form
+ends with an optional Comments card; you never declare these. Any answerable element takes a
+`recommendation` one-liner; options, scale/number values and review items take `recommended`. Fields and constraints: `--schema`.
+Closing the tab ends nothing: the run waits for Cancel or Send.
 
 ## Security and limits
 

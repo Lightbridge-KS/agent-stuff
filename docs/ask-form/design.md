@@ -77,7 +77,7 @@ are display-only.
 
 | type | answer |
 |---|---|
-| `single_select` (`options[{value,label,description?}]`, `allow_other?`) | string |
+| `single_select` (`options[{value,label,description?}]`, `allow_other?` default true) | string |
 | `multi_select` (+ `min?`, `max?`) | `[string]` |
 | `scale` (`min`, `max`, `step?`, `labels?`) · `number` (`min?`, `max?`, `step?`, `unit?`) | number |
 | `ranking` (`options`) | full ordering of values |
@@ -87,7 +87,20 @@ are display-only.
 | `context` (`format: markdown\|mermaid\|image`, `content` or `src`) · `section` | none |
 
 Shapes are monomorphic per type. "Other" never changes a shape: the typed text is the value and the
-id is listed in `meta.other`. `meta.skipped` = answerable ids minus answered ids. `--schema` prints
+id is listed in `meta.other`. `meta.skipped` = answerable ids minus answered ids. Two channels the
+agent never declares (KS, 2026-09-03): every answerable question carries an optional **note**
+(collapsed behind a toggle, `n` opens it) returned as `meta.notes {id: text}`, and the form ends
+with an optional **Comments** card returned as `meta.comments`. Both live in `meta` so answer
+shapes stay stable; blank notes are dropped.
+
+**Recommendations** (KS, 2026-09-03) are a spec flag, not label text, so they render consistently,
+validate (one per `single_select`, value within range, decision within `decisions`, none on
+`ranking`), and can be checked against the answer: `options[].recommended: true`,
+`scale`/`number` `recommended: <n>`, `review.items[].recommended: "<decision>"`, plus an element-level
+`recommendation` one-liner ("Agent recommends …") rendered under the help. The tool **never
+preselects**; the user still chooses. `meta.diverged` lists answered ids where the choice differs
+from the recommendation (multi_select: set inequality; review: any item), so the agent knows where
+to ask rather than proceed. Recommended options are not reordered. `--schema` prints
 the JSON Schema and is the single source of truth for fields; `--example` prints a spec covering
 every type.
 
@@ -111,7 +124,7 @@ responses drain, then calls `shutdown()`. Calling `shutdown()` from a handler th
 ## Composition and UI
 
 Fixed: header (title, intro) → one glass card per element in spec order, `section` as a heading →
-sticky footer (answered count, Cancel, Submit). The agent orders, never lays out. Submit is disabled
+Comments card → sticky footer (answered count, Cancel, Submit). The agent orders, never lays out. Submit is disabled
 until every `required` element has a value; clicking it then scrolls to the first missing one.
 
 Monochrome glass in the shadcn manner (KS, 2026-09-03): near-black or off-white base following the

@@ -164,6 +164,15 @@ class ValidatorCase(unittest.TestCase):
             "context": ({"format": "markdown", "content": "hi"}, {"format": "image", "src": "/nope/none.png"}, "src"),
             "section": ({}, {"label": ""}, "label"),
         }
+        # recommendation fields
+        two_rec = [{"value": "a", "label": "A", "recommended": True}, {"value": "b", "label": "B", "recommended": True}]
+        self.assert_valid(spec(q("single_select", options=[two_rec[0], {"value": "b", "label": "B"}], recommendation="A, because.")))
+        self.assert_valid(spec(q("multi_select", options=two_rec)))
+        self.assert_invalid(spec(q("single_select", options=two_rec)), "options")
+        self.assert_invalid(spec(q("ranking", options=two_rec)), "options")
+        self.assert_invalid(spec(q("scale", min=1, max=5, recommended=9)), "recommended")
+        self.assert_invalid(spec(q("short_text", recommendation="")), "recommendation")
+        self.assert_invalid(spec(q("review", items=[{"id": "i", "label": "I", "recommended": "maybe"}])), "recommended")
         for type_, (good, bad, frag) in cases.items():
             with self.subTest(type_=type_):
                 self.assert_valid(spec(q(type_, **good)))
@@ -246,7 +255,10 @@ class ServerCase(unittest.TestCase):
 
     def test_submit_round_trip(self):
         with Server(self.form()) as s:
-            status, out = s.post("/submit", {"answers": {"pick": "something else", "many": ["a", "b"]}, "other": ["pick"]})
+            self.assertEqual(s.post("/submit", {"answers": {"pick": "a"}, "notes": {"ghost": "x"}})[0], 400)  # note for unknown id
+            self.assertEqual(s.post("/submit", {"answers": {"pick": "a"}, "comments": 5})[0], 400)
+            status, out = s.post("/submit", {"answers": {"pick": "something else", "many": ["a", "b"]}, "other": ["pick"],
+                                             "notes": {"many": "  web first  ", "notes": ""}, "comments": "Nice form."})
             self.assertEqual((status, out["status"]), (200, "submitted"))
             # a later terminal POST hits the 0.3 s grace window (409) or a server already gone (0)
             self.assertIn(s.post("/submit", {"answers": {"pick": "a"}})[0], (409, 0))
@@ -256,6 +268,8 @@ class ServerCase(unittest.TestCase):
         self.assertEqual(out["answers"], {"pick": "something else", "many": ["a", "b"]})
         self.assertEqual(out["meta"]["skipped"], ["notes"])
         self.assertEqual(out["meta"]["other"], ["pick"])
+        self.assertEqual(out["meta"]["notes"], {"many": "web first"})  # blank notes dropped, text stripped
+        self.assertEqual(out["meta"]["comments"], "Nice form.")
         self.assertIsInstance(out["meta"]["duration_s"], float)
 
     def test_answer_validation_keeps_the_run_alive(self):
@@ -263,6 +277,11 @@ class ServerCase(unittest.TestCase):
             self.assertEqual(s.post("/submit", {"answers": {"many": ["a"]}})[0], 400)  # required missing
             self.assertEqual(s.post("/submit", {"answers": {"pick": "zzz"}})[0], 400)  # not an option, not other
             self.assertEqual(s.post("/submit", {"answers": {"pick": "a", "ghost": 1}})[0], 400)
+            self.assertEqual(s.post("/submit", {"answers": {"pick": "a", "many": ["a", "typed"]}, "other": ["many"]})[0], 200)  # allow_other defaults on
+            code0, out0 = s.finish()
+        self.assertEqual((code0, out0["answers"]["many"]), (0, ["a", "typed"]))
+        self.assertNotIn("notes", out0["meta"])
+        with Server(self.form()) as s:
             self.assertEqual(s.post("/submit", b"{}", ctype="text/plain")[0], 415)
             self.assertEqual(s.post("/submit", b"{nope", ctype="application/json")[0], 400)
             status, _ = s.post("/submit", {"answers": {"pick": "a"}})
@@ -289,6 +308,21 @@ class ServerCase(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(out["answers"], answers)
         self.assertEqual(out["meta"]["skipped"], [])
+
+    def test_diverged_reports_choices_against_recommendations(self):
+        ex = json.loads(run("--example").stdout)  # cli recommended; confidence 4; both review items approve
+        base = {"approach": "cli", "confidence": 4,
+                "decisions": {"name": {"decision": "approve", "comment": ""}, "home": {"decision": "approve", "comment": ""}}}
+        with Server(ex) as s:
+            s.post("/submit", {"answers": base})
+            code, out = s.finish()
+        self.assertEqual(code, 0)
+        self.assertNotIn("diverged", out["meta"])
+        with Server(ex) as s:
+            s.post("/submit", {"answers": {**base, "approach": "mcp", "confidence": 2,
+                                           "decisions": {"name": {"decision": "approve", "comment": ""}, "home": {"decision": "reject", "comment": "no"}}}})
+            code, out = s.finish()
+        self.assertEqual(out["meta"]["diverged"], ["approach", "confidence", "decisions"])
 
     def test_cancel_then_submit_conflicts(self):
         with Server(self.form()) as s:

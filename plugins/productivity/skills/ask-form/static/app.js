@@ -10,6 +10,8 @@
   // answers: id -> value (only present when the question counts as answered)
   const answers = new Map();
   const other = new Set();
+  const notes = new Map();     // id -> note text (optional, per question)
+  let comments = "";           // optional, form-level
   const cards = new Map();   // id -> card element
   const elements = spec.questions.filter((e) => e.type !== "section" && e.type !== "context");
   const requiredIds = elements.filter((e) => e.required).map((e) => e.id);
@@ -54,9 +56,11 @@
     const input = el("input", { type, name: q.id, value: opt.value, onchange: onChange });
     return el("label", { class: "option" },
       input,
-      el("div", {}, el("div", { class: "opt-label", text: opt.label }), opt.description ? el("div", { class: "opt-desc", text: opt.description }) : null),
+      el("div", {}, el("div", { class: "opt-label", text: opt.label }, opt.recommended ? recBadge() : null), opt.description ? el("div", { class: "opt-desc", text: opt.description }) : null),
     );
   };
+
+  const recBadge = (text = "Recommended") => el("span", { class: "rec", text });
 
   const otherRow = (q, type, onChange) => {
     const input = el("input", { type, name: q.id, value: "__other__", onchange: onChange });
@@ -83,7 +87,7 @@
       setAnswer(q.id, checked.value);
     };
     for (const opt of q.options) group.append(optionRow(q, opt, "radio", update));
-    if (q.allow_other) { otherEl = otherRow(q, "radio", update); group.append(otherEl); }
+    if (q.allow_other !== false) { otherEl = otherRow(q, "radio", update); group.append(otherEl); }
     return group;
   };
 
@@ -110,7 +114,7 @@
       setAnswer(q.id, ok ? vals : undefined);
     };
     for (const opt of q.options) group.append(optionRow(q, opt, "checkbox", update));
-    if (q.allow_other) { otherEl = otherRow(q, "checkbox", update); group.append(otherEl); }
+    if (q.allow_other !== false) { otherEl = otherRow(q, "checkbox", update); group.append(otherEl); }
     return el("div", {}, group, hint);
   };
 
@@ -131,7 +135,8 @@
     };
     range.addEventListener("input", update);
     range.addEventListener("change", update);
-    return el("div", { class: "scale" }, value, range, ends, el("p", { class: "hint", text: "Drag the slider or use the arrow keys." }));
+    const recLine = q.recommended != null ? el("p", { class: "hint rec-line" }, recBadge(`Recommended: ${q.recommended}${labels[String(q.recommended)] ? ` ${labels[String(q.recommended)]}` : ""}`)) : null;
+    return el("div", { class: "scale" }, value, range, ends, recLine, el("p", { class: "hint", text: "Drag the slider or use the arrow keys." }));
   };
 
   const renderNumber = (q) => {
@@ -146,7 +151,8 @@
       hint.classList.toggle("warn", !ok);
       setAnswer(q.id, ok ? v : undefined);
     });
-    return el("div", {}, el("div", { class: "number-row" }, input, q.unit ? el("span", { class: "unit", text: q.unit }) : null), hint);
+    const recLine = q.recommended != null ? el("p", { class: "hint rec-line" }, recBadge(`Recommended: ${q.recommended}${q.unit ? ` ${q.unit}` : ""}`)) : null;
+    return el("div", {}, el("div", { class: "number-row" }, input, q.unit ? el("span", { class: "unit", text: q.unit }) : null), recLine, hint);
   };
 
   const renderText = (q, long) => {
@@ -228,7 +234,7 @@
       const comment = el("textarea", { class: "control", placeholder: "Add a comment (optional)", hidden: true, rows: 2, "aria-label": `Comment on ${item.label}` });
       comment.addEventListener("input", () => { if (state[item.id]) { state[item.id].comment = comment.value.trim(); update(); } });
       for (const d of decisions) {
-        const b = el("button", { type: "button", text: d, "aria-pressed": "false", "data-tone": d });
+        const b = el("button", { type: "button", text: d, "aria-pressed": "false", "data-tone": d, "data-rec": item.recommended === d ? "true" : undefined, title: item.recommended === d ? "Recommended" : undefined });
         b.addEventListener("click", () => {
           for (const x of seg.children) x.setAttribute("aria-pressed", String(x === b));
           state[item.id] = { decision: d, comment: comment.value.trim() };
@@ -299,9 +305,45 @@
     const label = el("h2", { class: "q-label", text: q.label }, q.required ? el("span", { class: "req", text: "required" }) : null);
     card.append(label);
     if (q.help) { const h = markdown(q.help); h.classList.add("q-help"); card.append(h); }
+    if (q.recommendation) card.append(el("p", { class: "recommendation" }, el("span", { class: "rec-label", text: "Agent recommends" }), el("span", { text: q.recommendation })));
     card.append(el("div", { class: "q-body" }, RENDERERS[q.type](q)));
+    card.append(noteBlock(q.id));
     cards.set(q.id, card);
     return card;
+  };
+
+  // Optional per-question note, collapsed behind a toggle; `n` opens it while the card has focus.
+  const noteBlock = (id) => {
+    const area = el("textarea", { class: "control note", placeholder: "Add a note for your agent", rows: 2, hidden: true, "aria-label": "Note" });
+    const toggle = el("button", { type: "button", class: "note-toggle", "aria-expanded": "false" },
+      el("span", { class: "chev", text: "›" }), el("span", { text: "Add a note" }), el("kbd", { text: "n" }));
+    const open = (focus = true) => {
+      const show = area.hidden;
+      area.hidden = !show;
+      toggle.setAttribute("aria-expanded", String(show));
+      if (show && focus) area.focus();
+    };
+    toggle.addEventListener("click", () => open(true));
+    area.addEventListener("input", () => {
+      const v = area.value.trim();
+      if (v) notes.set(id, v); else notes.delete(id);
+      toggle.classList.toggle("has-note", Boolean(v));
+      toggle.querySelector("span:nth-child(2)").textContent = v ? "Note" : "Add a note";
+    });
+    const block = el("div", { class: "note-block" }, toggle, area);
+    block._open = open;
+    return block;
+  };
+
+  // Form-level comments card, always last.
+  const commentsCard = () => {
+    const area = el("textarea", { class: "control", placeholder: "Anything else, about the form as a whole", rows: 3, "aria-label": "Comments" });
+    area.addEventListener("input", () => { comments = area.value.trim(); });
+    return el("section", { class: "card comments" },
+      el("h2", { class: "q-label", text: "Comments" }),
+      el("p", { class: "q-help", text: "Optional. Anything that does not fit a question above." }),
+      el("div", { class: "q-body" }, area),
+    );
   };
 
   // ── footer / submit ────────────────────────────────────────────────────────
@@ -352,7 +394,7 @@
     }
     submit.disabled = true;
     try {
-      const { status, data } = await post("/submit", { answers: Object.fromEntries(answers), other: [...other].filter((id) => answers.has(id)) });
+      const { status, data } = await post("/submit", { answers: Object.fromEntries(answers), other: [...other].filter((id) => answers.has(id)), notes: Object.fromEntries(notes), comments });
       if (status === 200) return finish("Answers sent", "You can close this tab. Your agent has them.", true);
       if (status === 409) return finish("Already finished", "This form was closed by another submission.");
       showErrors(data.errors || [data.error || `Server said ${status}.`]);
@@ -378,6 +420,15 @@
     else if (q.type === "context") list.append(renderContext(q));
     else list.append(renderQuestion(q));
   }
+  list.append(commentsCard());
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "n" || e.metaKey || e.ctrlKey || e.altKey) return;
+    const a = document.activeElement;
+    if (a && (a.tagName === "TEXTAREA" || (a.tagName === "INPUT" && !["radio", "checkbox", "range"].includes(a.type)))) return;
+    const card = a?.closest?.(".card");
+    const block = card?.querySelector(".note-block");
+    if (block) { e.preventDefault(); block._open(true); }
+  });
   submit.textContent = spec.submit_label || "Send answers";
   submit.addEventListener("click", doSubmit);
   cancel.addEventListener("click", doCancel);
