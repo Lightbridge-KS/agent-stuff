@@ -29,7 +29,8 @@ stay local via `.gitignore`:
 ├── repos.toml                     ← IGNORED — machine-specific by design
 └── projects/<project-key>/
     ├── config.toml                ← COMMITTED — the payload
-    └── handoffs/                  ← IGNORED — conversation-derived, stays local
+    ├── handoffs/                  ← IGNORED — conversation-derived, stays local
+    └── asks/                      ← IGNORED — form answers, same class
 ```
 
 ```gitignore
@@ -37,6 +38,7 @@ stay local via `.gitignore`:
 repos.toml
 # conversation-derived state — private to each machine
 projects/*/handoffs/
+projects/*/asks/
 ```
 
 Why those two stay local:
@@ -44,9 +46,9 @@ Why those two stay local:
 - **`repos.toml`** — its *presence* is the per-machine opt-in for `[repo-links]`
   resolution. Synced, a fresh machine would opt in with paths that don't exist yet and
   spray WARNING lines into every session. Authoring it per machine keeps opt-in deliberate.
-- **`handoffs/`** — conversation-derived; "private GitHub is probably fine" is the wrong
-  bar for chat-derived text. Excluding is the safe default; flipping later is one gitignore
-  line.
+- **`handoffs/`** and **`asks/`** — conversation-derived (handoffs) and user-authored form
+  answers (asks); "private GitHub is probably fine" is the wrong bar for either. Excluding is
+  the safe default; flipping later is one gitignore line each.
 
 ## The load-bearing assumption
 

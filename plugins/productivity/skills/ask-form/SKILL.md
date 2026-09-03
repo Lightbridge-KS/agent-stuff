@@ -20,7 +20,7 @@ the catalog, you never write HTML.
 `<skill_dir>` = the directory this SKILL.md was read from. Every call:
 
 ```bash
-uv run <skill_dir>/scripts/ask_form.py [SPEC] [--no-open] [--timeout S]
+uv run <skill_dir>/scripts/ask_form.py [SPEC] [--no-open] [--timeout S] [--no-save]
 ```
 
 ## When to use it, and when not
@@ -44,6 +44,7 @@ User is not at a machine with a browser (mobile, SSH) → chat.
 | `--validate [SPEC]` | check the spec only; prints answerable and required ids | 0 valid · 2 invalid |
 | `--timeout S` | give up after S seconds; by default the form waits until the user acts | |
 | `--no-open` | print the URL, do not launch a browser | |
+| `--no-save` | do not write the record (throwaway forms); saving is otherwise always on | |
 
 `SPEC` is a path, `-`, or omitted for stdin. stdout is exactly one JSON document; the URL and
 notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2].options`.
@@ -85,6 +86,17 @@ notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2
    - `3` → loopback could not bind; fall back to chat.
 5. **Verify** before moving on: every `required` id you relied on is present in `answers`, and any
    id in `meta.other` is treated as free text, not as an option value.
+
+## The record
+
+Every submitted form is saved as markdown under the project's lightbridge state,
+`~/.lightbridge/projects/<project-key>/asks/<YYYY-MM-DD_HHMM>_<slug>.md` (key = the git toplevel of
+the cwd, or the folder itself): frontmatter, one block per question with answer, recommendation,
+divergence and note, the comments, and the raw spec + result as JSON at the end. `meta.saved` on
+stdout is its path; cite it when you act on the answers. Cancelled runs save nothing. Nothing reads
+the archive automatically: when a design question comes back, `rg` the project's `asks/` before
+asking again. Pass `--no-save` for a throwaway form. If stderr says `not saved: …`, the answers are
+still on stdout; mention the cause once and carry on.
 
 ## Element types
 

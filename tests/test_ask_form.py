@@ -59,13 +59,15 @@ OPTS = [{"value": "a", "label": "A"}, {"value": "b", "label": "B", "description"
 class Server:
     """Context manager around one running form: gives the URL, token and HTTP helpers."""
 
-    def __init__(self, body: dict, timeout: float = 20) -> None:
-        self.body, self.timeout = body, timeout
+    def __init__(self, body: dict, timeout: float = 20, *args: str, state_dir: Path | None = None, cwd: Path | None = None) -> None:
+        self.body, self.timeout, self.args, self.state_dir, self.cwd = body, timeout, list(args), state_dir, cwd
 
     def __enter__(self) -> "Server":
+        env = {**os.environ}
+        env["LIGHTBRIDGE_STATE_DIR"] = str(self.state_dir) if self.state_dir else str(Path(tempfile.gettempdir()) / "ask-form-tests-unused")
         self.proc = subprocess.Popen(
-            script_argv(SCRIPT, "-", "--no-open", "--timeout", str(self.timeout)),
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            script_argv(SCRIPT, "-", "--no-open", "--timeout", str(self.timeout), *self.args),
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, cwd=self.cwd,
         )
         assert self.proc.stdin and self.proc.stderr
         self.proc.stdin.write(json.dumps(self.body))
@@ -85,7 +87,7 @@ class Server:
                     s.close()
 
     def finish(self) -> tuple[int, dict]:
-        out, _ = self.proc.communicate(timeout=60)
+        out, self.err = self.proc.communicate(timeout=60)
         return self.proc.returncode, json.loads(out)
 
     def get(self, path: str, token: bool = True) -> tuple[int, bytes]:
@@ -323,6 +325,65 @@ class ServerCase(unittest.TestCase):
                                            "decisions": {"name": {"decision": "approve", "comment": ""}, "home": {"decision": "reject", "comment": "no"}}}})
             code, out = s.finish()
         self.assertEqual(out["meta"]["diverged"], ["approach", "confidence", "decisions"])
+
+    def test_record_saved_under_project_asks(self):
+        ex = json.loads(run("--example").stdout)
+        answers = {"approach": "mcp", "surfaces": ["web"], "confidence": 2, "codename": "glasshouse",
+                   "fit": {"cli": "good", "renderer": "ok"},
+                   "decisions": {"name": {"decision": "approve", "comment": ""}, "home": {"decision": "revise", "comment": "why"}}}
+        with tempfile.TemporaryDirectory() as td:
+            state, proj = Path(td) / "state", Path(td) / "proj"
+            proj.mkdir()  # not a git repo → keyed by its own path, git: none
+            with Server(ex, state_dir=state, cwd=proj) as s:
+                s.post("/submit", {"answers": answers, "notes": {"approach": "loopback is proven"}, "comments": "Ship it."})
+                code, out = s.finish()
+            self.assertEqual(code, 0)
+            files = list((state).glob("*/asks/*.md"))
+            self.assertEqual(len(files), 1, files)
+            record = files[0]
+            self.assertEqual(out["meta"]["saved"], str(record))
+            self.assertIn(f"saved {record}", s.err)
+            self.assertRegex(record.name, r"^\d{4}-\d{2}-\d{2}_\d{4}_ask-form-every-element-type\.md$")
+            text = record.read_text(encoding="utf-8")
+            self.assertTrue(text.startswith("---\n"))
+            self.assertIn("status: submitted", text)
+            self.assertIn("git: none", text)
+            self.assertIn(f"project: {json.dumps(str(proj.resolve()))}", text)
+            for eid in out["answers"]:
+                self.assertEqual(text.count(f"`{eid}`"), 1, eid)
+            self.assertIn("**Answer:** MCP first `mcp`", text)
+            self.assertIn("**Diverged** from the recommendation.", text)
+            self.assertIn("**Note:** loopback is proven", text)
+            self.assertIn("**Answer:** _skipped_", text)
+            self.assertIn("## Comments\n\nShip it.", text)
+            raw = json.loads(text.split("```json\n", 1)[1].rsplit("\n```", 1)[0])
+            self.assertEqual(raw["result"]["answers"], out["answers"])
+            self.assertEqual(raw["spec"]["title"], ex["title"])
+            self.assertNotIn("_values", json.dumps(raw["spec"]))
+
+    def test_no_save_and_cancel_write_nothing(self):
+        with tempfile.TemporaryDirectory() as td:
+            state = Path(td) / "state"
+            with Server(self.form(), 20, "--no-save", state_dir=state) as s:
+                s.post("/submit", {"answers": {"pick": "a"}})
+                code, out = s.finish()
+            self.assertEqual(code, 0)
+            self.assertNotIn("saved", out["meta"])
+            with Server(self.form(), state_dir=state) as s:
+                s.post("/cancel", {})
+                s.finish()
+            self.assertEqual(list(state.rglob("*.md")), [])
+
+    def test_unwritable_state_dir_is_a_note_not_a_failure(self):
+        with tempfile.TemporaryDirectory() as td:
+            blocker = Path(td) / "file-not-dir"
+            blocker.write_text("x")
+            with Server(self.form(), state_dir=blocker) as s:  # mkdir under a regular file fails
+                s.post("/submit", {"answers": {"pick": "a"}})
+                code, out = s.finish()
+            self.assertEqual((code, out["status"]), (0, "submitted"))
+            self.assertNotIn("saved", out["meta"])
+            self.assertIn("not saved:", s.err)
 
     def test_cancel_then_submit_conflicts(self):
         with Server(self.form()) as s:

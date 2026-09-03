@@ -560,6 +560,8 @@ class StatusCliTest(CliHarness):
             (project_dir / "handoffs" / "inbox" / "c.md").write_text("x")
             (project_dir / "plans").mkdir()
             (project_dir / "plans" / "p.md").write_text("x")
+            (project_dir / "asks").mkdir()
+            (project_dir / "asks" / "2026-09-03_1200_q.md").write_text("x")
 
             result = self.status(state, proj, "--json")
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -569,7 +571,7 @@ class StatusCliTest(CliHarness):
             self.assertIsNone(data["error"])
             self.assertEqual(data["sections"], {"docs-index": True, "plans": False})
             self.assertEqual(data["unknown_sections"], ["mystery"])
-            self.assertEqual(data["state"], {"handoffs": 2, "inbox": 1, "plans": 1})
+            self.assertEqual(data["state"], {"handoffs": 2, "inbox": 1, "plans": 1, "asks": 1})
             self.assertFalse(data["registry"])
 
     def test_unreadable_config_exits_1(self):

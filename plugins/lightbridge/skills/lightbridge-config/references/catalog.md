@@ -124,6 +124,8 @@ feature owns a subtree **or file** registered here.
     per the Conventions above:
     - `config.toml` — the project's config (the Sections in this catalog).
     - `handoffs/` — the `handoff` skill's journal + inbox.
+    - `asks/` — the `ask-form` skill's records: one markdown file per submitted form
+      (answers, notes, comments, raw JSON). Always-on, no section; `--no-save` skips one.
   - `~/.lightbridge/repos.toml` — the personal repo registry: one `[repos]` table mapping
     logical repo names to local paths (`~`-relative or absolute). Machine-specific by
     design; it is the node namespace of the cross-repo graph. Managed by
@@ -150,6 +152,10 @@ feature owns a subtree **or file** registered here.
   - `handoff` skill (agent-stuff `plugins/productivity`) — writes
     `projects/<key>/handoffs/<YYYY-MM-DD_HHMM>_<slug>.md`. The filename/frontmatter contract
     lives in that skill, not re-documented here.
+  - `ask-form` skill (agent-stuff `plugins/productivity`) — its bundled `ask_form.py` writes
+    `projects/<key>/asks/<YYYY-MM-DD_HHMM>_<slug>.md` after every submitted form, resolving
+    the key through the shared resolver. A plain archive: nothing reads it at session start;
+    the agent greps it when relevant. Record contract in that skill's design doc.
   - `repo-links` reader (agent-stuff `scripts/repo-links` + `hooks/repo-links-inject`) —
     projects the session repo's ego view (outgoing edges, backlinks, compact mentions)
     from `graph.toml`, paths verified via `repos.toml`. Graph absent → readers stay
@@ -157,8 +163,8 @@ feature owns a subtree **or file** registered here.
 - **Trade-off (accepted):** nothing in the repo means nothing travels with a clone —
   config does not follow the repo to another machine. A moved/renamed repo is repaired
   with `lb mv OLD NEW` (`lightbridge doctor` detects the orphan and names the fix).
-  Sync `projects/*/config.toml` via private dotfiles if it must roam; `handoffs/` is
-  conversation-derived — keep it local.
+  Sync `projects/*/config.toml` via private dotfiles if it must roam; `handoffs/` and `asks/`
+  are conversation-derived — keep them local.
 - **Hygiene:** never committed anywhere; may hold conversation-derived content, so treat the
   tree as private. No secrets or PHI regardless — `secrets.toml` being the one deliberate
   exception (0600, deny-listed, injected-only; see above).

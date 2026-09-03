@@ -341,6 +341,7 @@ def cmd_status(
         "handoffs": len(list(project_dir.glob("handoffs/*.md"))),
         "inbox": len(list(project_dir.glob("handoffs/inbox/*.md"))),
         "plans": len(list(project_dir.glob("plans/*.md"))),
+        "asks": len(list(project_dir.glob("asks/*.md"))),
     }
     graph_path = Path(graph_file).expanduser()
     graph, graph_error = load_graph(graph_path)
@@ -394,6 +395,7 @@ def cmd_status(
             print(row("sections", f"[{name}]  (unknown — not in the catalog)"))
     print(row("state", f"handoffs {state['handoffs']} + {state['inbox']} inbox — handoff.py"))
     print(row("state", f"plans {state['plans']} — plan_store.py"))
+    print(row("state", f"asks {state['asks']} — ask_form.py"))
     print(
         row(
             "registry",
