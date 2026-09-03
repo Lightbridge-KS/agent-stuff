@@ -2,13 +2,13 @@
 name: lightbridge-config
 description: >-
   Bootstrap and manage the personal .lightbridge namespace — per-project config sections
-  plus user-level state (handoffs, plans, repos.toml, graph.toml, keys.toml). Use when
+  plus user-level state (handoffs, plans, asks, repos.toml, graph.toml, keys.toml). Use when
   setting up or extending lightbridge config for a repo, enabling or adding a section,
   asking what .lightbridge supports, or locating user-level lightbridge state. For
   linking repos in the cross-repo graph, use the repo-graph skill; for running
   inference with personal LLM API keys, use the llm-keys skill.
 metadata:
-  version: "2026-08-24"
+  version: "2026-09-03"
 ---
 
 # .lightbridge config
@@ -28,7 +28,8 @@ key = root path with separators → `-`.
 
 The same tree holds durable, harness-neutral **state**: `projects/<key>/handoffs/` (the
 `handoff` skill), `projects/<key>/plans/` (approved plan-mode plans, filed by
-`hooks/plan-capture`), `~/.lightbridge/repos.toml` (the personal name→path repo
+`hooks/plan-capture`), `projects/<key>/asks/` (every form the `ask-form` skill's CLI
+collected, always-on), `~/.lightbridge/repos.toml` (the personal name→path repo
 registry), `~/.lightbridge/graph.toml` (the cross-repo graph — typed edges between
 registered repos; spec: the **repo-graph** skill), and `~/.lightbridge/keys.toml` +
 `secrets.toml` (personal LLM API keys: agent-readable catalog + injected-only values;
@@ -82,7 +83,7 @@ silently. **One command repairs everything** — whether the user is about to mo
 
     lb mv OLD NEW            # OLD still exists → performs the move too; OLD gone → repair only
 
-It re-keys `projects/<key>/` (config + handoffs + plans travel), rewrites `root`, and
+It re-keys `projects/<key>/` (config + handoffs + plans + asks travel), rewrites `root`, and
 fixes matching `repos.toml` paths — parent-dir moves re-key every project beneath in one
 shot. Never hand-edit these files. Preview with `--dry-run`. Non-interactive runs need
 `--yes` — **pass it only when the user explicitly instructed this move.** A note about

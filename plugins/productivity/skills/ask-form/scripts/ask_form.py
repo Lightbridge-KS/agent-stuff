@@ -9,10 +9,13 @@ The agent writes a JSON *spec* (title, intro, a list of question elements drawn 
 catalog of ten types); this tool validates it, serves a glass-styled page on 127.0.0.1, opens
 the browser, blocks until the user submits or cancels (no timeout unless --timeout), and prints the
 answers as one JSON document on stdout. Every question carries an optional note and the form
-ends with optional comments; both return under `meta`. The agent supplies the judgment (what to
-ask); this tool stays deterministic (what is rendered, how answers come back).
+ends with optional comments; both return under `meta`. Every submitted form is also saved as a
+markdown record under `~/.lightbridge/projects/<project-key>/asks/` (`--no-save` to skip; the
+project key comes from the shared lightbridge resolver; saving is best-effort and never changes
+the exit code or stdout). The agent supplies the judgment (what to ask); this tool stays
+deterministic (what is rendered, how answers come back).
 
-    uv run ask_form.py [SPEC] [--no-open] [--timeout S]       # SPEC = path, '-' or stdin
+    uv run ask_form.py [SPEC] [--no-open] [--timeout S] [--no-save]   # SPEC = path, '-' or stdin
     uv run ask_form.py --example                              # a spec exercising all 10 types
     uv run ask_form.py --schema                               # JSON Schema of a spec
     uv run ask_form.py --validate [SPEC]                      # check only, nothing binds
@@ -29,6 +32,7 @@ bind loopback).
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import mimetypes
 import re
@@ -38,6 +42,7 @@ import sys
 import threading
 import time
 import webbrowser
+from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -614,6 +619,154 @@ def serve(spec: dict[str, Any], compiled: Compiled, timeout: float | None, open_
     return 1, {"status": run.outcome}
 
 
+# ── persistence ────────────────────────────────────────────────────────────────
+#
+# Every submitted form becomes ~/.lightbridge/projects/<key>/asks/<YYYY-MM-DD_HHMM>_<slug>.md:
+# a record of a human decision, same class as handoffs/, always-on (no config section). Root,
+# key and state dir come from the one shared resolver (scripts/lightbridge/lb_resolve.py),
+# path-loaded lazily so the stdout contract and the offline verbs never depend on it.
+
+ASKS_SUBDIR = "asks"
+
+
+def slugify(text: str, limit: int = 6) -> str:
+    """Filesystem-safe slug from the title: first `limit` alphanumeric words (mirrors plan_store)."""
+    words = re.findall(r"[A-Za-z0-9]+", text.lower())
+    return "-".join(words[:limit]) or "ask"
+
+
+def load_resolver() -> Any:
+    """Path-load lb_resolve.py. parents[5] is the agent-stuff root: registry entries are symlinks,
+    so resolve() lands inside the repo. A copied install has no root above it → FileNotFoundError."""
+    path = Path(__file__).resolve().parents[5] / "scripts" / "lightbridge" / "lb_resolve.py"
+    if not path.is_file():
+        raise FileNotFoundError(f"lightbridge resolver not found at {path} (copied install?)")
+    spec = importlib.util.spec_from_file_location("lightbridge", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def git_state(root: Path) -> str:
+    """`<branch> @ <short sha>` (+ ` (dirty)`), or `none` when the folder is not a repo."""
+    def run(*args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, timeout=5)
+    try:
+        sha = run("rev-parse", "--short", "HEAD")
+        if sha.returncode != 0:
+            return "none"
+        branch = run("branch", "--show-current").stdout.strip() or "HEAD"
+        dirty = " (dirty)" if run("status", "--porcelain").stdout.strip() else ""
+        return f"{branch} @ {sha.stdout.strip()}{dirty}"
+    except (OSError, subprocess.SubprocessError):
+        return "none"
+
+
+def _labels(el: dict[str, Any], key: str = "options") -> dict[str, str]:
+    return {o.get("value", o.get("id")): o.get("label", "") for o in el.get(key, []) if isinstance(o, dict)}
+
+
+def _answer_md(el: dict[str, Any], val: Any, is_other: bool) -> str:
+    """One question's answer as markdown, per type. Agent strings are plain text here."""
+    t = el["type"]
+    labels = _labels(el)
+    if t == "single_select":
+        return f"{val} *(other)*" if is_other else f"{labels.get(val, val)} `{val}`"
+    if t == "multi_select":
+        return "\n" + "\n".join(f"- {v} *(other)*" if v not in labels else f"- {labels[v]} `{v}`" for v in val)
+    if t == "ranking":
+        return "\n" + "\n".join(f"{i}. {labels.get(v, v)}" for i, v in enumerate(val, 1))
+    if t == "scale":
+        lbl = (el.get("labels") or {}).get(str(val))
+        return f"{val} {lbl}" if lbl else str(val)
+    if t == "number":
+        return f"{val} {el['unit']}" if el.get("unit") else str(val)
+    if t == "matrix":
+        rows, cols = _labels(el, "rows"), _labels(el, "columns")
+        return "\n" + "\n".join(f"- {rows.get(r, r)} → {cols.get(c, c)}" for r, c in val.items())
+    if t == "review":
+        items = _labels(el, "items")
+        lines = []
+        for i, d in val.items():
+            comment = f" — {d['comment']}" if d.get("comment") else ""
+            lines.append(f"- {items.get(i, i)}: **{d.get('decision')}**{comment}")
+        return "\n" + "\n".join(lines)
+    text = str(val).strip()
+    return "\n" + "\n".join(f"> {line}" for line in text.splitlines()) if text else "_(empty)_"
+
+
+def _recommended_md(el: dict[str, Any]) -> str | None:
+    t = el["type"]
+    if t in ("single_select", "multi_select"):
+        recs = [o for o in el.get("options", []) if isinstance(o, dict) and o.get("recommended") is True]
+        if not recs:
+            return None
+        return ", ".join(f"{o.get('label')} `{o.get('value')}`" for o in recs)
+    if t in ("scale", "number") and "recommended" in el:
+        return str(el["recommended"])
+    if t == "review":
+        recs = [(it.get("label"), it["recommended"]) for it in el.get("items", []) if isinstance(it, dict) and "recommended" in it]
+        return ", ".join(f"{lab}: {d}" for lab, d in recs) if recs else None
+    return None
+
+
+def render_record(spec: dict[str, Any], result: dict[str, Any], ctx: dict[str, str]) -> str:
+    """The markdown record: frontmatter, one block per answerable question, comments, raw JSON."""
+    meta = result.get("meta", {})
+    answers, notes = result.get("answers", {}), meta.get("notes", {})
+    other, diverged = set(meta.get("other", [])), set(meta.get("diverged", []))
+    out = ["---", f"title: {json.dumps(spec['title'], ensure_ascii=False)}", f"created: {ctx['created']}",
+           f"project: {json.dumps(ctx['project'])}", f"git: {ctx['git']}", "status: submitted",
+           f"duration_s: {meta.get('duration_s', 0)}", "---", "", f"# {spec['title']}", ""]
+    if spec.get("intro"):
+        out += [spec["intro"].strip(), ""]
+    out += ["## Answers", ""]
+    for el in spec["questions"]:
+        t = el["type"]
+        if t == "section":
+            out += [f"## {el['label']}", ""]
+            continue
+        if t == "context":
+            continue
+        eid = el["id"]
+        out.append(f"### {el['label']}  `{eid}`")
+        out.append(f"**Answer:** {_answer_md(el, answers[eid], eid in other)}" if eid in answers else "**Answer:** _skipped_")
+        rec = _recommended_md(el)
+        if rec or el.get("recommendation"):
+            why = f" — {el['recommendation']}" if el.get("recommendation") else ""
+            out.append(f"**Recommended:** {rec or '—'}{why}")
+        if eid in diverged:
+            out.append("**Diverged** from the recommendation.")
+        if eid in notes:
+            out.append(f"**Note:** {notes[eid]}")
+        out.append("")
+    if meta.get("comments"):
+        out += ["## Comments", "", meta["comments"], ""]
+    raw = json.dumps({"spec": spec, "result": result}, ensure_ascii=False, indent=2)
+    out += ["## Raw", "", "```json", raw, "```", ""]
+    return "\n".join(out)
+
+
+def save_record(spec: dict[str, Any], result: dict[str, Any], cwd: Path | None = None, now: datetime | None = None) -> Path:
+    """Write the record under the project's asks/ dir; returns the path. Raises on any failure."""
+    lb = load_resolver()
+    root = lb.repo_root(cwd or Path.cwd())
+    directory = lb.default_state_dir() / lb.project_key(root) / ASKS_SUBDIR
+    directory.mkdir(parents=True, exist_ok=True)
+    when = now or datetime.now()
+    stamp = when.strftime("%Y-%m-%d_%H%M")
+    slug = slugify(spec["title"])
+    target = directory / f"{stamp}_{slug}.md"
+    suffix = 2
+    while target.exists():  # same minute, same title — don't clobber
+        target = directory / f"{stamp}_{slug}-{suffix}.md"
+        suffix += 1
+    ctx = {"created": when.strftime("%Y-%m-%dT%H:%M"), "project": str(root), "git": git_state(root)}
+    target.write_text(render_record(strip_private(spec), result, ctx), encoding="utf-8")
+    return target
+
+
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
 
@@ -638,6 +791,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("spec", nargs="?", help="spec path, '-' or omitted for stdin")
     ap.add_argument("--timeout", type=float, default=None, help="give up after S seconds (default: wait until submit or cancel)")
     ap.add_argument("--no-open", action="store_true", help="print the URL only; do not launch a browser")
+    ap.add_argument("--no-save", action="store_true", help="do not save the record under ~/.lightbridge/projects/<key>/asks/")
     ap.add_argument("--example", action="store_true", help="print a spec exercising every element type")
     ap.add_argument("--schema", action="store_true", help="print the JSON Schema of a spec")
     ap.add_argument("--validate", action="store_true", help="validate the spec and exit; nothing binds")
@@ -665,6 +819,13 @@ def main(argv: list[str]) -> int:
         return 2
 
     code, result = serve(spec, compiled, args.timeout, open_browser=not args.no_open)
+    if code == 0 and not args.no_save:
+        try:
+            saved = save_record(spec, result)
+            result["meta"]["saved"] = str(saved)
+            print(f"saved {saved}", file=sys.stderr, flush=True)
+        except Exception as e:  # noqa: BLE001 — persistence is best-effort; the answers are on stdout regardless
+            print(f"not saved: {e}", file=sys.stderr, flush=True)
     print(json.dumps(result, ensure_ascii=False))
     return code
 

@@ -142,8 +142,25 @@ Agent strings render as text or sanitized markdown. CSP restricts scripts to sel
 server exits after one terminal outcome. The skill tells the agent not to put PHI in a spec it could
 not justify showing in a browser tab.
 
+## Persistence
+
+Every submitted form is written to `~/.lightbridge/projects/<project-key>/asks/<YYYY-MM-DD_HHMM>_<slug>.md`
+(KS, 2026-09-03). Under the project, because an ask is a record of one project's decisions, the same
+class as `handoffs/`; the canonical resolver (`scripts/lightbridge/lb_resolve.py`, path-loaded lazily
+from the skill through the registry symlink) yields a key for every folder, and `lb mv` moves the
+whole key directory so records travel. **Always-on**, `--no-save` opts out of one run, and there is
+no config section: memory should not depend on remembering to opt in (the `handoffs/` precedent, not
+`plans/`). A **plain archive**: `resume` does not read it; the agent greps it when relevant. Only
+submitted runs are saved. Saving is best-effort: a failure (resolver missing in a copied install,
+unwritable dir) is a stderr `not saved: …` note and never changes the exit code or the stdout document;
+on success stdout carries `meta.saved`. The record is markdown for the reader — frontmatter (title,
+created, project, git, status, duration), one block per answerable question (answer per type,
+recommendation, divergence, note), comments — with the raw spec and result as a JSON tail for
+machines. Slug and same-minute collision suffix mirror `plan_store.write_plan`. `lb status` shows the
+count; `lb doctor` and `lb mv` needed no change; the catalog lists `asks/` beside `handoffs/`.
+
 ## Out of scope for v1 (tracked as Deferred)
 
-MCP wrapper for Codex; persistence under `~/.lightbridge/asks/`; iPad reach over the tailnet;
+MCP wrapper for Codex; iPad reach over the tailnet;
 partial answers on timeout; drag ranking; digit shortcuts; matrix multi-choice; long-text markdown
 preview; animated backdrop; background run + poll for forms longer than 9 min.
