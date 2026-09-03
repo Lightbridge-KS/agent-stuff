@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self'">
+<meta name="color-scheme" content="light dark">
+<title>ask-form</title>
+<link rel="stylesheet" href="/static/styles.css">
+<!--SPEC-->
+</head>
+<body>
+<div class="backdrop" aria-hidden="true"></div>
+<main id="app" class="page">
+  <header class="masthead">
+    <p class="kicker">Your agent is asking</p>
+    <h1 id="title"></h1>
+    <div id="intro" class="intro prose"></div>
+  </header>
+  <div id="questions"></div>
+</main>
+<footer id="footer" class="footer" hidden>
+  <div class="footer-inner">
+    <p id="progress" class="progress" aria-live="polite"></p>
+    <div class="actions">
+      <button id="cancel" type="button" class="btn quiet">Cancel</button>
+      <button id="submit" type="button" class="btn primary">Send answers</button>
+    </div>
+  </div>
+  <div id="fill" class="fill"></div>
+</footer>
+<script src="/static/vendor/marked.min.js"></script>
+<script src="/static/vendor/purify.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

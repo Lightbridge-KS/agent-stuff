@@ -172,6 +172,7 @@ Python, executed via [`uv`](https://docs.astral.sh/uv/) (self-contained scripts 
   - `uv run tests/test_handoff_hook.py` — the handoff split (pulled journal, pushed inbox).
   - `uv run tests/test_research_kit.py` — the research skill's `research_kit.py`.
   - `uv run tests/test_deidentify.py` — the deidentify skill's `deid.py` (offline; `DEID_LIVE=1` for E2E).
+  - `uv run tests/test_ask_form.py` — the ask-form skill's `ask_form.py` (validator, server contract, exit codes; offline).
 
 Agent install targets live in `bin/targets.toml` — add an agent there (one block), no code
 change. A top-level `justfile` wraps the common recipes (`just validate`, `just package`,
