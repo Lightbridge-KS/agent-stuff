@@ -35,9 +35,11 @@ extension points in a paragraph; here that paragraph is the whole document.
 ```
 
 Rungs are **pace layers** (Brand): slow layers carry fast ones, and a system is healthy when
-each concern lives on the rung that matches its rate of change and its author's trust. The
-plugin rung is the Iron Man Mark 42: autonomous pieces fly in and attach to a fixed pilot
-through the suit's mount points — the contract — and the pilot never changes to receive them.
+each concern lives on the rung that matches its rate of change and its author's trust
+(rung 4 is the Iron Man Mark 42: pieces fly in and lock onto fixed mount points — the
+contract). **Policy runs against the ladder:** an admin lock, allow-list, or trust gate
+removes authority from a lower rung; it is not a rung itself, so record *who can forbid*
+alongside *who can change*.
 
 Each rung up **costs** a contract, versioning, docs, and trust, and **buys** openness.
 Hence the governing rule of this lens, in both modes:
@@ -73,17 +75,20 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
 
 ## Core principles
 
-1. **Ground every claim in the mode's evidence.** When unsure, say so in the uncertainty
-   section rather than guessing.
-2. **Lowest sufficient rung** (above). In explain mode this is a judgment you record: a
+1. **Lowest sufficient rung** (above). In explain mode this is a judgment you record: a
    concern sitting higher than it needs to is a finding.
-3. **Who holds the pen — including the agent.** Every rung names its author. If the seam
-   is file-based and reload is in-process, an agent with file tools can author at that rung:
-   a self-modification loop. Name it, and name the asymmetric lock that guards *activation*
-   (owner-only install, command-only reload, fail-closed gates) — admission control is the
-   security model; an in-process seam is never a sandbox.
-4. **Absence is a finding.** No config schema, no hooks, no plugin seam — record it in the
+2. **Who holds the pen — including the agent.** Every rung names its author and who may
+   forbid it. If the seam is file-based and reload is in-process, an agent with file tools
+   can author at that rung: a self-modification loop. Name it, and name the asymmetric lock
+   that guards *activation* (owner-only install, command-only reload, fail-closed gates) —
+   admission control is the security model. Containment, where it exists, is a **process
+   wall** or an **OS sandbox**; an in-process seam is never one. Say which, and what it
+   actually confines.
+3. **Absence is a finding.** No config schema, no hooks, no plugin seam — record it in the
    rung matrix, don't omit it. (Design mode: absence is a *decision* — record why.)
+4. **Ladders are per subsystem.** A product may offer hooks around one feature and none
+   around the rest; one verdict per rung for the whole system hides that. The matrix says
+   *for which subsystem*.
 5. **The seam has a falsifiable test.** *Add a config entry / hook / plugin / extension
    without editing the core. If you must edit the core, the seam leaks — fix the seam, not
    the symptom.* Apply it in explain mode; require it in design mode.
@@ -124,8 +129,13 @@ section silently — if it does not apply, write one line saying why.
 
 | Rung | Locate | Where to look |
 |---|---|---|
-| **1 Config** | the settings surface and its **schema**; the **precedence chain** (defaults → file → env → CLI → per-workspace); validation; hot reload vs restart; feature flags | `config.*`, `settings.json` schema, `pydantic`/`zod` settings, env parsing, `--flag` definitions |
+| **1 Config** | the settings surface and its **schema**; the **precedence chain** (defaults → file → env → CLI → per-workspace → policy last); validation; hot reload vs restart; feature flags | `config.*`, `settings.json` schema, `pydantic`/`zod` settings, env parsing, `--flag` definitions, policy files |
 | **2 Declarative** | data that *describes behaviour* the core interprets: pipeline YAML, rule/expression DSLs, templates, layout XML, hanging protocols | `*.yaml` pipelines, rule engines, template dirs, `dicom_support_rule`-style expressions |
+
+**The rung 1 / rung 2 test:** rung 1 supplies a *value the core already knows how to use*;
+rung 2 supplies *structure the core parses and evaluates*. If nothing parses it, it is
+rung 1. One artifact can straddle rungs (a task file with a run-on-open trigger is rung 2
+carrying a rung 3 hook) — record the straddle, don't force a single number.
 | **3 Hooks** | named seams where user code runs; the **event taxonomy by power** (observe · transform · chain · veto · replace); error semantics per class | `hooks/`, `on_*`/`before_*`/`after_*`, dispatcher loops, Lua/JS embedding |
 | **4 Plugins** | the archetype; the nine decisions below | manifests, loaders, registries, extension-host processes, marketplaces |
 | **5 Extensions** | files that import the whole host API and may *replace* built-ins; the reload path; what survives reload | `extensions/` dirs loaded by `jiti`/`importlib`, `registerTool` overrides, `/reload` |
@@ -150,7 +160,7 @@ the highest-rung concern in the inventory.
 
 | # | Decision | The question | Poles |
 |---|---|---|---|
-| 1 | **Contract** | what does a plugin implement? | none (reuse internals) · one narrow interface · wide bag of optional adapters · data schema + API |
+| 1 | **Contract** | what does a plugin implement? | none (reuse internals) · one narrow interface · wide bag of optional adapters · data schema + API · **bundle** (a manifest wrapping lower-rung artifacts — prompts, hooks, config — with no code contract at all) |
 | 2 | **Manifest split** | what is knowable *without running plugin code*? | nothing · distribution metadata only · full declared surface (contributions, activation, placement) |
 | 3 | **Placement** | where does plugin code run? | same thread · same process · separate process/worker/remote (async-only, type-enforced) |
 | 4 | **Activation** | when does it load? | all at startup · per registration mode · lazy on derived events, idempotent, timed |
@@ -162,9 +172,11 @@ the highest-rung concern in the inventory.
 
 Decisions are one choice seen from nine angles: a rich manifest split enables lazy
 activation and live change; out-of-process placement forces an async contract; merged
-placement forces restart-driven change and rebuild-driven compatibility. Long form and the
-four worked systems: the book chapter *Anatomy of a Plugin Mechanism*
-(`software-design-explore`).
+placement forces restart-driven change and rebuild-driven compatibility. A product may
+carry **more than one rung-4 seam** with different archetypes (an extension host, a
+sandboxed tool-server protocol, a data-only bundle format): walk the decisions for the
+primary seam in full and tabulate the others where they differ. Long form and the four
+worked systems: the book chapter *Anatomy of a Plugin Mechanism* (`software-design-explore`).
 
 ### Rung 5 — extensions rewrite
 
@@ -181,12 +193,12 @@ survives). If the host contains an agent, this is where the self-modification lo
 line under the title for each found — the set triangulates one system. If none, the doc
 stands alone.
 
-Use this skeleton. Keep prose tight; let the diagrams and tables carry the structure.
+Use this skeleton.
 
 ```markdown
 # <Project> — Extensibility Architecture
 
-> Source: <repo origin/URL or design inputs> · Date: <date> · Mode: <Explain | Design> · Class: <Closed | Scriptable | Plugin host (merged|registered|hosted) | Platform | Hybrid>
+> Source: <repo origin/URL or design inputs> · Date: <date> · Mode: <Explain | Design> · Class: <Closed | Scriptable | Plugin host | Platform | Hybrid> — rungs <n, …>; primary seam <archetype: merged | registered | hosted>
 > See also: [System & OOP Architecture](<sibling>) · [Agentic Architecture](<sibling>)  <!-- omit lines for docs not present -->
 
 ## 1. Overview
@@ -195,10 +207,13 @@ Use this skeleton. Keep prose tight; let the diagrams and tables carry the struc
 - Substrate: language(s), loader tech, config format, package/marketplace (or "TBD").
 
 ## 2. Variability Inventory & Mutability Map     <!-- the signature view -->
-| Concern | Who changes it | How often | Trust | Hot? | Rung | Where (evidence) |
-|---------|----------------|-----------|-------|------|------|------------------|
-| ...     | operator       | per deploy| high  | no   | 1    | `config/...`     |
+| Concern | Who changes it | Who can forbid | How often | Trust | Hot? | Rung | Where (evidence) |
+|---------|----------------|----------------|-----------|-------|------|------|------------------|
+| ...     | operator       | admin policy   | per deploy| high  | no   | 1    | `config/...`     |
 Design mode: fill this FIRST; rung assignment follows. Explain mode: derive it from the code.
+Then trace ONE representative change end to end (explain: the highest rung actually offered;
+design: the highest-rung concern in the inventory): `intent → rung → artifact written →
+how the host picks it up → effect`.
 ```mermaid
 flowchart LR
     subgraph fixed["0 · Fixed core"]
@@ -210,7 +225,7 @@ flowchart LR
     plug["4 · Plugins: <real registry/host>"] --> core
     ext["5 · Extensions: <real loader>"] --> core
 ```
-Populate every node with a real name/path; drop rungs that are absent (and say so in §9).
+Populate every node with a real name/path; drop rungs that are absent (and say so in §10, the Rung Presence Matrix).
 
 ## 3. Runtime Configuration (rung 1)
 Settings surface, schema, precedence chain, validation, hot reload vs restart, feature flags.
@@ -240,18 +255,20 @@ What may be replaced; hook classes and fail-open/fail-closed posture; the reload
 
 ## 8. Trust, Admission & the Agent
 Who may author at each rung; admission controls (manifest gates, signing, allow-lists,
-trust prompts) vs containment (process wall, none); whether the agent can author, and the
-asymmetric lock on activation.
+trust prompts) vs containment (process wall · OS sandbox · none — name which, and what it
+actually confines); who can forbid at each rung (policy); whether the agent can author,
+and the asymmetric lock on activation.
 
 ## 9. Developer Loop
 Escape hatches that skip the production path (dev paths, drag-and-drop, `--enable-*`).
 If the only way to test a plugin is to ship it, nobody will write one.
 
 ## 10. Rung Presence Matrix
-| Rung | Present? | For whom | Where | Notes (absence is a finding / a decision) |
-|------|----------|----------|-------|-------------------------------------------|
-| 1 Config | ✅/⚠️/❌ | operator | `...` | ... |
-| ... | | | | |
+| Rung | Present? | For which subsystem | For whom | Where | Notes (absence is a finding / a decision) |
+|------|----------|---------------------|----------|-------|-------------------------------------------|
+| 0 Fixed core | ✅ | whole product | vendor | `...` | what only a release can change |
+| 1 Config | ✅/⚠️/❌ | whole product | operator | `...` | ... |
+| ... | | | | | |
 
 ## 11. Open Questions & Notes   <!-- design mode: "Decisions needed" -->
 What the evidence cannot determine; seam-test results; choices still open.
@@ -263,25 +280,27 @@ What the evidence cannot determine; seam-test results; choices still open.
 
 ## Mermaid (GitHub-reliable rendering)
 
-- Every diagram in a ```` ```mermaid ```` fenced block.
 - `flowchart` with `subgraph` for the mutability map; `sequenceDiagram` for the traced
   change and the plugin lifecycle; `stateDiagram-v2` for install/activation states if they
   matter; `classDiagram` only for a contract worth seeing as types.
-- Keep each diagram ≤ ~15 nodes; split dense views under sub-headings.
-- Quote labels with spaces/special characters; identifiers match real names from the
-  evidence.
+- Keep each diagram ≤ ~15 nodes; identifiers match real names from the evidence.
 
 ## Quality checklist before finishing
 
-- [ ] Mode and class stated with evidence (highest rung, archetype if rung 4).
-- [ ] Variability inventory present; every concern has a rung and (explain) a location.
+- [ ] Mode and class stated with evidence (rungs offered, archetype of the primary seam).
+- [ ] Variability inventory present with the *who can forbid* column; every concern has a
+      rung and (explain) a location; straddles recorded.
+- [ ] Mutability map populated with real names; one change traced end to end.
 - [ ] Lowest-sufficient-rung judgment recorded: over-provisioned concerns flagged.
-- [ ] Every rung walked; each marked present/partial/absent (or decided/undecided).
-- [ ] Rung 4 present or chosen ⇒ archetype named and all nine decisions filled, none defaulted.
+- [ ] Every rung walked; each marked present/partial/absent (or decided/undecided), per subsystem.
+- [ ] Rung 4 present or chosen ⇒ archetype named and all nine decisions filled with
+      evidence, none defaulted; secondary rung-4 seams tabulated where they differ.
 - [ ] Rung 3/5 present ⇒ hook classes and fail-open/fail-closed posture stated.
-- [ ] Who holds the pen named per rung; agent-authoring and its activation lock addressed.
+- [ ] Who holds the pen named per rung; agent-authoring and its activation lock addressed;
+      containment named (process wall / OS sandbox / none).
 - [ ] Seam test applied (explain) or required (design) and its result recorded.
-- [ ] Every file/class/manifest/registry named in the doc exists in the mode's evidence.
+- [ ] Every file/class/manifest/registry named in the doc exists in the mode's evidence;
+      **line numbers re-verified after the final edit** (they drift while you write).
 - [ ] Sibling lens docs cross-linked if present.
 - [ ] Uncertainties live in "Open Questions" / "Decisions needed", not disguised as facts.
 - [ ] Design mode: 💡 markers inline at each decision site, indexed in "Decisions

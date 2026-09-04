@@ -101,9 +101,10 @@ test suites** must (decision 9).
 
 ## Rung 4c — Hosted (VS Code)
 
-Plugin code runs in another process. The manifest populates the UI before any plugin code
-runs; activation is lazy and derived from contributions; every call across the wall is
-asynchronous and serialisable.
+Plugin code runs in another process. The manifest is read before any plugin code runs, and
+the deeper property is that **activation events are derived from contributions** (declaring
+a command implies "wake me when it is invoked"); every call across the wall is asynchronous
+and serialisable.
 
 ```python
 # HOSTED — declarative half read by the host; dynamic half behind async RPC over stdio.
@@ -149,6 +150,9 @@ Defining property: `Host.commands` is populated before `plugin_main.py` exists a
 process. Costs: no synchronous API ever; anything the plugin contributes must be
 expressible as data or reachable by message. In a typed language, make the async-only rule
 a *type error* (a mapped type that rewrites every proxy method to return a promise).
+Placement does **not** decide change landing (decision 5): a hosted seam may still require
+a restart, and a merged one may in principle hot-swap; live install follows from
+delta-based registries, which the hosted shape merely makes easy.
 
 ## Rung 5 — In-process extension (pi, Emacs)
 
@@ -214,4 +218,5 @@ here, who may call `reload`), never containment-shaped.
 | many providers behind one contract, in-process is fine, policy must stay uniform | **Registered** |
 | untrusted third parties, the host must never freeze, live install | **Hosted** |
 | a trusted operator (or agent) to *rewrite* behaviour with zero friction | **Extension** |
+| third parties to ship prompts, hooks, and config together, with no code | **Bundle** — a manifest over lower-rung artifacts (decision 1 pole); no sketch needed, the artifacts are rungs 1–3 |
 | none of the above — the variation is values or composition | **stay on rung 1–2** |
