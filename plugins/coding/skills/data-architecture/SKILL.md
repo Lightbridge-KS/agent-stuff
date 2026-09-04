@@ -82,8 +82,9 @@ archived/purged` — naming the real stores and jobs it passes through.
 ## Write the document
 
 **Cross-link:** check the output directory for sibling lens docs (`system-architecture`,
-`surface-architecture`, `agentic-architecture`) and add a "See also" line under the title for each found —
-the set triangulates one system. If none, the doc stands alone.
+`surface-architecture`, `agentic-architecture`, `extensibility-architecture`) and add a "See also"
+line under the title for each found — the set triangulates one system. If none, the doc
+stands alone.
 
 **Modeling lens — Conceptual → Logical → Physical:** present schema at the zoom that fits.
 *Conceptual* = entities and relationships only; *Logical* = attributes, keys, normalized
