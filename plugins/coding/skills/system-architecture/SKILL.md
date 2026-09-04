@@ -77,8 +77,9 @@ result for a library).
 ## Write the document
 
 **Cross-link:** check the output directory for sibling lens docs (`surface-architecture`,
-`data-architecture`, `agentic-architecture`) and add a "See also" line under the title for each
-found — the set triangulates one system. If none, the doc stands alone.
+`data-architecture`, `agentic-architecture`, `extensibility-architecture`) and add a "See also"
+line under the title for each found — the set triangulates one system. If none, the doc
+stands alone.
 
 Use this skeleton. Keep prose tight; let the diagrams carry the structure.
 
@@ -150,6 +151,8 @@ sequenceDiagram
 
 ## 7. Extension Points
 How a developer extends or customizes the system (subclassing, plugins, config, hooks).
+<!-- A paragraph. The full ladder — config → hooks → plugins → extensions, who may climb
+     it, and the plugin archetype — is `extensibility-architecture`'s document. ->
 
 ## 8. Key Abstractions / Glossary
 Short definitions of the domain terms and core types a newcomer must know.

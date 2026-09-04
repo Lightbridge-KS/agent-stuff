@@ -23,6 +23,7 @@ certainly skipped Phase 1.
 
 ```
 design fluid    ─►  c4-architect · system-architecture · data-architecture · surface-architecture
+                    · extensibility-architecture
 design settled  ─►  codebase-blueprint   ← you are here: reconcile, then compile
 code exists     ─►  improve-codebase-architecture
 ```

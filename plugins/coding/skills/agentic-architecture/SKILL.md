@@ -138,7 +138,8 @@ sits in the product.
 the title for each — match on *topic*, not just filename suffix (a hand-named
 `ARCHITECTURE.md` counts as the structure doc). Canonical siblings: `system-architecture`
 (generic structure), `ax-interface` output (the agent-facing surface, judged),
-`surface-architecture` / `data-architecture` (the outside / the data).
+`surface-architecture` / `data-architecture` (the outside / the data),
+`extensibility-architecture` (how the system changes after it ships — the deep view of §7).
 
 Use this skeleton. Keep prose tight; let the diagrams carry the structure.
 
@@ -201,6 +202,8 @@ session/state/event bus.
 
 ## 7. Extension Points
 How a developer adds a tool, skill, subagent, provider, or hook.
+<!-- A paragraph. Rung-by-rung depth (config → hooks → plugins → extensions, who holds the
+     pen, the agent-as-author loop) is `extensibility-architecture`'s document. -->
 
 ## 8. Organ Presence Matrix
 | Organ | Present? | Where | Notes (absence is a finding / a decision) |
