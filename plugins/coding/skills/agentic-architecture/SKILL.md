@@ -5,7 +5,7 @@ description: >-
   (loop, memory, tools, skills, MCP, subagents, hooks) — or design one from requirements.
   Use on name or near-match.
 metadata:
-  version: "2026-08-15"
+  version: "2026-09-11"
 ---
 
 # Agentic Architecture
@@ -139,7 +139,9 @@ the title for each — match on *topic*, not just filename suffix (a hand-named
 `ARCHITECTURE.md` counts as the structure doc). Canonical siblings: `system-architecture`
 (generic structure), `ax-interface` output (the agent-facing surface, judged),
 `surface-architecture` / `data-architecture` (the outside / the data),
-`extensibility-architecture` (how the system changes after it ships — the deep view of §7).
+`extensibility-architecture` (how the system changes after it ships — the deep view of §7),
+`security-architecture` (the threat model — the agent as an actor, the context window as a
+trust boundary).
 
 Use this skeleton. Keep prose tight; let the diagrams carry the structure.
 

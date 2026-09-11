@@ -5,7 +5,7 @@ description: >-
   ideas — either way one C4-style Markdown doc with Mermaid diagrams. Use on name or
   near-match.
 metadata:
-  version: "2026-08-15"
+  version: "2026-09-11"
 ---
 
 # System Architecture
@@ -77,9 +77,9 @@ result for a library).
 ## Write the document
 
 **Cross-link:** check the output directory for sibling lens docs (`surface-architecture`,
-`data-architecture`, `agentic-architecture`, `extensibility-architecture`) and add a "See also"
-line under the title for each found — the set triangulates one system. If none, the doc
-stands alone.
+`data-architecture`, `agentic-architecture`, `extensibility-architecture`,
+`security-architecture`) and add a "See also" line under the title for each found — the
+set triangulates one system. If none, the doc stands alone.
 
 Use this skeleton. Keep prose tight; let the diagrams carry the structure.
 
