@@ -5,7 +5,7 @@ description: >-
   boundary, for end user, developer, or agent. One Markdown doc with Mermaid diagrams. Use
   on name or near-match.
 metadata:
-  version: "2026-08-15"
+  version: "2026-09-11"
 ---
 
 # Surface Architecture (UX / DX / API)
@@ -95,8 +95,9 @@ flags → output` for a CLI; `import → construct → call → handle` for a li
 ## Write the document
 
 **Cross-link:** check the output directory for sibling lens docs (`system-architecture`,
-`data-architecture`, `agentic-architecture`, `extensibility-architecture`) and add a "See also" line under the title for
-each found — the set triangulates one system. If none, the doc stands alone.
+`data-architecture`, `agentic-architecture`, `extensibility-architecture`,
+`security-architecture`) and add a "See also" line under the title for each found — the
+set triangulates one system. If none, the doc stands alone.
 
 **Cheat sheet:** open the doc with a `## Cheat Sheet` preamble (unnumbered, before
 `## 1. Overview`) — a one-screen TL;DR of the 5–10 most-used touchpoints a reader can copy

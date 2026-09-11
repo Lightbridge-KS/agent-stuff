@@ -7,7 +7,7 @@ description: >-
   Markdown doc with Mermaid diagrams. Use on name or near-match (plugin / extension /
   extensibility / "should this be a plugin system or config?").
 metadata:
-  version: "2026-09-04"
+  version: "2026-09-11"
 ---
 
 # Extensibility Architecture
@@ -189,9 +189,9 @@ survives). If the host contains an agent, this is where the self-modification lo
 ## Write the document
 
 **Cross-link:** check the output directory for sibling lens docs (`system-architecture`,
-`data-architecture`, `surface-architecture`, `agentic-architecture`) and add a "See also"
-line under the title for each found — the set triangulates one system. If none, the doc
-stands alone.
+`data-architecture`, `surface-architecture`, `agentic-architecture`,
+`security-architecture`) and add a "See also" line under the title for each found — the
+set triangulates one system. If none, the doc stands alone.
 
 Use this skeleton.
 

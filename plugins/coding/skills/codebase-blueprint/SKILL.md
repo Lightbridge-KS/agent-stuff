@@ -5,7 +5,7 @@ description: >-
   object model that satisfies all of them — prose rules become machine-checked invariants.
   Use when design is settled and you are about to build, or on name / near-match.
 metadata:
-  version: "2026-08-15"
+  version: "2026-09-11"
 ---
 
 # Codebase Blueprint
@@ -23,7 +23,7 @@ certainly skipped Phase 1.
 
 ```
 design fluid    ─►  c4-architect · system-architecture · data-architecture · surface-architecture
-                    · extensibility-architecture
+                    · extensibility-architecture · security-architecture
 design settled  ─►  codebase-blueprint   ← you are here: reconcile, then compile
 code exists     ─►  improve-codebase-architecture
 ```
