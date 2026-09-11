@@ -50,8 +50,6 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
   handling, dependency manifests and lockfiles, CI. Never invent a control or a boundary —
   the failure mode is confabulation, a diagram of defenses the repo does not have.
   Unverifiable → "Open Questions".
-  Output: `_docs/<system_name>_security_architecture.md` (snake_case project name; create
-  `_docs/` if missing).
 - **Design** — compile the user's inputs (PRD, rough design, sibling lens docs, this
   conversation) into the same document shape. Evidence = those inputs only. Entry point
   is mandatory: the **asset & actor inventory** (§2 of the skeleton) — without it, refuse
@@ -60,9 +58,15 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
   bites. Identity follows the user's standing convention (hospital-internal → the hospital
   IdP via SSO; outside → Google OAuth; never hand-rolled credential storage) — a deviation
   is a 💡, not a default.
-  Output: `docs/design/<nn>-security-architecture.md` (next free number) unless the user
-  names a path. When settled, point forward to `codebase-blueprint`, which reconciles this
+  When settled, point forward to `codebase-blueprint`, which reconciles this
   doc against its sibling lenses and has standing to amend claims here.
+
+**Output home — decided by ownership, not mode.** Would you open a PR in this repo? Yes →
+inside its `docs/` tree, in the shape it already has:
+`docs/design/<nn>-security-architecture.md` (layer-first, next free number) or
+`docs/<slice>/security-architecture.md` (slice-first). No →
+`_docs/<system_name>_security_architecture.md` (snake_case project name; untracked; never
+touches the project's own `docs/`). A path the user names wins over both.
 
 ## Core principles
 

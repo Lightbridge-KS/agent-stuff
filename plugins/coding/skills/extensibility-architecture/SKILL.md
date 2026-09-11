@@ -56,8 +56,6 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
   declared artifacts: settings schemas, manifest files, registries, loaders, hook
   dispatchers, real class and function names. Never invent a rung or a seam — the failure
   mode is confabulation. Unverifiable → "Open Questions".
-  Output: `_docs/<system_name>_extensibility_architecture.md` (snake_case project name;
-  create `_docs/` if missing).
 - **Design** — compile the user's inputs (PRD, rough design, this conversation) into the
   same document shape. Evidence = those inputs only. Entry point is mandatory: the
   **variability inventory** (§2 of the skeleton) — without it, refuse to pick an archetype.
@@ -69,9 +67,15 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
   [`references/shapes.md`](references/shapes.md) — one runnable sketch per archetype and
   one for in-process extensions; cite the matching shape in the doc rather than inventing
   a new one.
-  Output: `docs/design/<nn>-extensibility-architecture.md` (next free number) unless the
-  user names a path. When settled, point forward to `codebase-blueprint`, which reconciles
+  When settled, point forward to `codebase-blueprint`, which reconciles
   this doc against its sibling lenses and has standing to amend claims here.
+
+**Output home — decided by ownership, not mode.** Would you open a PR in this repo? Yes →
+inside its `docs/` tree, in the shape it already has:
+`docs/design/<nn>-extensibility-architecture.md` (layer-first, next free number) or
+`docs/<slice>/extensibility-architecture.md` (slice-first). No →
+`_docs/<system_name>_extensibility_architecture.md` (snake_case project name; untracked;
+never touches the project's own `docs/`). A path the user names wins over both.
 
 ## Core principles
 

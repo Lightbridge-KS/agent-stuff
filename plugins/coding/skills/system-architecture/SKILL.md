@@ -24,20 +24,23 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
   function names. Never invent components or relationships — the failure mode is
   confabulation, a plausible diagram that doesn't match the repo. Unverifiable →
   "Open Questions".
-  Output: `_docs/<system_name>_system_oop_architecture.md` (snake_case project name;
-  create `_docs/` if missing).
 - **Design** — compile the user's inputs (PRD, rough design, this conversation) into the
   same document shape (greenfield or empty repo; "design the architecture"). Evidence =
   those inputs only. Don't invent requirements or silently settle open choices —
   undecided → "Decisions needed" (this mode's "Open Questions"), each also 💡-marked
   inline at the section where the choice bites.
-  Output: `docs/design/<nn>-system-architecture.md` (next free number) unless the user
-  names a path.
   If requirements are too fuzzy to compile, hand off to `c4-architect` — its phase-gated
   dialogue elicits them first.
   When the design is settled and the user is about to build, point forward to
   `codebase-blueprint`: it reconciles this doc against its sibling lenses and the chosen
   framework, deepens §5 into a real object model, and has standing to amend claims here.
+
+**Output home — decided by ownership, not mode.** Would you open a PR in this repo? Yes →
+inside its `docs/` tree, in the shape it already has:
+`docs/design/<nn>-system-architecture.md` (layer-first, next free number) or
+`docs/<slice>/system-architecture.md` (slice-first). No →
+`_docs/<system_name>_system_oop_architecture.md` (snake_case project name; untracked;
+never touches the project's own `docs/`). A path the user names wins over both.
 
 ## Core principles
 

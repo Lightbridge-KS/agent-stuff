@@ -42,15 +42,18 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
 - **Explain** — reverse-engineer what exists. Evidence = the repo's real source and
   authored content: real file paths, function, class, tool, and skill names. Never invent
   an organ — the failure mode is confabulation. Unverifiable → "Open Questions".
-  Output: `_docs/<system_name>_agentic_architecture.md` (snake_case project name; create
-  `_docs/` if missing).
 - **Design** — compile the user's inputs (PRD, rough design, this conversation) into the
   same document shape. Evidence = those inputs only. In this mode **every organ is a
   decision**: needed / not needed / undecided — don't silently settle the undecided ones;
   they go to "Decisions needed", each also 💡-marked inline where the choice bites (its
   section, or its row in the Organ Presence Matrix).
-  Output: `docs/design/<nn>-agentic-architecture.md` (next free number) unless the user names
-  a path.
+
+**Output home — decided by ownership, not mode.** Would you open a PR in this repo? Yes →
+inside its `docs/` tree, in the shape it already has:
+`docs/design/<nn>-agentic-architecture.md` (layer-first, next free number) or
+`docs/<slice>/agentic-architecture.md` (slice-first). No →
+`_docs/<system_name>_agentic_architecture.md` (snake_case project name; untracked; never
+touches the project's own `docs/`). A path the user names wins over both.
 
 ## Core principles
 
