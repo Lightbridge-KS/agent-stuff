@@ -7,7 +7,7 @@ description: >-
   instruction text lives or how it ages; or whenever "castle gate", "context castle",
   "drain obligation", or "registry invariant" come up.
 metadata:
-  version: "2026-08-15"
+  version: "2026-09-11"
 ---
 
 # Skill taxonomy
@@ -38,4 +38,3 @@ Orthogonal to kinds (kinds = what deficit a skill fills; vendors = who keeps it 
 ## Related skills
 
 - `skill-vendor` (`agent-stuff/plugins/lightbridge`) — the mechanics for the Vendored column: manifest, sync, doctor.
-- `writing-great-skills` (`agent-stuff/plugins/productivity`) — how to write the skill once its kind and vendor are decided.

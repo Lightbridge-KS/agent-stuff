@@ -19,7 +19,6 @@ attribution footers) from this project:
 | `grill-me` | `productivity` | `skills/productivity/grill-me` |
 | `grilling` | `productivity` | `skills/productivity/grilling` |
 | `handoff` | `productivity` | `skills/productivity/handoff` |
-| `writing-great-skills` | `productivity` | `skills/productivity/writing-great-skills` |
 | `teach` | `productivity` | `skills/productivity/teach` |
 | `wayfinder` | `productivity` | `skills/engineering/wayfinder` |
 
