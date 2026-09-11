@@ -86,8 +86,9 @@ archived/purged` — naming the real stores and jobs it passes through.
 
 **Cross-link:** check the output directory for sibling lens docs (`system-architecture`,
 `surface-architecture`, `agentic-architecture`, `extensibility-architecture`,
-`security-architecture`) and add a "See also" line under the title for each found — the
-set triangulates one system. If none, the doc stands alone.
+`security-architecture`) and add a "See also" line under the title for each found — match
+on *topic*, not filename (a hand-named `ARCHITECTURE.md` or a `*_ux_design.md` in a
+`_docs/` annex counts) — the set triangulates one system. If none, the doc stands alone.
 
 **Modeling lens — Conceptual → Logical → Physical:** present schema at the zoom that fits.
 *Conceptual* = entities and relationships only; *Logical* = attributes, keys, normalized

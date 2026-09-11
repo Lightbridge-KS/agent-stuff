@@ -180,10 +180,11 @@ email, clipboard, a repo push).
 **Cross-link:** check the output directory for sibling lens docs (`system-architecture`,
 `data-architecture`, `surface-architecture`, `agentic-architecture`,
 `extensibility-architecture`) and add a "See also" line under the title for each found —
-the set triangulates one system. Also link the repo's own design doc when it carries a
-security or trust section, and reuse its route and store names. If none, the doc stands
-alone. The data-architecture doc, when present, is the map you draw the trust lines on:
-reuse its store and flow names verbatim.
+match on *topic*, not filename (a hand-named `ARCHITECTURE.md` or a `*_ux_design.md` in a
+`_docs/` annex counts) — the set triangulates one system. Also link the repo's own design
+doc when it carries a security or trust section, and reuse its route and store names. If
+none, the doc stands alone. The data-architecture doc, when present, is the map you draw
+the trust lines on: reuse its store and flow names verbatim.
 
 Use this skeleton.
 

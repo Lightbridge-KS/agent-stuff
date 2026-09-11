@@ -81,8 +81,9 @@ result for a library).
 
 **Cross-link:** check the output directory for sibling lens docs (`surface-architecture`,
 `data-architecture`, `agentic-architecture`, `extensibility-architecture`,
-`security-architecture`) and add a "See also" line under the title for each found — the
-set triangulates one system. If none, the doc stands alone.
+`security-architecture`) and add a "See also" line under the title for each found — match
+on *topic*, not filename (a hand-named `ARCHITECTURE.md` or a `*_ux_design.md` in a
+`_docs/` annex counts) — the set triangulates one system. If none, the doc stands alone.
 
 Use this skeleton. Keep prose tight; let the diagrams carry the structure.
 

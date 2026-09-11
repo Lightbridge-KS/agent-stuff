@@ -99,8 +99,9 @@ flags → output` for a CLI; `import → construct → call → handle` for a li
 
 **Cross-link:** check the output directory for sibling lens docs (`system-architecture`,
 `data-architecture`, `agentic-architecture`, `extensibility-architecture`,
-`security-architecture`) and add a "See also" line under the title for each found — the
-set triangulates one system. If none, the doc stands alone.
+`security-architecture`) and add a "See also" line under the title for each found — match
+on *topic*, not filename (a hand-named `ARCHITECTURE.md` or a `*_ux_design.md` in a
+`_docs/` annex counts) — the set triangulates one system. If none, the doc stands alone.
 
 **Cheat sheet:** open the doc with a `## Cheat Sheet` preamble (unnumbered, before
 `## 1. Overview`) — a one-screen TL;DR of the 5–10 most-used touchpoints a reader can copy

@@ -194,8 +194,9 @@ survives). If the host contains an agent, this is where the self-modification lo
 
 **Cross-link:** check the output directory for sibling lens docs (`system-architecture`,
 `data-architecture`, `surface-architecture`, `agentic-architecture`,
-`security-architecture`) and add a "See also" line under the title for each found — the
-set triangulates one system. If none, the doc stands alone.
+`security-architecture`) and add a "See also" line under the title for each found — match
+on *topic*, not filename (a hand-named `ARCHITECTURE.md` or a `*_ux_design.md` in a
+`_docs/` annex counts) — the set triangulates one system. If none, the doc stands alone.
 
 Use this skeleton.
 
