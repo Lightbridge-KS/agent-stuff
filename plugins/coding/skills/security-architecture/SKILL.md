@@ -37,7 +37,9 @@ wrong* (§4) · *what are we doing about it* (§5) · *did we do a good job* (§
 plugin (a whole repo) *find* bugs and rank them; this document *models* what must be
 defended and where. The model tells the scanners where to look; their reports come back
 into §6. A threat-model doc that lists CVE-style findings has drifted into the scanners'
-job — stop and point there instead.
+job — stop and point there instead. The rule while reading: a **missing control family**
+goes in §7; a **bug in a present control** goes to the scanner and is not written here
+(if it must survive, one line in §6 under *for the scanner to check*).
 
 ## Mode: explain or design
 
@@ -84,8 +86,12 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
    the context window is a trust boundary: everything that reaches it is input from a
    potentially hostile source (prompt injection), and every tool the agent holds is an
    entry point the attacker reaches *through* the agent. Give it a row in the actor table
-   and the agentic overlay in §4. `agentic-architecture` maps the permission/HITL organ and
-   `extensibility-architecture` §8 the activation lock — cite them, don't restate them.
+   and the agentic overlay in §4. **If the agent can read a credential** (stderr, env, a
+   config file, a URL it was told to open), **it is a caller at every crossing that
+   credential opens** — list it in the entry-point table beside the human, or the
+   crown-jewel threat (the agent acting as the human) stays invisible.
+   `agentic-architecture` maps the permission/HITL organ and `extensibility-architecture`
+   §8 the activation lock — cite them, don't restate them.
 6. **Never quote a secret.** The document names *where* a secret lives and how it is
    injected — never its value, never a line that contains one.
 7. **One file.** Always a single Markdown file. Do not split.
@@ -104,16 +110,21 @@ changing the shape:
   compromised peer, missing audit.
 - **Internet-facing** — anonymous or self-registered users: full weight on
   authentication, injection, session handling, abuse and denial of service.
-- **Agentic overlay** — the system contains or is driven by an LLM with tools. Combines
-  with any class above; adds prompt injection, excessive agency, exfiltration through
-  tools, and the self-modification loop.
-- **Hybrid** — more than one present (a local CLI that also talks to a hosted API): cover
-  each, label sections clearly.
+- **Agentic overlay** — the system *contains* an LLM with tools, **or is driven by one**
+  that can read its credentials or steer its inputs (a CLI an agent runs and whose output
+  the agent reads qualifies). Not a class: written `<class> + Agentic`. Adds prompt
+  injection, excessive agency, exfiltration through tools, and the self-modification
+  loop. The Local-tool bullet's "misuse by an agent" is the lightweight case with no such
+  access.
+- **Hybrid** — more than one *exposure class* present (a local CLI that also talks to a
+  hosted API): cover each, label sections clearly.
 
 Sensitivity tier: **public** · **internal** · **confidential** (credentials, business
 data) · **regulated** (PHI, PII, financial — named regime, e.g. PDPA/HIPAA). State the
-classification and its evidence early in the doc. In design mode, classify from the asset
-inventory.
+tier **the controls actually guarantee**; when a higher tier is excluded only by a policy
+sentence ("no PHI in this tool"), say so and name the line — policy is not a control.
+State the classification and its evidence early in the doc. In design mode, classify from
+the asset inventory.
 
 | Section                              | Local tool | Internal service | Internet-facing | +Agentic overlay |
 |--------------------------------------|------------|------------------|-----------------|------------------|
@@ -124,17 +135,19 @@ inventory.
 | Secrets & supply chain               | full       | full             | full            | + skill/plugin provenance |
 | Data protection                      | light (regulated: full) | full | full         | + what reaches the model |
 | Isolation & containment              | light      | light            | full            | full             |
-| Logging & audit                      | light      | full             | full            | + tool-call log  |
+| Logging & audit                      | light      | full             | full            | + what the harness logs about this tool |
 | Assurance                            | light      | full             | full            | full             |
 
-"light" = a short paragraph; "full" = paragraph plus a diagram or table. Never drop a
-section silently — if it does not apply, write one line saying why.
+"light" = a short paragraph; "full" = paragraph plus a diagram or table. An overlay cell
+of `full` **replaces** the base cell; a `+` cell **adds** to it. Never drop a section
+silently — if it does not apply, write one line saying why.
 
 In explain mode, two exploration rules beyond your defaults: enumerate the **entry
 points** from code *before* writing — routes and listeners, ports, CLI arguments, file
 and directory watchers, webhooks, the tool registry, MCP endpoints, plugin/skill loaders —
-and trace **one attack path end to end**: `actor → entry point → crossing → the control
-that stops it, or the gap`. Design mode traces the same path for the highest-value asset.
+and trace **one attack path end to end** against the crown-jewel asset: `actor → entry
+point → crossing → the control that stops it, or the gap`. Design mode traces the same
+path for the highest-value asset in the inventory.
 
 ## STRIDE, per crossing
 
@@ -163,9 +176,10 @@ email, clipboard, a repo push).
 **Cross-link:** check the output directory for sibling lens docs (`system-architecture`,
 `data-architecture`, `surface-architecture`, `agentic-architecture`,
 `extensibility-architecture`) and add a "See also" line under the title for each found —
-the set triangulates one system. If none, the doc stands alone. The data-architecture
-doc, when present, is the map you draw the trust lines on: reuse its store and flow
-names verbatim.
+the set triangulates one system. Also link the repo's own design doc when it carries a
+security or trust section, and reuse its route and store names. If none, the doc stands
+alone. The data-architecture doc, when present, is the map you draw the trust lines on:
+reuse its store and flow names verbatim.
 
 Use this skeleton.
 
@@ -213,7 +227,9 @@ flowchart LR
     core -- "③ DB connection, service account" --> db
 ```
 Every zone and node carries a real name; every crossing is numbered and says what carries
-it (protocol, credential). Then the entry-point table:
+it (protocol, credential). Number by **(edge, credential)**, not by socket: the same port
+reached with the token and without it is two crossings (③ and ③′). Then the entry-point
+table — "who reaches it" includes the agent wherever it can read the credential:
 | # | Entry point (real route / port / tool / file) | Who reaches it | Authn required? | Where (evidence) |
 |---|-----------------------------------------------|----------------|-----------------|------------------|
 Then trace ONE attack path end to end:
@@ -244,15 +260,18 @@ their gates · tools that can send data out.
 |---------------|---------|---------------------------|--------|
 | 1 | ... | `src/auth/middleware.py::require_session` | ✅ located / ⚠️ partial / ❌ absent |
 ### 5.1 Identity & access — authn provider and flow; session lifetime and storage; authz model (RBAC / ABAC / ownership) and where it is enforced; the admin split.
-### 5.2 Secrets & supply chain — where each secret lives and how it is injected (never its value); lockfiles and pinning; signing and provenance; dependency audit in CI.
+### 5.2 Secrets & supply chain — where each secret lives and how it is injected (never its value); lockfiles and pinning; signing and provenance; dependency audit in CI. Mixed substrate (vendored + CDN + stdlib)? Use a table: component · version · how it arrives · pinned / integrity-checked / audited.
 ### 5.3 Data protection — in transit, at rest, in logs; de-identification and retention (cite Data Architecture §7); for the agentic overlay, what may reach the model and what must not.
 ### 5.4 Isolation & containment — process wall · OS sandbox · container · network zone · none (name which, and what it actually confines — the vocabulary of Extensibility Architecture §8).
 ### 5.5 Logging & audit — what is logged, where, tamper resistance, who reads it, retention; for clinical AI, the event-level audit trail (`medlog-ref`).
 
 ## 6. Assurance                <!-- did we do a good job -->
-Tests that assert controls (name them; which gate suite runs them). Scanners run —
-`/security-review`, `claude-security`, dependency audit, SAST/DAST — and where their
-reports land. Residual risk: what is accepted, by whom, until when.
+Tests that assert controls (name them; which gate suite runs them) — **and the controls
+no test asserts**, which is the actionable list. Scanners run — `/security-review`,
+`claude-security`, dependency audit, SAST/DAST — and where their reports land ("none
+run" is an honest answer for a local tool; say it). Residual risk: what is accepted, by
+whom, until when. An absence with **no recorded acceptance** is an Open Question (§8),
+not a residual risk.
 
 ## 7. Control Presence Matrix
 | Control family | Present? | For which subsystem | Where (evidence) | Note (absence is a finding / a decision) |
@@ -260,6 +279,7 @@ reports land. Residual risk: what is accepted, by whom, until when.
 | authentication | ✅/⚠️/❌ | ... | ... | ... |
 | authorization | | | | |
 | input validation | | | | |
+| output encoding / sanitization | | | | |
 | secrets management | | | | |
 | transport encryption | | | | |
 | at-rest encryption | | | | |
@@ -268,6 +288,7 @@ reports land. Residual risk: what is accepted, by whom, until when.
 | sandboxing / isolation | | | | |
 | dependency pinning & audit | | | | |
 | backup & recovery | | | | |
+| egress / outbound allowlist | | | | |
 | agent tool gating (overlay) | | | | |
 
 ## 8. Open Questions & Notes   <!-- design mode: "Decisions needed" -->
@@ -293,19 +314,23 @@ still open. Be honest here — uncertainty goes here, not into the diagrams.
 
 - [ ] Mode, exposure class (with overlay), and tier stated with evidence.
 - [ ] Asset and actor tables present before any control is named; the agent has a row
-      when the overlay applies.
+      when the overlay applies, and appears as a caller at every crossing whose
+      credential it can read.
 - [ ] Boundary diagram populated with real names; every crossing numbered and cited by
       §3–5; entry points enumerated from code (explain) or the inputs (design).
-- [ ] One attack path traced end to end, ending at a located control or a named gap.
+- [ ] One attack path traced end to end against the crown-jewel asset, ending at a
+      located control or a named gap; crossings numbered by (edge, credential).
 - [ ] Every threat pinned to asset × actor × crossing; STRIDE grid on crown-jewel
       crossings; agentic overlay rows present when the class carries it.
 - [ ] Every control ✅ carries a real location; ⚠️/❌ recorded in the presence matrix,
       per subsystem — absences not omitted.
-- [ ] No vulnerability findings masquerading as the model — code-level bugs delegated to
-      the scanners and referenced from §6.
+- [ ] No vulnerability findings masquerading as the model — missing control families in
+      §7, bugs in present controls left to the scanners (at most one line in §6).
+- [ ] §6 names the controls no test asserts; unaccepted absences moved to §8.
 - [ ] No secret value, and no line containing one, quoted anywhere.
 - [ ] Every file/route/module/tool named in the doc exists in the mode's evidence;
-      **line numbers re-verified after the final edit** (they drift while you write).
+      **line numbers re-verified after the final edit** (they drift while you write —
+      script it: extract every `file:NNN`, print those lines, read them).
 - [ ] Sibling lens docs cross-linked if present; store and flow names match the data doc.
 - [ ] Uncertainties live in "Open Questions" / "Decisions needed", not disguised as facts.
 - [ ] Design mode: identity follows the standing convention or carries a 💡; 💡 markers
