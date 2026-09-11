@@ -7,7 +7,7 @@ description: >-
   interface"). For a whole-surface doc across all audiences, use `surface-architecture`
   instead.
 metadata:
-  version: "2026-08-15"
+  version: "2026-09-11"
 ---
 
 # AX Interface
@@ -78,16 +78,13 @@ Infer the mode from the prompt's verb and repo state; ask when ambiguous.
   real surface: command names, flags, tool descriptions, schema fields, endpoint paths,
   error strings, exit codes. Never critique an invented flag — the failure mode is
   confabulating a problem that isn't there.
-  Output: `_docs/<system_name>_ax_analysis.md` (snake_case project name; create `_docs/`
-  if missing).
 - **Design** — apply the principles while shaping a new or changing agent-facing surface.
   Evidence = the user's inputs (PRD, rough design, this conversation). Every principle is
   a **decision**: chosen shape / consciously waived / undecided — don't silently settle
   the undecided ones; they go to "Decisions needed", each also 💡-marked inline at the
   principle row where the choice bites.
-  Output: `docs/design/<nn>-ax-interface.md` (next free number) — unless the AX pass is
-  one thread of a larger design conversation or another skill's document; then contribute
-  the decisions inline and skip the standalone file.
+  If the AX pass is one thread of a larger design conversation or another skill's
+  document, contribute the decisions inline and skip the standalone file.
 
 Either way, ground rules:
 
@@ -103,6 +100,12 @@ Either way, ground rules:
    choice names the principle it serves.
 5. **Prioritize by leverage.** Error-message and exit-code hygiene are cheap and
    high-impact; re-shaping the tool set is expensive. Order recommendations accordingly.
+
+**Output home — decided by ownership, not mode.** Would you open a PR in this repo? Yes →
+inside its `docs/` tree, in the shape it already has: `docs/design/<nn>-ax-interface.md`
+(layer-first, next free number) or `docs/<slice>/ax-interface.md` (slice-first). No →
+`_docs/<system_name>_ax_analysis.md` (snake_case project name; untracked; never touches
+the project's own `docs/`). A path the user names wins over both.
 
 ## Classify the modality
 
@@ -132,8 +135,8 @@ app with a public API) is common — cover each surface, label sections clearly.
 ## Analyze mode: inventory, then audit
 
 Build a faithful map of what an agent touches — not a line-by-line read. If a sibling
-`_docs/*_ux_design.md` from `surface-architecture` exists, **reuse its surface map** instead of
-re-deriving it.
+`surface-architecture` doc exists (`*_ux_design.md` or `*surface-architecture.md`), **reuse its
+surface map** instead of re-deriving it.
 
 1. **Spec sources:** `--help` output, MCP tool list + schemas, OpenAPI/GraphQL schema,
    exported symbols + docstrings. This is the agent's onboarding — read it as the agent

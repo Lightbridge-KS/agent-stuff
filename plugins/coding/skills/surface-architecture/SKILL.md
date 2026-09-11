@@ -23,18 +23,21 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
 - **Explain** — reverse-engineer what exists. Evidence = the repo's real routes, commands,
   exported symbols, endpoint paths, component files. Never invent screens, commands, or
   parameters — the failure mode is confabulation. Unverifiable → "Open Questions".
-  Output: `_docs/<system_name>_ux_design.md` (snake_case project name; create `_docs/`
-  if missing).
 - **Design** — compile the user's inputs (PRD, rough design, this conversation) into the
   same document shape. Evidence = those inputs only. Don't invent requirements or silently
   settle open choices (navigation model, auth flow, error contract …) — undecided →
   "Decisions needed", each also 💡-marked inline at the section where the choice bites.
-  Output: `docs/design/<nn>-surface-architecture.md` (next free number) unless the user names
-  a path.
   When the design is settled and the user is about to build, point forward to
   `codebase-blueprint` — it reconciles this doc against its sibling lenses and the chosen
   framework, and has standing to amend claims here. Every verb promised in this doc must
   land on a use case and a data field there, or it is a promise with no schema.
+
+**Output home — decided by ownership, not mode.** Would you open a PR in this repo? Yes →
+inside its `docs/` tree, in the shape it already has:
+`docs/design/<nn>-surface-architecture.md` (layer-first, next free number) or
+`docs/<slice>/surface-architecture.md` (slice-first). No →
+`_docs/<system_name>_ux_design.md` (snake_case project name; untracked; never touches the
+project's own `docs/`). A path the user names wins over both.
 
 ## Core principles
 

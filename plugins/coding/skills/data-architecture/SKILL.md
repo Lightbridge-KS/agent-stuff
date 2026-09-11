@@ -25,17 +25,20 @@ Infer the mode from repo state and the prompt's verb; ask when ambiguous.
   real tables, columns, keys, jobs. Never invent schema or flows; the failure mode is
   confabulation. Org policy or upstream systems you cannot see are *outside the evidence
   boundary* — they go to "Open Questions / External Assumptions", never into the ER diagram.
-  Output: `_docs/<system_name>_data_architecture.md` (snake_case project name; create
-  `_docs/` if missing).
 - **Design** — compile the user's inputs (PRD, rough design, this conversation) into the
   same document shape. Evidence = those inputs only. Don't invent requirements or silently
   settle open choices (engine, retention, partitioning …) — undecided → "Decisions
   needed", each also 💡-marked inline at the section where the choice bites.
-  Output: `docs/design/<nn>-data-architecture.md` (next free number) unless the user names
-  a path.
   When the design is settled and the user is about to build, point forward to
   `codebase-blueprint` — it reconciles this doc against its sibling lenses and the chosen
   framework, and has standing to amend claims here.
+
+**Output home — decided by ownership, not mode.** Would you open a PR in this repo? Yes →
+inside its `docs/` tree, in the shape it already has:
+`docs/design/<nn>-data-architecture.md` (layer-first, next free number) or
+`docs/<slice>/data-architecture.md` (slice-first). No →
+`_docs/<system_name>_data_architecture.md` (snake_case project name; untracked; never
+touches the project's own `docs/`). A path the user names wins over both.
 
 ## Core principles
 
