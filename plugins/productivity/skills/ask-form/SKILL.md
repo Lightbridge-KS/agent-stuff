@@ -7,7 +7,7 @@ description: >-
   form on 127.0.0.1, opens the browser, and returns the answers as JSON. Also on request
   ("use the form", "ask me with a form"). Needs a machine with a browser.
 metadata:
-  version: "2026-09-03"
+  version: "2026-09-13"
 ---
 
 # ask-form
@@ -20,8 +20,11 @@ the catalog, you never write HTML.
 `<skill_dir>` = the directory this SKILL.md was read from. Every call:
 
 ```bash
-uv run <skill_dir>/scripts/ask_form.py [SPEC] [--no-open] [--timeout S] [--no-save]
+uv run --no-cache <skill_dir>/scripts/ask_form.py [SPEC] [--no-open] [--timeout S] [--no-save | --stage-save]
 ```
+
+`--no-cache` is intentional: the CLI has no Python dependencies, and this keeps it runnable when
+an agent sandbox cannot write uv's user cache.
 
 ## When to use it, and when not
 
@@ -45,6 +48,7 @@ User is not at a machine with a browser (mobile, SSH) → chat.
 | `--timeout S` | give up after S seconds; by default the form waits until the user acts | |
 | `--no-open` | print the URL, do not launch a browser | |
 | `--no-save` | do not write the record (throwaway forms); saving is otherwise always on | |
+| `--stage-save` | stage one record in temp and wait up to 120 s for a separately authorized host copy | |
 
 `SPEC` is a path, `-`, or omitted for stdin. stdout is exactly one JSON document; the URL and
 notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2].options`.
@@ -62,17 +66,29 @@ notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2
      `number`, a decision with `recommended: "approve"` on a `review` item, and say *why* in one line
      with the element's `recommendation` field. The tool badges it and never preselects: the user
      still chooses.
-3. **Run it** via stdin, **in the background** so the harness's shell timeout cannot cut the wait
-   (Claude Code: `run_in_background: true`; stdout lands in the task's output file). The form has
-   no timeout of its own; it waits until the user submits or cancels.
+3. **Run it** via stdin, **as an ongoing/background process** so the harness's shell timeout cannot
+   cut the wait (Claude Code: `run_in_background: true`; stdout lands in the task's output file).
+   The form has no timeout of its own; it waits until the user submits or cancels.
    ```bash
-   uv run <skill_dir>/scripts/ask_form.py - <<'EOF'
+   uv run --no-cache <skill_dir>/scripts/ask_form.py - <<'EOF'
    { "spec_version": 1, "title": "…", "questions": [ … ] }
    EOF
    ```
-   Tell the user a tab is opening. If stderr says the browser could not be launched (Codex's
-   sandbox blocks it), hand the user the URL from stderr and keep waiting. If the user moves on
-   in chat without answering, stop the background process instead of leaving it listening.
+   Tell the user a tab is opening. **Codex on macOS:** pass a spec path (more reliable than stdin
+   through a PTY) and add `--no-open --stage-save`. Wait for the first stderr line, and accept it
+   only when it is the exact `http://127.0.0.1:<port>/?t=<token>` URL emitted by this process. Launch
+   that URL with a separate, narrowly escalated `open '<exact URL>'` command; never escalate the
+   form server. After submission, parse the `ASK_FORM_SAVE_REQUEST` JSON line. Accept it only when
+   `source` is a regular file below the system temp directory, its SHA-256 matches, and `destination`
+   is the expected `~/.lightbridge/projects/<current-project-key>/asks/` record. Run separately
+   reviewed `/bin/mkdir -p '<exact asks dir>'`, then `/bin/cp -n '<exact source>' '<exact destination>'`;
+   never use a shell wrapper, repository script, or reusable approval prefix. Keep polling the
+   original process: it verifies the copied hash before returning `meta.saved`. If either copy step
+   is denied or fails, run `/usr/bin/touch '<exact abort path>'` inside the sandbox so the answers
+   return without `meta.saved`. If launch approval is unavailable or denied, hand the user the URL
+   and keep waiting. Other harnesses use the direct launch above; any direct-launch failure has the
+   same URL fallback. If the user moves on in chat without answering, stop the background process
+   instead of leaving it listening.
 4. **Read the answers** from stdout and branch on the exit code:
    - `0` → `answers` keyed by id; `meta.skipped` lists optional ids left blank; `meta.other` lists
      ids answered with free text through "Other"; `meta.notes` carries per-question notes the user

@@ -27,7 +27,7 @@ ask-form is a human-in-the-loop channel: an AI agent writes a JSON spec, `script
 - *Agentic overlay:* the caller is an LLM agent by design — "The agent supplies the judgment (what to ask); this tool stays deterministic" (`ask_form.py:15-16`; `SKILL.md:15-18`). Every string the page renders is agent-authored, and every string the user types flows back into the agent's context window via stdout (`ask_form.py:829`). The agent is therefore both an actor *behind* the tool and an input source *into* it.
 - *Tier — confidential:* specs carry design context (diagrams, options, recommendations) and answers carry the user's judgment plus free text; the archived record also stores the absolute project path and git state (`ask_form.py:765`). *Regulated (PHI) is excluded by a policy line only:* "Do not put PHI in a spec you cannot justify showing in a browser tab" (`SKILL.md:124-125`; `docs/ask-form/design.md:142-143`). No control detects or blocks PHI in a spec or in an answer, so the tier is confidential by intent and would silently become regulated the moment a user pastes a patient detail into a `long_text` answer.
 
-**Security substrate.** Identity provider: none — possession of the per-run URL token *is* the identity (`ask_form.py:508-509`). TLS termination: none; plain HTTP on loopback. Secret store: none; the token lives in process memory, the URL, and one stderr line (`ask_form.py:586, 593, 595`). Sandbox/container: none in-tool; the process runs under the harness's own Bash sandbox with whatever it allows (the design records that Claude Code's sandbox permits loopback bind and browser launch, Codex permits bind only: `docs/ask-form/design.md:23-26`). Audit sink: the markdown record under `~/.lightbridge/projects/<key>/asks/` (`ask_form.py:751-767`) plus whatever the harness keeps of stdout/stderr; the HTTP request log is deliberately silenced (`ask_form.py:490-491`).
+**Security substrate.** Identity provider: none — possession of the per-run URL token *is* the identity (`ask_form.py:508-509`). TLS termination: none; plain HTTP on loopback. Secret store: none; the token lives in process memory, the URL, and one stderr line (`ask_form.py:586, 593, 595`). Sandbox/container: none in-tool; the process inherits its harness. Claude permits direct launch and save; Codex keeps repo code sandboxed and separately reviews only exact system `open`, `mkdir`, and `cp -n` commands (`docs/ask-form/design.md` §"Decision"). Audit sink: the markdown record under `~/.lightbridge/projects/<key>/asks/` plus whatever the harness keeps of stdout/stderr; the HTTP request log is deliberately silenced (`ask_form.py:490-491`).
 
 ## 2. Assets & Actors
 
@@ -71,6 +71,7 @@ flowchart LR
     end
     subgraph z4["zone: disk (user home)"]
         static[("static/ + declared images")]
+        staged[("private temp record")]
         asks[("~/.lightbridge/projects/key/asks/")]
         lb[("scripts/lightbridge/lb_resolve.py")]
     end
@@ -79,11 +80,15 @@ flowchart LR
         img["any https: image host"]
     end
     agent -- "① spec JSON on stdin / path; argv flags" --> cli
-    cli -- "② open URL — token in argv" --> page
+    cli -- "② direct open (Claude) — token in argv" --> page
+    agent -- "② scoped open (Codex) — token in argv" --> page
     page -- "③ HTTP loopback, ?t=token" --> srv
     cot -. "③′ same port, no token" .-> srv
-    srv -- "④ read static/ and assets[N]; write one record; exec resolver" --> static
-    rec --> asks
+    srv -- "④ read static/ and assets[N]; render one record; exec resolver" --> static
+    rec -- "④a direct save (Claude)" --> asks
+    rec -- "④b stage + SHA-256 (Codex)" --> staged
+    agent -- "④c reviewed mkdir + cp -n of exact file" --> asks
+    asks -- "④d hash verification" --> rec
     rec --> lb
     page -- "⑤ script GET (mermaid), img GET (spec URL), link click" --> cdn
     page --> img
@@ -96,7 +101,7 @@ Crossing ③′ is physically the same socket as ③ with a different actor; it 
 
 | # | Entry point (real route / port / tool / file) | Who reaches it | Authn required? | Where (evidence) |
 |---|-----------------------------------------------|----------------|-----------------|------------------|
-| E1 | CLI argv: `SPEC`, `--timeout`, `--no-open`, `--no-save`, `--example`, `--schema`, `--validate` | the agent | harness Bash permission | `ask_form.py:790-798` |
+| E1 | CLI argv: `SPEC`, `--timeout`, `--no-open`, `--no-save`, `--stage-save`, `--example`, `--schema`, `--validate` | the agent | harness Bash permission | `ask_form.py` `main` |
 | E2 | spec JSON on stdin or from *any* readable path | the agent | none in-tool | `ask_form.py:773-786` (`Path(source).read_text`, `:780`) |
 | E3 | `context.src` — any local file with an image extension, or any `http(s)://` URL | the agent (inside the spec) | none; validated for existence + extension only | `ask_form.py:124-139` |
 | E4 | `GET /` — page with spec inlined | browser tab; co-tenant | **token** | `ask_form.py:515-521` |
@@ -109,6 +114,7 @@ Crossing ③′ is physically the same socket as ③ with a different actor; it 
 | E11 | `<agent-stuff root>/scripts/lightbridge/lb_resolve.py` — executed in-process at save time | whoever can write the checkout | none | `ask_form.py:641-647` |
 | E12 | `https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.6.0/mermaid.min.js` — script into the page origin, only when a mermaid pane exists | cdnjs | CSP `script-src` allowlists the host; no SRI | `static/app.js:279-289`; `static/index.html:7` |
 | E13 | `git -C <root> rev-parse / branch / status` subprocess at save time | the cwd's repo | — | `ask_form.py:651-663` |
+| E14 | `ASK_FORM_SAVE_REQUEST` stderr JSON: exact temp source, resolver-selected destination, SHA-256, abort path, 120 s timeout | the Codex agent | harness approval on the two exact host commands | `save_record_staged` |
 
 **One attack path, end to end** — the crown-jewel one: a *steered agent forges the user's answer.*
 
@@ -134,12 +140,20 @@ STRIDE on the two crown-jewel crossings (③ browser/agent → server, and ④ s
 | Crossing | S | T | R | I | D | E |
 |----------|---|---|---|---|---|---|
 | ③ `?t=token` → `/`, `/asset/N`, `/submit`, `/cancel` | **Yes — the agent.** It holds the token (stderr `:595`) and can POST a submission as if the user did (attack path above). A co-tenant cannot: 144-bit token, 403 without it (`:516, :530, :546`). | Body validated against the catalog before acceptance (`:563-565`); first writer wins under a lock (`:474-483`). In-transit tampering needs a loopback MITM, i.e. root — n/a. | **Yes.** The record says `status: submitted` with no origin, no user-agent, no signature (`:719-721`); the request log is silenced (`:490`). A forged submission and a real one leave identical evidence. | The page inlines the whole spec (`:519`); a token holder reads A2 and A4. Without the token: only `/static/*` (public code). Cross-origin reads are opaque (no CORS headers emitted in `_send`, `:494-503`). | No rate limit; daemon threads (`:591`); `Content-Length` capped at 5 MB before read (`:556-558`). A loopback flood can slow the run but not end it. Accepted for a single-user tool. | A token holder gets exactly the four routes; there is no admin plane. n/a beyond S. |
-| ④ server → `static/`, `assets[N]`, `asks/`, resolver | n/a — no caller identity at this crossing. | Record writes never clobber: suffix loop (`:762-764`). `static/` is read-only served. | The record has no integrity protection (plain file the agent can also write with its own tools). | **Path confinement:** `/static/` resolves then requires `STATIC_DIR in target.parents` (`:525`); `/asset/` is index-only into a list fixed at validate time (`:533-534`), realpath-resolved with `strict=True` (`:132`) and image-extension-gated (`:136`). Absolute paths and `..` cannot escape either. Residual: **any image on disk the agent names is shown**; the extension gate is the only filter. | mkdir/write failures are caught and reported as `not saved:` (`:827-828`). | `exec_module` of `lb_resolve.py` from a path derived from the file's own location (`:641-647`) — code execution from the checkout, same trust as the tool itself. |
+| ④ server → `static/`, `assets[N]`, temp, `asks/`, resolver | n/a for direct save. Codex's host copy is separately reviewed and names one source and destination. | Filename suffixing plus `cp -n` avoid clobber; staged mode accepts `meta.saved` only after the destination SHA-256 matches. | The record remains plain and agent-writable after creation; the staged copy is protected only by its private temp directory and short lifetime. | **Path confinement:** `/static/` and `/asset/` retain their existing confinement. In staged mode the CLI, not the agent, derives the destination through the resolver; skill instructions require the exact project `asks/` path and forbid escalating repo code or a reusable copy prefix. | Direct mkdir/write failures, staged abort, hash mismatch, and the 120 s wait all degrade to `not saved:` without losing the submitted answers. | `exec_module` of `lb_resolve.py` still runs only inside the sandbox. The only unsandboxed executables are reviewed system `mkdir`, `cp -n`, and `open` invocations with exact arguments. |
 
 **Other crossings, one line each.**
 
 - ① agent → CLI: the agent is the trusted author here; the validator is a shape check, not a content filter (`:172-275`). Any spec content the agent's context contains — including injected text — is rendered verbatim as sanitized markdown or text. *Verdict:* the crossing is where prompt injection enters this tool; the controls at ③ and ⑤ are what bound its blast radius.
-- ② CLI → browser via `open URL`: the token rides in argv for the lifetime of `open` (`:579`), visible to same-uid `ps`. Same trust level as the user's own shell; accepted.
+- ② agent orchestration → browser via `open URL`: the token rides in argv for the lifetime of
+  `open` (`:579` on the direct path), visible to same-uid `ps`. Claude launches from the CLI;
+  Codex runs the CLI with `--no-open` and escalates only the exact emitted loopback URL. The Codex
+  split avoids granting the whole form process broader filesystem access. Same user trust level;
+  accepted.
+- ④c agent orchestration → archive via `mkdir` + `cp -n`: the source, destination, and operation are
+  visible at approval time; no mutable repo script runs outside the sandbox. A hostile agent can
+  still request a different path, so exact-path review is the compensating harness control. The
+  sandboxed CLI verifies content, not the human provenance of the record.
 - ③′ co-tenant → port: 403 without the token; `Content-Type` must be `application/json` (`:554`), so a cross-site simple POST cannot even reach validation; no `Host` check, so a DNS-rebound page shares the origin but still lacks the token. *Verdict:* held by the token alone.
 - ⑤ page → internet: **egress the agent controls.** `img-src https:` in the CSP (`static/index.html:7`) lets a `context` image with an `https:` `src` (`ask_form.py:128-129`; `static/app.js:261`) fetch any URL the agent composed; the Mermaid script is pinned by version but not by hash (`static/app.js:283`). Links open with `noopener noreferrer` (`static/app.js:41`). *Verdict:* one open beacon channel, one un-hashed script.
 - ⑥ CLI → agent: stdout is user text bound for the model. The user is trusted; `long_text` has no length cap (`ask_form.py:441-442`) so a pasted document goes straight into context. *Verdict:* injection risk low (trusted author), context-bloat risk real, on the agent to handle.
@@ -159,7 +173,10 @@ STRIDE on the two crown-jewel crossings (③ browser/agent → server, and ④ s
 **Agentic overlay.**
 
 - *Inputs that reach the model:* the stdout document — answers, `other` free text, `notes`, `comments` (`ask_form.py:608-618`); stderr lines including the exception message in `not saved: {e}` (`:828`) and the saved path (`:826`). All authored by the trusted user or the tool; no untrusted third party writes into this channel. The agent's *own* spec is the untrusted input in the other direction (see ①).
-- *Write / irreversible tools:* the tool writes one file (never overwriting, `:762-764`), spawns `open` with a URL (`:579`), and runs read-only `git` (`:651-663`). It cannot delete, push, or send. The gate in front of these is the harness's tool permission, not anything in-tool; `agentic-architecture` covers that organ.
+- *Write / irreversible tools:* direct mode writes one file; Codex mode writes a private temp file,
+  then asks the harness to approve exact `mkdir` and no-clobber `cp` operations. It spawns or requests
+  `open` with a URL and runs read-only `git`. It cannot delete, push, or send. The gate in front of
+  host writes is the harness's exact-command review, not anything in-tool.
 - *Tools that can send data out:* the browser, on the agent's instruction — `https:` image fetches (threat 2), the cdnjs script GET (fixed URL, no data), and links the user clicks. The CLI process itself makes no outbound network call.
 
 ## 5. Controls
@@ -179,17 +196,20 @@ STRIDE on the two crown-jewel crossings (③ browser/agent → server, and ④ s
 | 2 | links carry `rel="noopener noreferrer"` | `static/app.js:41` | ✅ located |
 | 5 | CSP `script-src 'self' https://cdnjs.cloudflare.com`; Mermaid version pinned in the URL | `static/index.html:7`; `static/app.js:283` | ⚠️ partial — no `integrity` hash, no fallback to a vendored copy |
 | 7 | agent strings as text nodes; markdown through DOMPurify with `img`, `style`, `form`, `input` forbidden; SVG through DOMPurify; `securityLevel: "strict"`; `</` escaped in the inlined spec | `static/app.js:27, :35-44, :269-271`; `ask_form.py:519` | ✅ located |
-| 4 | retention / redaction of records; at-rest encryption | — | ❌ absent; `--no-save` per run (`ask_form.py:794, :822`) is the only lever |
-| 4 | records never clobbered; save failure never changes exit code or stdout | `:762-764`; `:822-828` | ✅ located; asserted by `tests/test_ask_form.py:377-386` |
+| 4 | retention / redaction of records; at-rest encryption | — | ❌ absent; `--no-save` per run is the only lever |
+| 4 | staged record uses a process-created private temp directory and is removed on every terminal path | `save_record_staged` | ✅ located; asserted by staged success/failure tests |
+| 4 | Codex host boundary is exact reviewed system `mkdir` + `cp -n`; no repo-owned executable is escalated | `SKILL.md` Codex workflow | ✅ contract; fresh-session acceptance required |
+| 4 | destination SHA-256 must equal the staged source before `meta.saved`; abort, mismatch, timeout stay best-effort | `save_record_staged`; `main` | ✅ located; asserted by staged success/failure/timeout tests |
+| 4 | records never clobbered; save failure never changes exit code or submitted stdout | `prepare_record`; `main` | ✅ located; asserted by persistence tests |
 | — | request logging | `Handler.log_message` `:490-491` returns nothing | ❌ absent by design (stderr reserved for the URL) |
 
 ### 5.1 Identity & access
 
-There is no identity provider and no session: the user is whoever holds the URL that `open` launched, and the token is the whole authorization model — one credential, four routes, no roles, no admin split (`ask_form.py:508-509`). Lifetime is one run: minted at `:586`, dead when `server_close()` returns at `:606`. That fits a local tool. What it cannot do is separate the two token holders — the user's tab and the agent that read stderr — which is the root of threat 1. *Agentic overlay:* the tool's own permissions are what the harness grants the process: bind loopback, spawn `open`, read the declared images, write one file under `~/.lightbridge`. There is no in-tool permission layer; `agentic-architecture` maps where the harness's HITL organ sits.
+There is no identity provider and no session: the user is whoever holds the URL that `open` launched, and the token is the whole authorization model — one credential, four routes, no roles, no admin split (`ask_form.py:508-509`). Lifetime is one run: minted at `:586`, dead when `server_close()` returns at `:606`. That fits a local tool. What it cannot do is separate the two token holders — the user's tab and the agent that read stderr — which is the root of threat 1. *Agentic overlay:* Claude's direct path inherits permission to launch and save. Codex keeps the form process sandboxed, then presents exact `open`, `mkdir`, and `cp -n` commands to the harness's approval layer; the staged process verifies the copied bytes before reporting success. There is no in-tool authorization layer for those host commands.
 
 ### 5.2 Secrets & supply chain
 
-The only secret is the run token. It lives in memory (`Run.token`, `:466`), in the URL (`:593`), on stderr (`:595`, by contract: the Codex path needs it printed), in `open`'s argv (`:579`), and in the page (`static/app.js:7`). Never on disk, never in the record (`render_record` writes spec and result, not the URL; `:714-748`). No `.env`, no keys, no config section (`docs/ask-form/design.md:151-153`).
+The only secret is the run token. It lives in memory (`Run.token`, `:466`), in the URL (`:593`), on stderr (`:595`, by contract: the Codex path needs it printed), in `open`'s argv (`:579` on the direct path; the separate launcher argv on Codex), and in the page (`static/app.js:7`). Never on disk, never in the record (`render_record` writes spec and result, not the URL; `:714-748`). No `.env`, no keys, no config section (`docs/ask-form/design.md:151-153`).
 
 Supply chain, per component:
 
@@ -227,6 +247,9 @@ The audit artifact is the record: frontmatter (title, created, project path, git
 | first writer wins; second terminal POST → 409 | `test_cancel_then_submit_conflicts` | `:388-393` |
 | save failure never changes exit code or stdout | `test_unwritable_state_dir_is_a_note_not_a_failure` | `:377-386` |
 | cancel and `--no-save` write nothing | `test_no_save_and_cancel_write_nothing` | `:364` |
+| staged source mode/hash, verified success, `meta.saved`, and cleanup | `test_staged_record_is_verified_before_saved_is_reported` | `tests/test_ask_form.py` |
+| staged abort and mismatched destination remain best-effort and clean temp | `test_staged_record_abort_and_mismatch_are_best_effort` | same |
+| fixed-time collision suffix and bounded-timeout cleanup | `test_staged_record_timeout_and_collision_planning` | same |
 
 **Not asserted by any test:** that the CSP is present and unchanged; that DOMPurify actually strips a hostile label (no XSS fixture); that an `https:` image URL is fetched (threat 2); that the Mermaid URL is the pinned one. The renderer (`static/app.js`) has no automated tests at all — verification was manual passes recorded in the tracker (`docs/ask-form/progress/v1.md:42-48`).
 
@@ -234,7 +257,7 @@ The audit artifact is the record: frontmatter (title, created, project path, git
 
 **Residual risk, as the evidence shows it accepted:**
 
-- Threat 1 (agent-forged submission): accepted implicitly by printing the token to stderr for the Codex path (`docs/ask-form/design.md:56-57`). Owner: KS. Until: an MCP or harness-side channel exists that keeps the token from the agent (tracker Deferred, `progress/v1.md:61`).
+- Threat 1 (agent-forged submission): accepted implicitly by printing the token to stderr for the Codex path (`docs/ask-form/design.md` §"CLI contract"). Owner: KS. The split-launch fix for #48 does not change this risk; it requires the agent to read the URL before escalating only `open`. Until: a harness-side channel exists that keeps the token from the agent.
 - Threat 2 (image-URL egress): accepted implicitly by `img-src https:`. Not recorded as a decision anywhere — see §8.
 - Threat 4 (plaintext records, no retention): accepted explicitly as "always-on, plain archive" (`design.md:151-153`).
 - Threat 5 (no SRI on Mermaid): not recorded as a decision — see §8.
@@ -252,11 +275,11 @@ The audit artifact is the record: frontmatter (title, created, project path, git
 | at-rest encryption | ❌ | `asks/` records | — | OS-level only; unverifiable here |
 | audit logging | ⚠️ | records | `render_record :714-748` | evidences the run, not the author; request log silenced (`:490`); no tamper resistance |
 | rate limiting / abuse | ❌ | HTTP | — | 5 MB body cap only (`:55, :557`); accepted for loopback |
-| sandboxing / isolation | ⚠️ | process; page | process wall + CSP (`index.html:7`) | no OS sandbox of its own; inherits the harness's |
+| sandboxing / isolation | ⚠️ | process; page; Codex record commit | process wall + CSP (`index.html:7`); `save_record_staged`; `SKILL.md` | Codex keeps repo code sandboxed and crosses only through exact reviewed system commands; direct mode still inherits its harness |
 | dependency pinning & audit | ⚠️ | vendored JS; cdnjs Mermaid | file headers; `app.js:283` | versions pinned; no hashes, no SRI, no audit job; Python has zero deps ✅ |
 | backup & recovery | ❌ | `asks/` records | — | none; a plain archive the user may back up with their home dir |
 | egress control | ❌ | page → internet | CSP `img-src https:` (`index.html:7`) | one open image-beacon channel the agent controls (threat 2) |
-| agent tool gating (overlay) | ❌ in-tool | what the agent may name in a spec (local paths, URLs) | — | extension gate only (`:136`); no allowlist of directories or hosts; the harness's permission prompt is the only gate |
+| agent tool gating (overlay) | ⚠️ | spec paths/URLs; Codex host save | validator; staged request; exact-command review | spec paths still have extension-only gating; host persistence exposes exact source/destination and forbids mutable-code or reusable-prefix escalation |
 | PHI / regulated-data control (overlay) | ❌ | spec and answers | `SKILL.md:124-125` policy line | no detection, no redaction, no retention |
 
 ## 8. Open Questions & Notes
