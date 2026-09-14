@@ -15,6 +15,10 @@ and stdout purity (one JSON document per run, every exit path).
 """
 from __future__ import annotations
 
+import contextlib
+import hashlib
+import importlib.util
+import io
 import json
 import os
 import subprocess
@@ -23,10 +27,16 @@ import tempfile
 import unittest
 import urllib.error
 import urllib.request
+from datetime import datetime
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "plugins" / "productivity" / "skills" / "ask-form" / "scripts" / "ask_form.py"
+SCRIPT_SPEC = importlib.util.spec_from_file_location("ask_form_under_test", SCRIPT)
+assert SCRIPT_SPEC and SCRIPT_SPEC.loader
+ASK_FORM = importlib.util.module_from_spec(SCRIPT_SPEC)
+SCRIPT_SPEC.loader.exec_module(ASK_FORM)
 
 # 1×1 transparent PNG, for the asset whitelist tests.
 PNG = bytes.fromhex(
@@ -76,6 +86,7 @@ class Server:
         self.url = self.proc.stderr.readline().strip()
         assert self.url.startswith("http://127.0.0.1:"), self.url
         self.base, _, self.token = self.url.partition("/?t=")
+        self.stderr_notes: list[str] = []
         return self
 
     def __exit__(self, *exc: object) -> None:
@@ -87,8 +98,19 @@ class Server:
                     s.close()
 
     def finish(self) -> tuple[int, dict]:
-        out, self.err = self.proc.communicate(timeout=60)
+        out, err = self.proc.communicate(timeout=150)
+        self.err = "".join(self.stderr_notes) + err
         return self.proc.returncode, json.loads(out)
+
+    def save_request(self) -> dict:
+        """Read stderr notes through the staged-save request and return its JSON payload."""
+        assert self.proc.stderr
+        for _ in range(4):
+            line = self.proc.stderr.readline()
+            self.stderr_notes.append(line)
+            if line.startswith("ASK_FORM_SAVE_REQUEST "):
+                return json.loads(line.removeprefix("ASK_FORM_SAVE_REQUEST "))
+        self.fail(f"staged-save request not found in stderr: {self.stderr_notes}")
 
     def get(self, path: str, token: bool = True) -> tuple[int, bytes]:
         sep = "&" if "?" in path else "?"
@@ -360,6 +382,83 @@ class ServerCase(unittest.TestCase):
             self.assertEqual(raw["result"]["answers"], out["answers"])
             self.assertEqual(raw["spec"]["title"], ex["title"])
             self.assertNotIn("_values", json.dumps(raw["spec"]))
+
+    def test_staged_record_is_verified_before_saved_is_reported(self):
+        with tempfile.TemporaryDirectory() as td:
+            state, proj = Path(td) / "state", Path(td) / "proj"
+            proj.mkdir()
+            with Server(self.form(), 20, "--stage-save", state_dir=state, cwd=proj) as s:
+                s.post("/submit", {"answers": {"pick": "a"}})
+                request = s.save_request()
+                source, destination = Path(request["source"]), Path(request["destination"])
+                stage_dir = source.parent
+                self.assertTrue(source.is_file())
+                self.assertEqual(source.stat().st_mode & 0o777, 0o600)
+                self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(), request["sha256"])
+                self.assertEqual(request["timeout_s"], 120.0)
+                self.assertEqual(destination.parent.parent.parent, state)
+                self.assertEqual(destination.parent.name, "asks")
+                destination.parent.mkdir(parents=True)
+                destination.write_bytes(source.read_bytes())
+                code, out = s.finish()
+            self.assertEqual((code, out["status"]), (0, "submitted"))
+            self.assertEqual(out["meta"]["saved"], str(destination))
+            self.assertIn(f"saved {destination}", s.err)
+            self.assertFalse(stage_dir.exists())
+
+    def test_staged_record_abort_and_mismatch_are_best_effort(self):
+        with tempfile.TemporaryDirectory() as td:
+            state = Path(td) / "state"
+            with Server(self.form(), 20, "--stage-save", state_dir=state) as s:
+                s.post("/submit", {"answers": {"pick": "a"}})
+                request = s.save_request()
+                stage_dir = Path(request["source"]).parent
+                Path(request["abort"]).touch()
+                code, out = s.finish()
+            self.assertEqual((code, out["status"]), (0, "submitted"))
+            self.assertNotIn("saved", out["meta"])
+            self.assertIn("not saved: staged record commit aborted", s.err)
+            self.assertFalse(stage_dir.exists())
+
+            with Server(self.form(), 20, "--stage-save", state_dir=state) as s:
+                s.post("/submit", {"answers": {"pick": "a"}})
+                request = s.save_request()
+                destination = Path(request["destination"])
+                stage_dir = Path(request["source"]).parent
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_text("different", encoding="utf-8")
+                code, out = s.finish()
+            self.assertEqual((code, out["status"]), (0, "submitted"))
+            self.assertNotIn("saved", out["meta"])
+            self.assertIn("not saved: staged record destination has different content", s.err)
+            self.assertFalse(stage_dir.exists())
+
+    def test_stage_save_conflicts_with_no_save(self):
+        r = run("--stage-save", "--no-save", stdin=json.dumps(self.form()))
+        self.assertEqual(r.returncode, 2)
+        out = json.loads(r.stdout)
+        self.assertEqual(out["status"], "invalid")
+        self.assertEqual(out["errors"][0]["path"], "--stage-save")
+
+    def test_staged_record_timeout_and_collision_planning(self):
+        result = {"status": "submitted", "answers": {"pick": "a"},
+                  "meta": {"duration_s": 1.0, "skipped": ["many", "notes"], "other": []}}
+        fixed = datetime(2026, 9, 13, 23, 59)
+        with tempfile.TemporaryDirectory() as td, mock.patch.dict(os.environ, {"LIGHTBRIDGE_STATE_DIR": str(Path(td) / "state")}):
+            proj = Path(td) / "proj"
+            proj.mkdir()
+            first, _ = ASK_FORM.prepare_record(self.form(), result, cwd=proj, now=fixed)
+            first.parent.mkdir(parents=True)
+            first.write_text("existing", encoding="utf-8")
+            second, _ = ASK_FORM.prepare_record(self.form(), result, cwd=proj, now=fixed)
+            self.assertEqual(second.name, "2026-09-13_2359_round-trip-2.md")
+
+            notes = io.StringIO()
+            with contextlib.redirect_stderr(notes), self.assertRaisesRegex(TimeoutError, "timed out"):
+                ASK_FORM.save_record_staged(self.form(), result, cwd=proj, now=fixed, timeout=0.05)
+            request_line = next(line for line in notes.getvalue().splitlines() if line.startswith("ASK_FORM_SAVE_REQUEST "))
+            request = json.loads(request_line.removeprefix("ASK_FORM_SAVE_REQUEST "))
+            self.assertFalse(Path(request["source"]).parent.exists())
 
     def test_no_save_and_cancel_write_nothing(self):
         with tempfile.TemporaryDirectory() as td:

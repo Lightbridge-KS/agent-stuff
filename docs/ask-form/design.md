@@ -1,10 +1,10 @@
 ---
 summary: Settled design for the `ask-form` skill (plugins/productivity) — an agent-driven local
   glass form for human input richer than AskUserQuestion. A stdlib CLI bundled in the skill
-  validates a JSON spec (ten element types), serves one page on 127.0.0.1, opens the browser,
-  blocks, and prints the answers as one JSON document. The CLI contract, spec and answer shapes,
-  server routes and terminal state machine, token scope, tier placement per generative-ui, and
-  the UI direction.
+  validates a JSON spec (ten element types), serves one page on 127.0.0.1, opens the browser
+  directly or through Codex's scoped launch path, blocks, and prints the answers as one JSON
+  document. The CLI contract, spec and answer shapes, server routes and terminal state machine,
+  token scope, tier placement per generative-ui, and the UI direction.
 read_when:
   - implementing or changing plugins/productivity/skills/ask-form (ask_form.py, static/, SKILL.md)
   - adding an element type, a flag, a route, or a persistence path to ask-form
@@ -30,7 +30,7 @@ the browser.
 | Artifacts (claude.ai) | cloud-published, Claude-only, asynchronous; this is local, synchronous, harness-neutral |
 | Claude Design canvas | mockups, not Q&A |
 | Agent-written HTML | LLM code is third-party code; and it would drift per run (see `generative-ui`) |
-| MCP server | right for Codex's launch problem, but a daemon plus registration for v1; deferred |
+| MCP server | unnecessary for desktop Codex once browser launch is split from the sandboxed server; retained as a possible remote-browser transport |
 
 ## Decision
 
@@ -45,17 +45,32 @@ The CLI lives inside the skill (`<skill_dir>/scripts/ask_form.py`), the shape `d
 it into every registry. Skill taxonomy: **Contract** (the value is the deterministic I/O contract).
 Vendor: **Authored**.
 
+**Codex sandbox amendment (2026-09-13, #48).** Codex keeps the CLI, loopback server, declared-image
+reads, and record rendering inside its normal sandbox. It passes `--no-open --stage-save`, reads the
+URL from the first stderr line, and escalates only a separate macOS `open` call for that exact
+`http://127.0.0.1:<port>/?t=<token>` URL. After submission the CLI stages the rendered record in a
+private temp directory and emits one `ASK_FORM_SAVE_REQUEST` JSON line. Codex separately escalates
+only exact `/bin/mkdir -p <asks-dir>` and `/bin/cp -n <stage> <record>` system commands, never the
+repo-owned Python process; the CLI hashes the destination before reporting `meta.saved`. Denial,
+mismatch, or the fixed 120-second commit timeout keeps the submitted answers and degrades to the
+existing `not saved:` note. If launch approval is unavailable or denied, the printed URL remains the
+manual fallback. The CLI uses `uv run --no-cache` because it has no dependencies and Codex's sandbox
+may not permit writes to uv's user cache.
+
 ## CLI contract
 
 ```
-uv run <skill_dir>/scripts/ask_form.py [SPEC] [--no-open] [--timeout S]
-                                     --example | --schema | --validate [SPEC]
+uv run --no-cache <skill_dir>/scripts/ask_form.py [SPEC] [--no-open] [--timeout S]
+                                                [--no-save | --stage-save]
+                                                --example | --schema | --validate [SPEC]
 ```
 
 `SPEC` is a path, `-`, or absent for stdin; a TTY on stdin with no path exits 2. Validation runs
 before anything binds. The URL is the first stderr line, flushed; `webbrowser.open` follows unless
-`--no-open`, and a launch failure is a stderr note, not an exit (the Codex path). stdout is exactly
-one JSON document per run.
+`--no-open`, and a launch failure is a stderr note, not an exit. Codex deliberately passes
+`--no-open --stage-save`, launches the emitted URL through its separate scoped escalation path, and
+commits the staged record through the exact-copy protocol above. `--stage-save` and `--no-save` are
+mutually exclusive. stdout remains exactly one JSON document per run.
 
 | exit | meaning | stdout |
 |---|---|---|
@@ -153,7 +168,9 @@ no config section: memory should not depend on remembering to opt in (the `hando
 `plans/`). A **plain archive**: `resume` does not read it; the agent greps it when relevant. Only
 submitted runs are saved. Saving is best-effort: a failure (resolver missing in a copied install,
 unwritable dir) is a stderr `not saved: …` note and never changes the exit code or the stdout document;
-on success stdout carries `meta.saved`. The record is markdown for the reader — frontmatter (title,
+on success stdout carries `meta.saved`. In Codex, `--stage-save` holds that stdout until an exact
+host copy appears at the resolver-selected destination with the advertised SHA-256; the temp source
+is deleted on success, abort, mismatch, or the 120-second timeout. The record is markdown for the reader — frontmatter (title,
 created, project, git, status, duration), one block per answerable question (answer per type,
 recommendation, divergence, note), comments — with the raw spec and result as a JSON tail for
 machines. Slug and same-minute collision suffix mirror `plan_store.write_plan`. `lb status` shows the
@@ -161,6 +178,7 @@ count; `lb doctor` and `lb mv` needed no change; the catalog lists `asks/` besid
 
 ## Out of scope for v1 (tracked as Deferred)
 
-MCP wrapper for Codex; iPad reach over the tailnet;
+Remote-browser transport, including iPad reach over the tailnet (an MCP or resident-page design may
+be appropriate there);
 partial answers on timeout; drag ranking; digit shortcuts; matrix multi-choice; long-text markdown
 preview; animated backdrop; background run + poll for forms longer than 9 min.

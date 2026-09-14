@@ -1,4 +1,4 @@
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env -S uv run --script --no-cache
 # /// script
 # requires-python = ">=3.11"
 # dependencies = []
@@ -12,18 +12,20 @@ answers as one JSON document on stdout. Every question carries an optional note 
 ends with optional comments; both return under `meta`. Every submitted form is also saved as a
 markdown record under `~/.lightbridge/projects/<project-key>/asks/` (`--no-save` to skip; the
 project key comes from the shared lightbridge resolver; saving is best-effort and never changes
-the exit code or stdout). The agent supplies the judgment (what to ask); this tool stays
+the exit code or submitted result). `--stage-save` renders in temp, requests a separately authorized
+exact host copy on stderr, then verifies its hash before reporting `meta.saved`. The agent supplies
+the judgment (what to ask); this tool stays
 deterministic (what is rendered, how answers come back).
 
-    uv run ask_form.py [SPEC] [--no-open] [--timeout S] [--no-save]   # SPEC = path, '-' or stdin
-    uv run ask_form.py --example                              # a spec exercising all 10 types
-    uv run ask_form.py --schema                               # JSON Schema of a spec
-    uv run ask_form.py --validate [SPEC]                      # check only, nothing binds
+    uv run --no-cache ask_form.py [SPEC] [--no-open] [--timeout S] [--no-save | --stage-save]
+    uv run --no-cache ask_form.py --example                   # a spec exercising all 10 types
+    uv run --no-cache ask_form.py --schema                    # JSON Schema of a spec
+    uv run --no-cache ask_form.py --validate [SPEC]           # check only, nothing binds
 
 stdout carries exactly one JSON document per run; human notes (the URL first, flushed) go to
 stderr. The token in the URL gates the page, assets and the answer routes; `/static/*` is open.
 Closing the tab does not end the run: the user must press Cancel, or the agent stops the process.
-If the browser cannot be launched the URL is printed and the server keeps waiting (the Codex path).
+If the browser cannot be launched the URL is printed and the server keeps waiting for fallback use.
 
 Exit codes: 0 submitted · 1 no answers (`status` = cancelled | timeout) · 2 invalid spec or
 usage (checked before anything binds; errors name the JSON path) · 3 environment (could not
@@ -32,13 +34,16 @@ bind loopback).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import mimetypes
+import os
 import re
 import secrets
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import webbrowser
@@ -60,6 +65,9 @@ OPTION_TYPES = {"single_select", "multi_select", "ranking"}
 ANSWER_TYPES = OPTION_TYPES | {"scale", "short_text", "long_text", "number", "matrix", "review"}
 ALL_TYPES = DISPLAY_TYPES | ANSWER_TYPES
 DEFAULT_DECISIONS = ["approve", "revise", "reject"]
+STAGED_SAVE_PREFIX = "ASK_FORM_SAVE_REQUEST "
+STAGED_SAVE_TIMEOUT = 120.0
+STAGED_SAVE_POLL = 0.1
 
 
 # ── validation ─────────────────────────────────────────────────────────────────
@@ -573,7 +581,8 @@ class Handler(BaseHTTPRequestHandler):
 def launch_browser(url: str) -> bool:
     """Open the URL in the default browser. macOS uses `open` directly: Python's webbrowser
     module goes through AppleScript there and mangles query strings (the spike proved `open`
-    works from the sandbox). Elsewhere, webbrowser. Any failure → False; the caller prints the URL."""
+    works from Claude Code's sandbox). Elsewhere, webbrowser. Failure → False; the caller prints
+    the URL. Codex starts the CLI with --no-open and escalates only `open`."""
     try:
         if sys.platform == "darwin":
             return subprocess.run(["open", url], capture_output=True, timeout=15).returncode == 0
@@ -748,12 +757,13 @@ def render_record(spec: dict[str, Any], result: dict[str, Any], ctx: dict[str, s
     return "\n".join(out)
 
 
-def save_record(spec: dict[str, Any], result: dict[str, Any], cwd: Path | None = None, now: datetime | None = None) -> Path:
-    """Write the record under the project's asks/ dir; returns the path. Raises on any failure."""
+def prepare_record(
+    spec: dict[str, Any], result: dict[str, Any], cwd: Path | None = None, now: datetime | None = None
+) -> tuple[Path, str]:
+    """Resolve the no-clobber destination and render its content without writing either one."""
     lb = load_resolver()
     root = lb.repo_root(cwd or Path.cwd())
     directory = lb.default_state_dir() / lb.project_key(root) / ASKS_SUBDIR
-    directory.mkdir(parents=True, exist_ok=True)
     when = now or datetime.now()
     stamp = when.strftime("%Y-%m-%d_%H%M")
     slug = slugify(spec["title"])
@@ -763,8 +773,64 @@ def save_record(spec: dict[str, Any], result: dict[str, Any], cwd: Path | None =
         target = directory / f"{stamp}_{slug}-{suffix}.md"
         suffix += 1
     ctx = {"created": when.strftime("%Y-%m-%dT%H:%M"), "project": str(root), "git": git_state(root)}
-    target.write_text(render_record(strip_private(spec), result, ctx), encoding="utf-8")
+    return target, render_record(strip_private(spec), result, ctx)
+
+
+def save_record(spec: dict[str, Any], result: dict[str, Any], cwd: Path | None = None, now: datetime | None = None) -> Path:
+    """Write the record under the project's asks/ dir; returns the path. Raises on any failure."""
+    target, content = prepare_record(spec, result, cwd, now)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8")
     return target
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def save_record_staged(
+    spec: dict[str, Any],
+    result: dict[str, Any],
+    cwd: Path | None = None,
+    now: datetime | None = None,
+    timeout: float = STAGED_SAVE_TIMEOUT,
+) -> Path:
+    """Stage one record in temp and wait for a separately authorized exact host copy."""
+    target, content = prepare_record(spec, result, cwd, now)
+    with tempfile.TemporaryDirectory(prefix="ask-form-record-") as raw_stage_dir:
+        stage_dir = Path(raw_stage_dir)
+        source = stage_dir / "record.md"
+        abort = stage_dir / "abort"
+        source.write_text(content, encoding="utf-8")
+        os.chmod(source, 0o600)
+        expected = _sha256(source)
+        request = {
+            "source": str(source),
+            "destination": str(target),
+            "sha256": expected,
+            "abort": str(abort),
+            "timeout_s": timeout,
+        }
+        print(STAGED_SAVE_PREFIX + json.dumps(request, separators=(",", ":")), file=sys.stderr, flush=True)
+
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if abort.exists():
+                raise RuntimeError("staged record commit aborted")
+            if target.is_symlink():
+                raise RuntimeError(f"staged record destination is a symlink: {target}")
+            if target.exists():
+                if not target.is_file():
+                    raise RuntimeError(f"staged record destination is not a regular file: {target}")
+                if _sha256(target) != expected:
+                    raise RuntimeError(f"staged record destination has different content: {target}")
+                return target
+            time.sleep(STAGED_SAVE_POLL)
+        raise TimeoutError(f"staged record commit timed out after {timeout:g}s")
 
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
@@ -792,10 +858,15 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--timeout", type=float, default=None, help="give up after S seconds (default: wait until submit or cancel)")
     ap.add_argument("--no-open", action="store_true", help="print the URL only; do not launch a browser")
     ap.add_argument("--no-save", action="store_true", help="do not save the record under ~/.lightbridge/projects/<key>/asks/")
+    ap.add_argument("--stage-save", action="store_true", help="stage the record in temp for a separately authorized host copy")
     ap.add_argument("--example", action="store_true", help="print a spec exercising every element type")
     ap.add_argument("--schema", action="store_true", help="print the JSON Schema of a spec")
     ap.add_argument("--validate", action="store_true", help="validate the spec and exit; nothing binds")
     args = ap.parse_args(argv)
+
+    if args.stage_save and args.no_save:
+        print(json.dumps({"status": "invalid", "errors": [{"path": "--stage-save", "message": "cannot be combined with --no-save"}]}))
+        return 2
 
     if args.example:
         print(json.dumps(EXAMPLE, indent=2, ensure_ascii=False))
@@ -821,7 +892,7 @@ def main(argv: list[str]) -> int:
     code, result = serve(spec, compiled, args.timeout, open_browser=not args.no_open)
     if code == 0 and not args.no_save:
         try:
-            saved = save_record(spec, result)
+            saved = save_record_staged(spec, result) if args.stage_save else save_record(spec, result)
             result["meta"]["saved"] = str(saved)
             print(f"saved {saved}", file=sys.stderr, flush=True)
         except Exception as e:  # noqa: BLE001 — persistence is best-effort; the answers are on stdout regardless
