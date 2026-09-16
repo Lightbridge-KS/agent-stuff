@@ -33,7 +33,8 @@ scaffolding wired around that core**:
 A generic architecture pass would describe the repo as "a monorepo with packages" and never
 surface the loop, memory, and MCP as first-class organs — that is the gap this skill fills.
 Where a sibling skill *judges the outward surface* an agent drives (`ax-interface`),
-this skill *maps the inward anatomy*.
+this skill *maps the inward anatomy*; for deciding *how much* of that anatomy to own
+rather than rent, see `harness-design`.
 
 ## Mode: explain or design
 
