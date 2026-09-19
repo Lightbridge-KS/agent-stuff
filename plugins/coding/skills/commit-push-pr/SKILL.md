@@ -22,17 +22,21 @@ Ship the working tree as a draft PR. You already know git and `gh` — this skil
 - **One PR per branch:** if a PR already exists for the branch, update its body to cover all commits since base and keep the title unless outdated. Never open a second.
 - Title < 70 chars. Scale the body to the size of the change.
 
-### Structure — first hit wins
+### Structure — ask GitHub
 
-`gh pr create --body` applies no template, so resolve one the way GitHub would. `<owner>` is the owner of the PR's **base** repo — for a fork, upstream's: it is their record.
+`gh pr create --body` applies no template, so ask GitHub which one applies. One call resolves the repo's own template — `.github/`, the root, or `docs/`, any case — and falls back to its owner's `.github` defaults:
 
-1. **Repo** — `pull_request_template.md` in `.github/`, the root, or `docs/` (any case). A `PULL_REQUEST_TEMPLATE/` directory → the file matching the change.
-2. **Owner default** — the same paths in `<owner>/.github`. One call lists what exists, one fetches it; a non-zero exit from the first means there is no such repo:
-   ```sh
-   gh api 'repos/<owner>/.github/git/trees/HEAD?recursive=1' --jq '.tree[].path'
-   gh api 'repos/<owner>/.github/contents/<path>' -H 'Accept: application/vnd.github.raw+json'
-   ```
-3. **Built-in** — `## Summary` (bullets) + `## Test plan` (checklist).
+```sh
+gh api graphql -f owner='<owner>' -f name='<repo>' -f query='
+  query($owner: String!, $name: String!) {
+    repository(owner: $owner, name: $name) { pullRequestTemplates { filename body } }
+  }' --jq '.data.repository.pullRequestTemplates'
+```
+
+`<owner>/<repo>` is the PR's **base** repo — for a fork, upstream: it is their record, and the fork itself answers with the *fork owner's* defaults.
+
+- **One entry** → its `body` is the template. **Several** (a `PULL_REQUEST_TEMPLATE/` directory) → the `filename` matching the change.
+- **`[]`** → built-in: `## Summary` (bullets) + `## Test plan` (checklist).
 
 Keep the template's headings and order; extra detail goes under them, not beside them. An unused section: do what the template says, else keep the heading with `N/A`.
 
@@ -54,4 +58,4 @@ The reader is a collaborator arriving cold, months later — never the operator 
 
 ## Report
 
-End with: commit hash + message, whether gates ran and passed, the clickable PR URL (created vs updated), and which structure source was used (repo / owner / built-in). Then, **for the operator**: anything withheld from the body.
+End with: commit hash + message, whether gates ran and passed, the clickable PR URL (created vs updated), and which structure source was used (repo / owner / built-in — a template whose file is not in the checkout came from the owner). Then, **for the operator**: anything withheld from the body.
