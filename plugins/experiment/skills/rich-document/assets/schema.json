@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rich document v1 frontmatter",
+  "type": "object",
+  "required": ["title"],
+  "additionalProperties": false,
+  "properties": {
+    "title": {"type": "string", "minLength": 1, "maxLength": 300},
+    "subtitle": {"type": "string", "minLength": 1, "maxLength": 300},
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"version": {"const": 1, "default": 1}, "layout": {"const": "article", "default": "article"}}
+    },
+    "assets": {
+      "type": "object", "maxProperties": 20,
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_-]{0,63}$"},
+      "additionalProperties": {"type": "string", "description": "Source-relative PNG/JPEG/WebP path within the source directory"}
+    }
+  },
+  "x-markdown-profile": {
+    "code": "Ordinary language fences display code; {mermaid} alone invokes diagrams.",
+    "main": ["prose", "headings", "lists", "tables", "links", "code", "mermaid", "image", "callout", "panel-tabset", "columns"],
+    "panel-tabset": {"panels": "2–6 same-level headings", "children": ["prose", "code", "mermaid", "image", "callout"]},
+    "columns": {"count": 2, "column-width": "50%", "children": ["prose", "code", "mermaid", "image", "callout"]},
+    "callout": {"kinds": ["note", "tip", "warning"], "collapse": ["true", "false"], "children": ["prose", "code", "image"]},
+    "images": "![Alt text](asset:id); all assets declared, PNG/JPEG/WebP only",
+    "links": "HTTP(S) URLs without credentials or #heading anchors",
+    "forbidden": ["raw HTML", "author styles or scripts", "execution cells", "shortcodes", "filters", "includes", "Mermaid directives, click handlers, custom styles, or HTML"],
+    "limits": {"source_bytes": 1000000, "asset_bytes": 10000000, "total_asset_bytes": 20000000, "diagram_count": 20, "diagram_characters": 30000, "html_bytes": 40000000}
+  }
+}

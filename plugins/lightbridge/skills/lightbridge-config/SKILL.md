@@ -8,7 +8,7 @@ description: >-
   linking repos in the cross-repo graph, use the repo-graph skill; for running
   inference with personal LLM API keys, use the llm-keys skill.
 metadata:
-  version: "2026-09-03"
+  version: "2026-09-21"
 ---
 
 # .lightbridge config
@@ -29,7 +29,8 @@ key = root path with separators → `-`.
 The same tree holds durable, harness-neutral **state**: `projects/<key>/handoffs/` (the
 `handoff` skill), `projects/<key>/plans/` (approved plan-mode plans, filed by
 `hooks/plan-capture`), `projects/<key>/asks/` (every form the `ask-form` skill's CLI
-collected, always-on), `~/.lightbridge/repos.toml` (the personal name→path repo
+collected, always-on), `projects/<key>/artifacts/` (rich-document source, manifest,
+assets, and rendered HTML; saved by default), `~/.lightbridge/repos.toml` (the personal name→path repo
 registry), `~/.lightbridge/graph.toml` (the cross-repo graph — typed edges between
 registered repos; spec: the **repo-graph** skill), and `~/.lightbridge/keys.toml` +
 `secrets.toml` (personal LLM API keys: agent-readable catalog + injected-only values;

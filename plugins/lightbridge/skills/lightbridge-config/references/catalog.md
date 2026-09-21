@@ -126,6 +126,11 @@ feature owns a subtree **or file** registered here.
     - `handoffs/` — the `handoff` skill's journal + inbox.
     - `asks/` — the `ask-form` skill's records: one markdown file per submitted form
       (answers, notes, comments, raw JSON). Always-on, no section; `--no-save` skips one.
+    - `artifacts/` — the `rich-document` skill's immutable artifact directories:
+      source, manifest, declared image assets, and rendered HTML. Saved by default,
+      no config section; explicit `--no-save` uses temporary output. The bundled
+      CLI owns writes and calls `lb path --json` for canonical project resolution.
+      Viewer runtime records and access tokens remain in private temp state.
   - `~/.lightbridge/repos.toml` — the personal repo registry: one `[repos]` table mapping
     logical repo names to local paths (`~`-relative or absolute). Machine-specific by
     design; it is the node namespace of the cross-repo graph. Managed by
