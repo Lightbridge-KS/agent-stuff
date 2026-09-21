@@ -36,6 +36,8 @@ jobs:
         run: uv run tests/test_deidentify.py
       - name: ask-form skill tests
         run: uv run tests/test_ask_form.py
+      - name: rich-document hermetic tests
+        run: uv run tests/test_rich_document.py
       - name: Run notebook-tools tests
         run: uv run tests/test_notebook_tools.py
       - name: Run Codex plugin packaging tests
@@ -57,4 +59,5 @@ jobs:
             plugins/notebook-tools/mcp/notebook_tools/*.py \
             plugins/research/skills/research-deep/scripts/research_kit.py \
             plugins/creative/skills/image-gen/scripts/imagegen.py \
-            plugins/productivity/skills/ask-form/scripts/ask_form.py
+            plugins/productivity/skills/ask-form/scripts/ask_form.py \
+            plugins/experiment/skills/rich-document/scripts/*.py

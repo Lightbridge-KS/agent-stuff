@@ -43,6 +43,11 @@ test:
     uv run tests/test_validate.py
     uv run tests/test_deidentify.py
     uv run tests/test_ask_form.py
+    uv run tests/test_rich_document.py
+
+# Real Quarto + loopback viewer acceptance (browser interaction checked separately).
+test-rich-document-live:
+    RICH_DOCUMENT_LIVE=1 uv run tests/test_rich_document.py
 
 # Remove build artifacts
 clean:

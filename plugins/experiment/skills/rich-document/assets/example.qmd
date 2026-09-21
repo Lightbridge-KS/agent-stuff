@@ -1,0 +1,78 @@
+---
+title: A clearer module boundary
+subtitle: One source, one readable explanation
+artifact:
+  version: 1
+  layout: article
+---
+
+## The request flow
+
+The service owns the use case. The repository owns persistence. Each boundary
+can be understood independently.
+
+```{mermaid}
+flowchart LR
+  A["Request"] --> B["Domain service"] --> C["Repository"]
+```
+
+## Compare the choices
+
+::: {.panel-tabset}
+### Current
+
+The controller knows how records are stored.
+
+```python
+record = database.query(request.key)
+return format_response(record)
+```
+
+### Proposed
+
+```python
+result = service.handle(request)
+```
+
+```{mermaid}
+sequenceDiagram
+  participant C as Controller
+  participant S as Service
+  C->>S: handle(request)
+  S-->>C: result
+```
+:::
+
+## Responsibilities
+
+:::: {.columns}
+::: {.column width="50%"}
+### Service
+
+- Validate domain rules
+- Coordinate the use case
+:::
+::: {.column width="50%"}
+### Repository
+
+- Read and write records
+- Hide storage details
+:::
+::::
+
+::: {.callout-note collapse="true"}
+## Tradeoff
+
+An extra interface is worthwhile only when it hides meaningful complexity.
+:::
+
+| Concern | Owner |
+|---|---|
+| Use case | Service |
+| Persistence | Repository |
+
+See [the request flow](#the-request-flow) or the
+[Quarto documentation](https://quarto.org/docs/authoring/markdown-basics.html).
+
+Images are optional: declare `assets: {sample: images/sample.png}` in frontmatter,
+then write `![Descriptive alt text](asset:sample)` to include a local image.

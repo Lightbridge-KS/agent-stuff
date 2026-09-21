@@ -1,0 +1,61 @@
+.rd-diagram { margin: 1.5rem 0; }
+.rd-diagram > button { display: block; margin: .5rem 0 .5rem auto; }
+.rd-diagram button, .rd-dialog button {
+  color: var(--document-heading); background: var(--document-surface);
+  border: 1px solid var(--document-border); border-radius: 6px;
+  min-height: 44px; padding: .4rem .8rem;
+}
+.rd-dialog {
+  width: min(96vw, 1500px); max-width: 96vw; height: 90vh; max-height: 94vh;
+  padding: 1rem; border: 1px solid var(--document-border); border-radius: 12px;
+  background: var(--document-bg); color: var(--document-text);
+}
+.rd-dialog::backdrop { background: rgb(0 0 0 / 75%); }
+.rd-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .8rem; }
+.rd-toolbar h2 { font-size: 1.1rem; margin: 0 auto 0 0; border: 0; padding: 0; }
+.rd-viewport { height: calc(100% - 80px); overflow: auto; touch-action: auto; cursor: grab; }
+.rd-viewport:active { cursor: grabbing; }
+.rd-viewport svg { max-width: none !important; display: block; }
+.callout-header:focus-visible, .rd-dialog button:focus-visible, .rd-viewport:focus-visible, .rd-diagram button:focus-visible {
+  outline: 3px solid var(--document-accent); outline-offset: 3px;
+}
+.rd-error { padding: 1rem; border: 1px solid #d58b70; border-radius: 6px; }
+.rd-error pre { white-space: pre-wrap; }
+.rd-caption { color: var(--document-muted); font-size: .85rem; }
+.rd-footer { color: var(--document-muted); font-size: .75rem; margin: 2rem auto; padding: 1rem; text-align: center; }
+@media (max-width: 640px) {
+  .rd-dialog { padding: .6rem; }
+  .rd-toolbar h2 { width: 100%; }
+  .rd-viewport { height: calc(100% - 125px); }
+  .nav-tabs { flex-wrap: nowrap; overflow-x: auto; }
+  .nav-tabs .nav-link { white-space: nowrap; }
+}
+@media print {
+  .rd-diagram > button, .quarto-color-scheme-toggle, .rd-dialog { display: none !important; }
+  .tab-content > .tab-pane { display: block !important; opacity: 1 !important; }
+}
+/* Keep diagram colors tied to the active document theme, including in dialogs. */
+.rd-diagram svg, .rd-dialog svg {
+  --mermaid-bg-color: var(--document-bg);
+  --mermaid-fg-color: var(--document-text);
+  --mermaid-fg-color--lighter: var(--document-muted);
+  --mermaid-fg-color--lightest: var(--document-surface);
+  --mermaid-node-bg-color: var(--document-surface);
+  --mermaid-node-fg-color: var(--document-accent);
+  --mermaid-label-bg-color: var(--document-surface);
+  --mermaid-label-fg-color: var(--document-text);
+  --mermaid-edge-color: var(--document-text);
+}
+:is(.rd-diagram, .rd-dialog) svg :is(.node rect, .node circle, .node polygon, rect.actor, .labelBox) {
+  fill: var(--document-surface) !important; stroke: var(--document-accent) !important;
+}
+:is(.rd-diagram, .rd-dialog) svg :is(text, text tspan, .messageText, .labelText) {
+  fill: var(--document-text) !important; stroke: none !important;
+}
+:is(.rd-diagram, .rd-dialog) svg :is(.nodeLabel, .edgeLabel, .label) { color: var(--document-text) !important; }
+:is(.rd-diagram, .rd-dialog) svg :is(.flowchart-link, .messageLine0, .messageLine1, .actor-line, .loopLine) {
+  stroke: var(--document-text) !important;
+}
+:is(.rd-diagram, .rd-dialog) svg marker path { fill: var(--document-text) !important; }
+:is(.rd-diagram, .rd-dialog) svg foreignObject { overflow: visible; }
+:is(.rd-diagram, .rd-dialog) svg foreignObject > div { overflow: visible; }
