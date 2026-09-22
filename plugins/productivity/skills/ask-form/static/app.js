@@ -254,6 +254,7 @@
       wrap.append(el("div", { class: "review-item" },
         el("div", { class: "opt-label", text: item.label }),
         item.description ? el("div", { class: "opt-desc", text: item.description }) : null,
+        item.detail ? el("details", { class: "item-detail" }, el("summary", { text: "Detail" }), markdown(item.detail)) : null,
         seg, withComment ? comment : null,
       ));
     }
@@ -270,6 +271,7 @@
       body = el("img", { src, alt: q.label || "image" });
     } else if (q.format === "mermaid") body = window.AskRich.diagram(q.content);
     else if (q.format === "tabs") body = window.AskRich.tabs(q.panels.map((p) => ({ label: p.label, node: markdown(p.content) })));
+    else if (q.format === "diff") body = window.AskRich.diff(q.content);
     if (q.collapsed) card.append(el("details", { class: "context-fold" }, el("summary", { text: q.label || "Background" }), body));
     else card.append(q.label ? el("div", { class: "q-help", text: q.label }) : null, body);
     return card;

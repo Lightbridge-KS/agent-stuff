@@ -61,7 +61,7 @@ MAX_BODY = 5 * 1024 * 1024
 ID_RE = re.compile(r"^[a-z0-9_-]+$")
 
 DISPLAY_TYPES = {"section", "context"}
-CONTEXT_FORMATS = ("markdown", "mermaid", "image", "tabs")
+CONTEXT_FORMATS = ("markdown", "mermaid", "image", "tabs", "diff")
 OPTION_TYPES = {"single_select", "multi_select", "ranking"}
 ANSWER_TYPES = OPTION_TYPES | {"scale", "short_text", "long_text", "number", "matrix", "review"}
 ALL_TYPES = DISPLAY_TYPES | ANSWER_TYPES
@@ -456,7 +456,7 @@ SCHEMA: dict[str, Any] = {
         "submit_label": {"type": "string"},
         "questions": {"type": "array", "minItems": 1, "items": {"oneOf": [
             _el("section", {}),
-            _el("context", {"format": {"enum": list(CONTEXT_FORMATS)}, "content": {"type": "string", "description": "markdown or mermaid source"},
+            _el("context", {"format": {"enum": list(CONTEXT_FORMATS)}, "content": {"type": "string", "description": "markdown, mermaid source, or a unified diff"},
                             "src": {"type": "string", "description": "local image path or http(s) URL"},
                             "panels": {"type": "array", "minItems": 2, "maxItems": 6, "description": "format tabs: markdown panels",
                                        "items": {"type": "object", "required": ["label", "content"],
@@ -476,6 +476,7 @@ SCHEMA: dict[str, Any] = {
             _el("matrix", {"rows": _OPTION_ITEMS, "columns": _OPTION_ITEMS}, ["rows", "columns"]),
             _el("review", {"items": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["id", "label"],
                                      "properties": {"id": {"type": "string"}, "label": {"type": "string"}, "description": {"type": "string"},
+                                                    "detail": {"type": "string", "description": "markdown behind a per-item Detail toggle (a diff fence for a change)"},
                                                     "recommended": {"type": "string", "description": "one of decisions"}}}},
                            "decisions": {"type": "array", "minItems": 2, "items": {"type": "string"}, "default": DEFAULT_DECISIONS},
                            "comment": {"type": "boolean", "default": True}}, ["items"]),
@@ -756,8 +757,8 @@ def _context_md(el: dict[str, Any]) -> list[str]:
     head = f"*Context — {el['label']}*" if el.get("label") else "*Context*"
     if fmt == "markdown":
         body = el["content"].strip()
-    elif fmt == "mermaid":
-        body = _fence("mermaid", el["content"])
+    elif fmt in ("mermaid", "diff"):
+        body = _fence(fmt, el["content"])
     elif fmt == "image":
         body = f"Image: `{el['src']}`"
     elif fmt == "tabs":
@@ -773,7 +774,8 @@ def _details_md(el: dict[str, Any]) -> list[str]:
     if not parts:
         return []
     body = "\n\n".join(f"#### {label}\n\n{detail.strip()}" for label, detail in parts)
-    return ["", "<details><summary>Compared detail</summary>", "", body, "", "</details>"]
+    summary = "Item detail" if el["type"] == "review" else "Compared detail"
+    return ["", f"<details><summary>{summary}</summary>", "", body, "", "</details>"]
 
 
 def render_record(spec: dict[str, Any], result: dict[str, Any], ctx: dict[str, str]) -> str:

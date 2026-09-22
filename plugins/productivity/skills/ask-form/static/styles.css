@@ -203,6 +203,18 @@ h1 {
 .diagram-viewport { flex: 1; overflow: auto; padding: 12px; cursor: grab; }
 .diagram-viewport:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
+pre.diff { padding: 8px 0; }
+pre.diff .dl { display: block; padding: 0 14px; }
+.dl-add { background: var(--green-soft); }
+.dl-del { background: var(--red-soft); }
+.dl-hunk { color: var(--blue); }
+.dl-file { color: var(--muted); font-weight: 600; }
+.dl-meta { color: var(--faint); font-style: italic; }
+
+.item-detail { margin: 6px 0 8px; }
+.item-detail > summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+.item-detail[open] > summary { margin-bottom: 8px; }
+
 /* ── tabs, Compare, folded context ── */
 
 .tablist { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); margin-bottom: 12px; }

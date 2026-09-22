@@ -215,6 +215,10 @@ class ValidatorCase(unittest.TestCase):
         self.assert_invalid(spec(q("context", format="tabs", panels=[panels[0], {"label": "B"}])), "panels[1].content")
         self.assert_invalid(spec(q("context", format="markdown", content="x", collapsed="yes")), "collapsed")
         self.assert_invalid(spec(q("context", format="video", content="x")), "format")
+        self.assert_valid(spec(q("context", format="diff", content="--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b")))
+        self.assert_invalid(spec(q("context", format="diff")), "content")
+        self.assert_valid(spec(q("review", items=[{"id": "i", "label": "I", "detail": "```diff\n-a\n+b\n```"}])))
+        self.assert_invalid(spec(q("review", items=[{"id": "i", "label": "I", "detail": 3}])), "items[0].detail")
 
     def test_validate_reports_answerable_required_assets(self):
         with tempfile.TemporaryDirectory() as td:
@@ -438,6 +442,16 @@ class ServerCase(unittest.TestCase):
         self.assertIn("#### Now\n\nold\n\n#### Then\n\nnew", text)
         self.assertIn("<details><summary>Compared detail</summary>\n\n#### A\n\nWhy **A**.\n\n</details>", text)
         self.assertNotIn("#### B", text)
+
+    def test_record_keeps_diff_and_item_detail(self):
+        body = spec(
+            q("context", "c", format="diff", content="@@ -1 +1 @@\n-a\n+b"),
+            q("review", "r", items=[{"id": "i", "label": "Hunk 1", "detail": "Why."}]),
+        )
+        result = {"answers": {"r": {"i": {"decision": "approve", "comment": ""}}}, "meta": {}}
+        text = ASK_FORM.render_record(body, result, {"created": "c", "project": "p", "git": "none"})
+        self.assertIn("```diff\n@@ -1 +1 @@\n-a\n+b\n```", text)
+        self.assertIn("<details><summary>Item detail</summary>\n\n#### Hunk 1\n\nWhy.", text)
 
     def test_staged_record_is_verified_before_saved_is_reported(self):
         with tempfile.TemporaryDirectory() as td:

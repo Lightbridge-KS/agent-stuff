@@ -2,6 +2,7 @@
      AskRich.prose(md)      sanitized GFM markdown → node; mermaid fences become diagrams, code gets a
                             language label, Copy and highlighting, `> [!NOTE]` alerts become callouts
      AskRich.diagram(src)   mermaid source → node; Enlarge dialog; re-rendered on light/dark change
+     AskRich.diff(text)     unified diff → code block with file / hunk headers and +/− lines tinted
      AskRich.tabs(panels, {columns})  [{label, node, badge?}] → tablist node with `_select(i)`;
                             columns: side by side on wide screens, tabs on narrow ones
    Libraries are vendored under /static/vendor and loaded only when a page needs them.
@@ -64,6 +65,7 @@
     const text = (code || pre).textContent.replace(/\n$/, "");
     const lang = (code?.className.match(/language-([\w+#.-]+)/) || [])[1]?.toLowerCase() || "";
     if (lang === "mermaid") return pre.replaceWith(diagram(text));
+    if (lang === "diff" || lang === "patch") return pre.replaceWith(diff(text));
     const frame = codeFrame(lang, text);
     pre.replaceWith(frame);
     frame.append(pre);
@@ -74,6 +76,26 @@
       hljs.highlightElement(code);
     }).catch(() => { /* plain code is still readable */ });
   };
+
+  // ── diff ───────────────────────────────────────────────────────────────────
+
+  const DIFF_LINE = [
+    [/^(diff --git|index |--- |\+\+\+ |new file|deleted file|similarity|rename |old mode|new mode)/, "file"],
+    [/^@@/, "hunk"], [/^\+/, "add"], [/^-/, "del"], [/^\\ /, "meta"],
+  ];
+
+  // Built from text nodes only: a diff can carry anything and never becomes markup.
+  function diff(text) {
+    const body = text.replace(/\n$/, "");
+    const code = el("code");
+    for (const line of body.split("\n")) {
+      const kind = (DIFF_LINE.find(([re]) => re.test(line)) || [null, "ctx"])[1];
+      code.append(el("span", { class: `dl dl-${kind}`, text: line || " " }));
+    }
+    const frame = codeFrame("diff", body);
+    frame.append(el("pre", { class: "diff" }, code));
+    return frame;
+  }
 
   // ── alerts ─────────────────────────────────────────────────────────────────
 
@@ -271,5 +293,5 @@
     return root;
   };
 
-  window.AskRich = { prose, diagram, tabs };
+  window.AskRich = { prose, diagram, diff, tabs };
 })();
