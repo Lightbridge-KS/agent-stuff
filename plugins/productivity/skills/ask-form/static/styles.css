@@ -203,6 +203,32 @@ h1 {
 .diagram-viewport { flex: 1; overflow: auto; padding: 12px; cursor: grab; }
 .diagram-viewport:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
+/* ── tabs, Compare, folded context ── */
+
+.tablist { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.tablist [role="tab"] {
+  font: inherit; font-size: 14px; color: var(--muted); cursor: pointer; white-space: nowrap;
+  background: none; border: 0; border-bottom: 2px solid transparent; padding: 6px 10px 8px; margin-bottom: -1px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.tablist [role="tab"]:hover { color: var(--ink); }
+.tablist [role="tab"][aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--ink); }
+.tablist [role="tab"]:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: 6px; }
+.tabpanel:not(.active) { display: none; }
+.tabpanel-title { display: none; }
+@media (min-width: 760px) {
+  .tabs.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .tabs.cols > .tablist { display: none; }
+  .tabs.cols > .tabpanel { display: block; min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-control); }
+  .tabs.cols .tabpanel-title { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 6px; }
+}
+
+.compare { margin-bottom: 14px; padding: 12px 14px 14px; border-radius: var(--radius-control); background: var(--control); border: 1px solid var(--line); }
+.compare-label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+
+.context-fold > summary { cursor: pointer; color: var(--muted); }
+.context-fold[open] > summary { margin-bottom: 10px; }
+
 /* ── cards ── */
 
 .section {

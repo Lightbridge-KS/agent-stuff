@@ -61,6 +61,7 @@ MAX_BODY = 5 * 1024 * 1024
 ID_RE = re.compile(r"^[a-z0-9_-]+$")
 
 DISPLAY_TYPES = {"section", "context"}
+CONTEXT_FORMATS = ("markdown", "mermaid", "image", "tabs")
 OPTION_TYPES = {"single_select", "multi_select", "ranking"}
 ANSWER_TYPES = OPTION_TYPES | {"scale", "short_text", "long_text", "number", "matrix", "review"}
 ALL_TYPES = DISPLAY_TYPES | ANSWER_TYPES
@@ -112,7 +113,19 @@ def _check_options(opts: Any, path: str, errors: list[dict[str, str]], key: str 
             errors.append({"path": f"{p}.label", "message": "label must be a non-empty string"})
         if "description" in o and not isinstance(o["description"], str):
             errors.append({"path": f"{p}.description", "message": "description must be a string"})
+        if "detail" in o and not (isinstance(o["detail"], str) and o["detail"].strip()):
+            errors.append({"path": f"{p}.detail", "message": "detail must be a non-empty markdown string"})
     return values
+
+
+def _check_panels(panels: Any, path: str, errors: list[dict[str, str]]) -> None:
+    if not isinstance(panels, list) or not 2 <= len(panels) <= 6:
+        errors.append({"path": f"{path}.panels", "message": "panels must be a list of 2 to 6 {label, content} objects"})
+        return
+    for j, pnl in enumerate(panels):
+        for k in ("label", "content"):
+            if not (isinstance(pnl, dict) and isinstance(pnl.get(k), str) and pnl[k].strip()):
+                errors.append({"path": f"{path}.panels[{j}].{k}", "message": f"{k} must be a non-empty string"})
 
 
 def _check_range(el: dict[str, Any], path: str, errors: list[dict[str, str]], required: bool) -> None:
@@ -222,10 +235,14 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
 
         if etype == "context":
             fmt = el.get("format")
-            if fmt not in ("markdown", "mermaid", "image"):
-                errors.append({"path": f"{path}.format", "message": "format must be markdown, mermaid or image"})
+            if "collapsed" in el and not isinstance(el["collapsed"], bool):
+                errors.append({"path": f"{path}.collapsed", "message": "collapsed must be a boolean"})
+            if fmt not in CONTEXT_FORMATS:
+                errors.append({"path": f"{path}.format", "message": f"format must be one of {', '.join(CONTEXT_FORMATS)}"})
             elif fmt == "image":
                 _check_asset(el.get("src"), f"{path}.src", errors, compiled)
+            elif fmt == "tabs":
+                _check_panels(el.get("panels"), path, errors)
             elif not isinstance(el.get("content"), str) or not el["content"]:
                 errors.append({"path": f"{path}.content", "message": "content must be a non-empty string"})
         elif etype in OPTION_TYPES:
@@ -415,6 +432,8 @@ _OPTION_ITEMS = {"type": "array", "minItems": 1, "items": {"type": "object", "re
                  "properties": {"value": {"type": "string", "minLength": 1}, "label": {"type": "string", "minLength": 1},
                                 "description": {"type": "string"},
                                 "recommended": {"type": "boolean", "description": "badge this option; at most one per single_select; not for ranking"}}}}
+_DETAIL = {"type": "string", "description": "markdown shown in the Compare panel (mermaid, code, alerts allowed); reading only"}
+_DETAIL_OPTIONS = {**_OPTION_ITEMS, "items": {**_OPTION_ITEMS["items"], "properties": {**_OPTION_ITEMS["items"]["properties"], "detail": _DETAIL}}}
 _BASE_PROPS = {"id": {"type": "string", "pattern": ID_RE.pattern}, "type": {"type": "string"},
                "label": {"type": "string", "minLength": 1}, "help": {"type": "string"}, "required": {"type": "boolean"},
                "recommendation": {"type": "string", "description": "one line: what the agent recommends and why; shown under the help text"}}
@@ -437,10 +456,14 @@ SCHEMA: dict[str, Any] = {
         "submit_label": {"type": "string"},
         "questions": {"type": "array", "minItems": 1, "items": {"oneOf": [
             _el("section", {}),
-            _el("context", {"format": {"enum": ["markdown", "mermaid", "image"]}, "content": {"type": "string"},
-                            "src": {"type": "string", "description": "local image path or http(s) URL"}}, ["format"]),
-            _el("single_select", {"options": _OPTION_ITEMS, "allow_other": {"type": "boolean", "default": True}}, ["options"]),
-            _el("multi_select", {"options": _OPTION_ITEMS, "allow_other": {"type": "boolean", "default": True},
+            _el("context", {"format": {"enum": list(CONTEXT_FORMATS)}, "content": {"type": "string", "description": "markdown or mermaid source"},
+                            "src": {"type": "string", "description": "local image path or http(s) URL"},
+                            "panels": {"type": "array", "minItems": 2, "maxItems": 6, "description": "format tabs: markdown panels",
+                                       "items": {"type": "object", "required": ["label", "content"],
+                                                 "properties": {"label": {"type": "string"}, "content": {"type": "string"}}}},
+                            "collapsed": {"type": "boolean", "default": False, "description": "start folded behind the label"}}, ["format"]),
+            _el("single_select", {"options": _DETAIL_OPTIONS, "allow_other": {"type": "boolean", "default": True}}, ["options"]),
+            _el("multi_select", {"options": _DETAIL_OPTIONS, "allow_other": {"type": "boolean", "default": True},
                                  "min": {"type": "integer"}, "max": {"type": "integer"}}, ["options"]),
             _el("scale", {"min": {"type": "number"}, "max": {"type": "number"}, "step": {"type": "number"},
                           "labels": {"type": "object", "additionalProperties": {"type": "string"}},
@@ -737,9 +760,20 @@ def _context_md(el: dict[str, Any]) -> list[str]:
         body = _fence("mermaid", el["content"])
     elif fmt == "image":
         body = f"Image: `{el['src']}`"
+    elif fmt == "tabs":
+        body = "\n\n".join(f"#### {pnl['label']}\n\n{pnl['content'].strip()}" for pnl in el["panels"])
     else:
         return []
     return [head, "", body, ""]
+
+
+def _details_md(el: dict[str, Any]) -> list[str]:
+    """Option / item `detail` the user compared, folded so the answer stays the first thing read."""
+    parts = [(o["label"], o["detail"]) for o in el.get("options", el.get("items", [])) if isinstance(o, dict) and o.get("detail")]
+    if not parts:
+        return []
+    body = "\n\n".join(f"#### {label}\n\n{detail.strip()}" for label, detail in parts)
+    return ["", "<details><summary>Compared detail</summary>", "", body, "", "</details>"]
 
 
 def render_record(spec: dict[str, Any], result: dict[str, Any], ctx: dict[str, str]) -> str:
@@ -772,6 +806,7 @@ def render_record(spec: dict[str, Any], result: dict[str, Any], ctx: dict[str, s
             out.append("**Diverged** from the recommendation.")
         if eid in notes:
             out.append(f"**Note:** {notes[eid]}")
+        out += _details_md(el)
         out.append("")
     if meta.get("comments"):
         out += ["## Comments", "", meta["comments"], ""]

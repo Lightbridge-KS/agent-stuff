@@ -63,6 +63,22 @@
     return row;
   };
 
+  // Options that carry `detail` get a Compare panel above the choices. It is for reading only:
+  // choosing an option shows its detail, switching tabs never chooses.
+  const withCompare = (q, group, body) => {
+    const detailed = q.options.filter((o) => o.detail);
+    if (!detailed.length) return body;
+    const compare = window.AskRich.tabs(
+      detailed.map((o) => ({ label: o.label, badge: o.recommended ? "Recommended" : null, node: markdown(o.detail) })),
+      { columns: detailed.length === 2 });
+    const values = detailed.map((o) => o.value);
+    group.addEventListener("change", (e) => {
+      const i = values.indexOf(e.target.value);
+      if (i >= 0 && e.target.checked) compare._select(i);
+    });
+    return el("div", {}, el("div", { class: "compare" }, el("div", { class: "compare-label", text: "Compare" }), compare), body);
+  };
+
   const renderSingle = (q) => {
     const group = el("fieldset", { class: "options", role: "radiogroup", "aria-label": q.label });
     let otherEl = null;
@@ -80,7 +96,7 @@
     };
     for (const opt of q.options) group.append(optionRow(q, opt, "radio", update));
     if (q.allow_other !== false) { otherEl = otherRow(q, "radio", update); group.append(otherEl); }
-    return group;
+    return withCompare(q, group, group);
   };
 
   const renderMulti = (q) => {
@@ -107,7 +123,7 @@
     };
     for (const opt of q.options) group.append(optionRow(q, opt, "checkbox", update));
     if (q.allow_other !== false) { otherEl = otherRow(q, "checkbox", update); group.append(otherEl); }
-    return el("div", {}, group, hint);
+    return withCompare(q, group, el("div", {}, group, hint));
   };
 
   const renderScale = (q) => {
@@ -247,12 +263,15 @@
   let assetIndex = 0;
   const renderContext = (q) => {
     const card = el("section", { class: "card context", "aria-label": q.label || "context" });
-    if (q.label) card.append(el("div", { class: "q-help", text: q.label }));
-    if (q.format === "markdown") card.append(markdown(q.content));
+    let body;
+    if (q.format === "markdown") body = markdown(q.content);
     else if (q.format === "image") {
       const src = /^https?:\/\//.test(q.src) ? q.src : `/asset/${assetIndex++}?t=${encodeURIComponent(token)}`;
-      card.append(el("img", { src, alt: q.label || "image" }));
-    } else if (q.format === "mermaid") card.append(window.AskRich.diagram(q.content));
+      body = el("img", { src, alt: q.label || "image" });
+    } else if (q.format === "mermaid") body = window.AskRich.diagram(q.content);
+    else if (q.format === "tabs") body = window.AskRich.tabs(q.panels.map((p) => ({ label: p.label, node: markdown(p.content) })));
+    if (q.collapsed) card.append(el("details", { class: "context-fold" }, el("summary", { text: q.label || "Background" }), body));
+    else card.append(q.label ? el("div", { class: "q-help", text: q.label }) : null, body);
     return card;
   };
 

@@ -2,6 +2,8 @@
      AskRich.prose(md)      sanitized GFM markdown → node; mermaid fences become diagrams, code gets a
                             language label, Copy and highlighting, `> [!NOTE]` alerts become callouts
      AskRich.diagram(src)   mermaid source → node; Enlarge dialog; re-rendered on light/dark change
+     AskRich.tabs(panels, {columns})  [{label, node, badge?}] → tablist node with `_select(i)`;
+                            columns: side by side on wide screens, tabs on narrow ones
    Libraries are vendored under /static/vendor and loaded only when a page needs them.
    Diagram behaviour is copied from rich-document's viewer.js (enlarge dialog, serial render queue). */
 (() => {
@@ -233,5 +235,41 @@
     viewport.focus();
   }
 
-  window.AskRich = { prose, diagram };
+  // ── tabs ───────────────────────────────────────────────────────────────────
+
+  let tabSerial = 0;
+  const tabs = (panels, { columns = false } = {}) => {
+    const base = `ask-tabs-${++tabSerial}`;
+    const list = el("div", { class: "tablist", role: "tablist" });
+    const root = el("div", { class: columns ? "tabs cols" : "tabs" }, list);
+    const buttons = [], panes = [];
+    const select = (i, focus = false) => {
+      buttons.forEach((b, j) => { b.setAttribute("aria-selected", String(i === j)); b.tabIndex = i === j ? 0 : -1; });
+      panes.forEach((pn, j) => pn.classList.toggle("active", i === j));
+      if (focus) buttons[i].focus();
+    };
+    panels.forEach((p, i) => {
+      const b = el("button", { type: "button", role: "tab", id: `${base}-t${i}`, "aria-controls": `${base}-p${i}`, onclick: () => select(i) },
+        el("span", { text: p.label }), p.badge ? el("span", { class: "rec", text: p.badge }) : null);
+      const pane = el("div", { class: "tabpanel", role: "tabpanel", id: `${base}-p${i}`, "aria-labelledby": `${base}-t${i}` },
+        el("div", { class: "tabpanel-title" }, el("span", { text: p.label }), p.badge ? el("span", { class: "rec", text: p.badge }) : null),
+        p.node);
+      buttons.push(b); panes.push(pane);
+      list.append(b); root.append(pane);
+    });
+    list.addEventListener("keydown", (e) => {
+      const i = buttons.indexOf(document.activeElement);
+      if (i < 0) return;
+      const n = buttons.length;
+      const next = { ArrowRight: (i + 1) % n, ArrowLeft: (i - 1 + n) % n, Home: 0, End: n - 1 }[e.key];
+      if (next === undefined) return;
+      e.preventDefault();
+      select(next, true);
+    });
+    select(0);
+    root._select = select;
+    return root;
+  };
+
+  window.AskRich = { prose, diagram, tabs };
 })();

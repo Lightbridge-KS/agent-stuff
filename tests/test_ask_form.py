@@ -202,6 +202,20 @@ class ValidatorCase(unittest.TestCase):
                 self.assert_valid(spec(q(type_, **good)))
                 self.assert_invalid(spec(q(type_, **bad)), frag)
 
+    def test_rich_content_fields(self):
+        """v2 additions are optional and validated: option detail, tabs panels, collapsed."""
+        detailed = [{"value": "a", "label": "A", "detail": "```mermaid\nflowchart LR\n  A --> B\n```"}, {"value": "b", "label": "B"}]
+        panels = [{"label": "Now", "content": "x"}, {"label": "Then", "content": "y"}]
+        self.assert_valid(spec(q("single_select", options=detailed), q("multi_select", "m", options=detailed)))
+        self.assert_valid(spec(q("context", format="tabs", panels=panels, collapsed=True)))
+        self.assert_valid(spec(q("context", format="markdown", content="x", collapsed=False)))
+        self.assert_invalid(spec(q("single_select", options=[{"value": "a", "label": "A", "detail": ""}])), "options[0].detail")
+        self.assert_invalid(spec(q("context", format="tabs", panels=panels[:1])), "panels")
+        self.assert_invalid(spec(q("context", format="tabs", panels=[*panels] * 4)), "panels")
+        self.assert_invalid(spec(q("context", format="tabs", panels=[panels[0], {"label": "B"}])), "panels[1].content")
+        self.assert_invalid(spec(q("context", format="markdown", content="x", collapsed="yes")), "collapsed")
+        self.assert_invalid(spec(q("context", format="video", content="x")), "format")
+
     def test_validate_reports_answerable_required_assets(self):
         with tempfile.TemporaryDirectory() as td:
             img = Path(td) / "pic.png"
@@ -414,6 +428,16 @@ class ServerCase(unittest.TestCase):
         self.assertIn("Image: `https://example.com/a.png`", text)
         self.assertLess(text.index("```mermaid"), text.index("### Label  `name`"))
         self.assertEqual(ASK_FORM._fence("text", "a ``` b"), "````text\na ``` b\n````")
+
+    def test_record_keeps_tabs_and_compared_detail(self):
+        body = spec(
+            q("context", "c", format="tabs", panels=[{"label": "Now", "content": "old"}, {"label": "Then", "content": "new"}]),
+            q("single_select", "pick", options=[{"value": "a", "label": "A", "detail": "Why **A**."}, {"value": "b", "label": "B"}]),
+        )
+        text = ASK_FORM.render_record(body, {"answers": {"pick": "a"}, "meta": {}}, {"created": "c", "project": "p", "git": "none"})
+        self.assertIn("#### Now\n\nold\n\n#### Then\n\nnew", text)
+        self.assertIn("<details><summary>Compared detail</summary>\n\n#### A\n\nWhy **A**.\n\n</details>", text)
+        self.assertNotIn("#### B", text)
 
     def test_staged_record_is_verified_before_saved_is_reported(self):
         with tempfile.TemporaryDirectory() as td:
