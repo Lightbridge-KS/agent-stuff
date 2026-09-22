@@ -1,7 +1,7 @@
 /* ask-form rich prose: everything that makes agent explanation readable, behind one small surface.
      AskRich.prose(md)      sanitized GFM markdown → node; mermaid fences become diagrams, code gets a
                             language label, Copy and highlighting, `> [!NOTE]` alerts become callouts
-     AskRich.diagram(src)   mermaid source → node; Enlarge dialog; re-rendered on light/dark change
+     AskRich.diagram(src)   mermaid source → node; Enlarge dialog; re-rendered when the effective theme changes
      AskRich.diff(text)     unified diff → code block with file / hunk headers and +/− lines tinted
      AskRich.tabs(panels, {columns})  [{label, node, badge?}] → tablist node with `_select(i)`;
                             columns: side by side on wide screens, tabs on narrow ones
@@ -129,7 +129,6 @@
 
   // ── diagrams ───────────────────────────────────────────────────────────────
 
-  const dark = matchMedia("(prefers-color-scheme: dark)");
   const diagrams = new Set();
   let queue = Promise.resolve();
   let serial = 0;
@@ -150,7 +149,7 @@
     if (!wrap.isConnected) await new Promise(requestAnimationFrame);
     const source = wrap._source;
     const mermaid = await load("mermaid.min.js", "mermaid");
-    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: dark.matches ? "dark" : "default",
+    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: window.AskPrefs.effectiveTheme() === "dark" ? "dark" : "default",
       suppressErrorRendering: true, fontFamily: "-apple-system, system-ui, sans-serif" });
     // Measure in an off-screen stage so diagrams in collapsed or hidden panels still lay out.
     let ancestor = wrap;
@@ -195,7 +194,7 @@
     if (dialogOpen) { staleTheme = true; return; }
     for (const w of diagrams) if (w.isConnected && w.dataset.state !== "failed") schedule(w);
   };
-  dark.addEventListener("change", rerenderAll);
+  document.addEventListener("askprefs:change", (e) => { if (e.detail.theme) rerenderAll(); });  // reader or OS
 
   function enlarge(svg, opener) {
     dialogOpen = true;

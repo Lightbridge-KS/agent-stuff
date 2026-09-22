@@ -1,9 +1,10 @@
 /* ask-form — monochrome glass, system theme, one scrolling page.
    Base is black/white in the shadcn manner; color appears only where it carries meaning:
    blue = selection and progress, green = approve, amber = revise, red = reject and errors.
-   Tokens on :root are the light theme; dark swaps only the tokens. */
+   Tokens on :root are the light theme; data-theme="dark" swaps only the tokens. */
 
 :root {
+  color-scheme: light;
   --base: #fafafa;
   --glow: rgba(0, 0, 0, 0.05);
   --ink: #0a0a0a;
@@ -32,33 +33,33 @@
   --radius-control: 14px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --base: #0a0a0a;
-    --glow: rgba(255, 255, 255, 0.07);
-    --ink: #f5f5f5;
-    --muted: #a3a3a3;
-    --faint: #6f6f6f;
-    --line: rgba(255, 255, 255, 0.09);
-    --line-strong: rgba(255, 255, 255, 0.28);
-    --glass: rgba(255, 255, 255, 0.045);
-    --glass-strong: rgba(255, 255, 255, 0.075);
-    --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    --control: rgba(255, 255, 255, 0.04);
-    --control-hover: rgba(255, 255, 255, 0.08);
-    --selected: rgba(255, 255, 255, 0.1);
-    --primary-bg: #f5f5f5;
-    --primary-ink: #0a0a0a;
-    --blue: #8ab4f8;
-    --blue-soft: rgba(138, 180, 248, 0.16);
-    --green: #6ee7b7;
-    --green-soft: rgba(110, 231, 183, 0.16);
-    --amber: #fcd34d;
-    --amber-soft: rgba(252, 211, 77, 0.16);
-    --red: #fca5a5;
-    --red-soft: rgba(252, 165, 165, 0.14);
-    --focus: rgba(138, 180, 248, 0.5);
-  }
+/* The reader's theme (prefs.js) sets data-theme; "system" resolves to the OS setting. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --base: #0a0a0a;
+  --glow: rgba(255, 255, 255, 0.07);
+  --ink: #f5f5f5;
+  --muted: #a3a3a3;
+  --faint: #6f6f6f;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-strong: rgba(255, 255, 255, 0.28);
+  --glass: rgba(255, 255, 255, 0.045);
+  --glass-strong: rgba(255, 255, 255, 0.075);
+  --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --control: rgba(255, 255, 255, 0.04);
+  --control-hover: rgba(255, 255, 255, 0.08);
+  --selected: rgba(255, 255, 255, 0.1);
+  --primary-bg: #f5f5f5;
+  --primary-ink: #0a0a0a;
+  --blue: #8ab4f8;
+  --blue-soft: rgba(138, 180, 248, 0.16);
+  --green: #6ee7b7;
+  --green-soft: rgba(110, 231, 183, 0.16);
+  --amber: #fcd34d;
+  --amber-soft: rgba(252, 211, 77, 0.16);
+  --red: #fca5a5;
+  --red-soft: rgba(252, 165, 165, 0.14);
+  --focus: rgba(138, 180, 248, 0.5);
 }
 
 * { box-sizing: border-box; }

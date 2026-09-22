@@ -291,12 +291,15 @@ class ServerCase(unittest.TestCase):
             self.assertIn("script-src 'self';", html)
             self.assertNotIn("cdnjs", html)
             self.assertIn("/static/rich.js", html)
-            for path in ("/static/rich.js", "/static/vendor/mermaid.min.js", "/static/vendor/highlight.min.js"):
+            head = html.split("</head>", 1)[0]
+            # reader preferences apply before first paint: prefs.js precedes the stylesheet in <head>
+            self.assertLess(head.index("/static/prefs.js"), head.index("/static/styles.css"))
+            for path in ("/static/prefs.js", "/static/rich.js", "/static/vendor/mermaid.min.js", "/static/vendor/highlight.min.js"):
                 self.assertEqual(s.get(path, token=False)[0], 200, path)
             s.post("/cancel", {})
             s.finish()
         static = SCRIPT.parent.parent / "static"
-        for own in ("app.js", "rich.js"):
+        for own in ("app.js", "rich.js", "prefs.js"):
             self.assertNotRegex((static / own).read_text(), r"https?://", own)
 
     def test_asset_whitelist(self):
