@@ -61,6 +61,8 @@ MAX_BODY = 5 * 1024 * 1024
 ID_RE = re.compile(r"^[a-z0-9_-]+$")
 
 DISPLAY_TYPES = {"section", "context"}
+CONTEXT_FORMATS = ("markdown", "mermaid", "image", "tabs", "diff")
+LAYOUTS = ("stack", "split")
 OPTION_TYPES = {"single_select", "multi_select", "ranking"}
 ANSWER_TYPES = OPTION_TYPES | {"scale", "short_text", "long_text", "number", "matrix", "review"}
 ALL_TYPES = DISPLAY_TYPES | ANSWER_TYPES
@@ -112,7 +114,19 @@ def _check_options(opts: Any, path: str, errors: list[dict[str, str]], key: str 
             errors.append({"path": f"{p}.label", "message": "label must be a non-empty string"})
         if "description" in o and not isinstance(o["description"], str):
             errors.append({"path": f"{p}.description", "message": "description must be a string"})
+        if "detail" in o and not (isinstance(o["detail"], str) and o["detail"].strip()):
+            errors.append({"path": f"{p}.detail", "message": "detail must be a non-empty markdown string"})
     return values
+
+
+def _check_panels(panels: Any, path: str, errors: list[dict[str, str]]) -> None:
+    if not isinstance(panels, list) or not 2 <= len(panels) <= 6:
+        errors.append({"path": f"{path}.panels", "message": "panels must be a list of 2 to 6 {label, content} objects"})
+        return
+    for j, pnl in enumerate(panels):
+        for k in ("label", "content"):
+            if not (isinstance(pnl, dict) and isinstance(pnl.get(k), str) and pnl[k].strip()):
+                errors.append({"path": f"{path}.panels[{j}].{k}", "message": f"{k} must be a non-empty string"})
 
 
 def _check_range(el: dict[str, Any], path: str, errors: list[dict[str, str]], required: bool) -> None:
@@ -190,6 +204,8 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
     for k in ("intro", "submit_label"):
         if k in spec and not isinstance(spec[k], str):
             errors.append({"path": f"$.{k}", "message": f"{k} must be a string"})
+    if "layout" in spec and spec["layout"] not in LAYOUTS:
+        errors.append({"path": "$.layout", "message": f"layout must be one of {', '.join(LAYOUTS)}"})
     qs = spec.get("questions")
     if not isinstance(qs, list) or not qs:
         errors.append({"path": "$.questions", "message": "questions must be a non-empty list"})
@@ -222,10 +238,14 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
 
         if etype == "context":
             fmt = el.get("format")
-            if fmt not in ("markdown", "mermaid", "image"):
-                errors.append({"path": f"{path}.format", "message": "format must be markdown, mermaid or image"})
+            if "collapsed" in el and not isinstance(el["collapsed"], bool):
+                errors.append({"path": f"{path}.collapsed", "message": "collapsed must be a boolean"})
+            if fmt not in CONTEXT_FORMATS:
+                errors.append({"path": f"{path}.format", "message": f"format must be one of {', '.join(CONTEXT_FORMATS)}"})
             elif fmt == "image":
                 _check_asset(el.get("src"), f"{path}.src", errors, compiled)
+            elif fmt == "tabs":
+                _check_panels(el.get("panels"), path, errors)
             elif not isinstance(el.get("content"), str) or not el["content"]:
                 errors.append({"path": f"{path}.content", "message": "content must be a non-empty string"})
         elif etype in OPTION_TYPES:
@@ -383,8 +403,10 @@ EXAMPLE: dict[str, Any] = {
          "help": "One decision. Descriptions say what happens if chosen.",
          "recommendation": "CLI first: the spike already proved loopback works from the sandbox, and MCP can wrap it later.",
          "options": [
-             {"value": "cli", "label": "CLI first", "description": "Zero daemon; ships this week.", "recommended": True},
-             {"value": "mcp", "label": "MCP first", "description": "Works in every harness; two more days."},
+             {"value": "cli", "label": "CLI first", "description": "Zero daemon; ships this week.", "recommended": True,
+              "detail": "```mermaid\nflowchart LR\n  agent -->|stdin spec| cli[ask_form.py] -->|stdout JSON| agent\n```"},
+             {"value": "mcp", "label": "MCP first", "description": "Works in every harness; two more days.",
+              "detail": "> [!WARNING]\n> Needs a resident server per harness.\n\n```json\n{\"tool\": \"ask_form\", \"spec\": {}}\n```"},
          ]},
         {"id": "surfaces", "type": "multi_select", "label": "Which surfaces matter for v1?", "min": 1, "max": 3,
          "options": [{"value": "web", "label": "Web"}, {"value": "mobile", "label": "Mobile"},
@@ -392,6 +414,9 @@ EXAMPLE: dict[str, Any] = {
         {"id": "priority", "type": "ranking", "label": "Rank these by priority",
          "options": [{"value": "speed", "label": "Speed"}, {"value": "safety", "label": "Safety"},
                      {"value": "polish", "label": "Polish"}]},
+        {"id": "ctx_tabs", "type": "context", "format": "tabs", "label": "Today vs proposed", "panels": [
+            {"label": "Today", "content": "AskUserQuestion: at most **four** options, no sliders."},
+            {"label": "Proposed", "content": "A local form:\n\n```bash\nuv run --no-cache ask_form.py spec.json\n```"}]},
         {"id": "s_measures", "type": "section", "label": "Measures"},
         {"id": "confidence", "type": "scale", "label": "How confident are you in this plan?", "min": 1, "max": 5,
          "labels": {"1": "not at all", "5": "very"}, "recommended": 4, "recommendation": "Two spikes passed; the unknowns left are UI taste, not feasibility."},
@@ -405,8 +430,11 @@ EXAMPLE: dict[str, Any] = {
         {"id": "fit", "type": "matrix", "label": "Rate each component on each axis",
          "rows": [{"value": "cli", "label": "CLI"}, {"value": "renderer", "label": "Renderer"}],
          "columns": [{"value": "good", "label": "Good"}, {"value": "ok", "label": "OK"}, {"value": "bad", "label": "Bad"}]},
+        {"id": "ctx_change", "type": "context", "format": "diff", "label": "The change under review", "collapsed": True,
+         "content": "--- a/SKILL.md\n+++ b/SKILL.md\n@@ -1 +1 @@\n-name: ask\n+name: ask-form"},
         {"id": "decisions", "type": "review", "label": "Decide on each item",
-         "items": [{"id": "name", "label": "Name: ask-form", "description": "Descriptive; the agent reaches for 'ask'.", "recommended": "approve"},
+         "items": [{"id": "name", "label": "Name: ask-form", "description": "Descriptive; the agent reaches for 'ask'.", "recommended": "approve",
+                    "detail": "```diff\n-name: ask\n+name: ask-form\n```"},
                    {"id": "home", "label": "Home: inside the skill", "description": "Travels with the skill into every registry.", "recommended": "approve"}]},
     ],
 }
@@ -415,6 +443,8 @@ _OPTION_ITEMS = {"type": "array", "minItems": 1, "items": {"type": "object", "re
                  "properties": {"value": {"type": "string", "minLength": 1}, "label": {"type": "string", "minLength": 1},
                                 "description": {"type": "string"},
                                 "recommended": {"type": "boolean", "description": "badge this option; at most one per single_select; not for ranking"}}}}
+_DETAIL = {"type": "string", "description": "markdown shown in the Compare panel (mermaid, code, alerts allowed); reading only"}
+_DETAIL_OPTIONS = {**_OPTION_ITEMS, "items": {**_OPTION_ITEMS["items"], "properties": {**_OPTION_ITEMS["items"]["properties"], "detail": _DETAIL}}}
 _BASE_PROPS = {"id": {"type": "string", "pattern": ID_RE.pattern}, "type": {"type": "string"},
                "label": {"type": "string", "minLength": 1}, "help": {"type": "string"}, "required": {"type": "boolean"},
                "recommendation": {"type": "string", "description": "one line: what the agent recommends and why; shown under the help text"}}
@@ -435,12 +465,18 @@ SCHEMA: dict[str, Any] = {
         "title": {"type": "string", "minLength": 1},
         "intro": {"type": "string", "description": "markdown"},
         "submit_label": {"type": "string"},
+        "layout": {"enum": list(LAYOUTS), "default": "stack",
+                   "description": "split: each run of context panes sits sticky beside the questions that follow it on wide screens"},
         "questions": {"type": "array", "minItems": 1, "items": {"oneOf": [
             _el("section", {}),
-            _el("context", {"format": {"enum": ["markdown", "mermaid", "image"]}, "content": {"type": "string"},
-                            "src": {"type": "string", "description": "local image path or http(s) URL"}}, ["format"]),
-            _el("single_select", {"options": _OPTION_ITEMS, "allow_other": {"type": "boolean", "default": True}}, ["options"]),
-            _el("multi_select", {"options": _OPTION_ITEMS, "allow_other": {"type": "boolean", "default": True},
+            _el("context", {"format": {"enum": list(CONTEXT_FORMATS)}, "content": {"type": "string", "description": "markdown, mermaid source, or a unified diff"},
+                            "src": {"type": "string", "description": "local image path or http(s) URL"},
+                            "panels": {"type": "array", "minItems": 2, "maxItems": 6, "description": "format tabs: markdown panels",
+                                       "items": {"type": "object", "required": ["label", "content"],
+                                                 "properties": {"label": {"type": "string"}, "content": {"type": "string"}}}},
+                            "collapsed": {"type": "boolean", "default": False, "description": "start folded behind the label"}}, ["format"]),
+            _el("single_select", {"options": _DETAIL_OPTIONS, "allow_other": {"type": "boolean", "default": True}}, ["options"]),
+            _el("multi_select", {"options": _DETAIL_OPTIONS, "allow_other": {"type": "boolean", "default": True},
                                  "min": {"type": "integer"}, "max": {"type": "integer"}}, ["options"]),
             _el("scale", {"min": {"type": "number"}, "max": {"type": "number"}, "step": {"type": "number"},
                           "labels": {"type": "object", "additionalProperties": {"type": "string"}},
@@ -453,6 +489,7 @@ SCHEMA: dict[str, Any] = {
             _el("matrix", {"rows": _OPTION_ITEMS, "columns": _OPTION_ITEMS}, ["rows", "columns"]),
             _el("review", {"items": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["id", "label"],
                                      "properties": {"id": {"type": "string"}, "label": {"type": "string"}, "description": {"type": "string"},
+                                                    "detail": {"type": "string", "description": "markdown behind a per-item Detail toggle (a diff fence for a change)"},
                                                     "recommended": {"type": "string", "description": "one of decisions"}}}},
                            "decisions": {"type": "array", "minItems": 2, "items": {"type": "string"}, "default": DEFAULT_DECISIONS},
                            "comment": {"type": "boolean", "default": True}}, ["items"]),
@@ -720,6 +757,40 @@ def _recommended_md(el: dict[str, Any]) -> str | None:
     return None
 
 
+def _fence(lang: str, body: str) -> str:
+    """A code fence long enough that no backtick run inside the body can close it."""
+    run = max((len(m) for m in re.findall(r"`+", body)), default=0)
+    tick = "`" * max(3, run + 1)
+    return f"{tick}{lang}\n{body.rstrip()}\n{tick}"
+
+
+def _context_md(el: dict[str, Any]) -> list[str]:
+    """A context pane as readable GFM, so the record keeps what the user saw when answering."""
+    fmt = el.get("format")
+    head = f"*Context — {el['label']}*" if el.get("label") else "*Context*"
+    if fmt == "markdown":
+        body = el["content"].strip()
+    elif fmt in ("mermaid", "diff"):
+        body = _fence(fmt, el["content"])
+    elif fmt == "image":
+        body = f"Image: `{el['src']}`"
+    elif fmt == "tabs":
+        body = "\n\n".join(f"#### {pnl['label']}\n\n{pnl['content'].strip()}" for pnl in el["panels"])
+    else:
+        return []
+    return [head, "", body, ""]
+
+
+def _details_md(el: dict[str, Any]) -> list[str]:
+    """Option / item `detail` the user compared, folded so the answer stays the first thing read."""
+    parts = [(o["label"], o["detail"]) for o in el.get("options", el.get("items", [])) if isinstance(o, dict) and o.get("detail")]
+    if not parts:
+        return []
+    body = "\n\n".join(f"#### {label}\n\n{detail.strip()}" for label, detail in parts)
+    summary = "Item detail" if el["type"] == "review" else "Compared detail"
+    return ["", f"<details><summary>{summary}</summary>", "", body, "", "</details>"]
+
+
 def render_record(spec: dict[str, Any], result: dict[str, Any], ctx: dict[str, str]) -> str:
     """The markdown record: frontmatter, one block per answerable question, comments, raw JSON."""
     meta = result.get("meta", {})
@@ -737,6 +808,7 @@ def render_record(spec: dict[str, Any], result: dict[str, Any], ctx: dict[str, s
             out += [f"## {el['label']}", ""]
             continue
         if t == "context":
+            out += _context_md(el)
             continue
         eid = el["id"]
         out.append(f"### {el['label']}  `{eid}`")
@@ -748,12 +820,16 @@ def render_record(spec: dict[str, Any], result: dict[str, Any], ctx: dict[str, s
         if eid in diverged:
             out.append("**Diverged** from the recommendation.")
         if eid in notes:
-            out.append(f"**Note:** {notes[eid]}")
+            note = notes[eid]
+            # A quoted (Quote button) or multi-paragraph note needs its own block to render as markdown.
+            out += ["**Note:**", "", note] if "\n" in note or note.startswith(">") else [f"**Note:** {note}"]
+        out += _details_md(el)
         out.append("")
     if meta.get("comments"):
         out += ["## Comments", "", meta["comments"], ""]
     raw = json.dumps({"spec": spec, "result": result}, ensure_ascii=False, indent=2)
-    out += ["## Raw", "", "```json", raw, "```", ""]
+    # The spec may itself carry fences (detail, context); _fence outruns any backtick run inside.
+    out += ["## Raw", "", _fence("json", raw), ""]
     return "\n".join(out)
 
 

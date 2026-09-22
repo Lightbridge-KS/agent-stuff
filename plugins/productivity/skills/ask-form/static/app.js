@@ -1,5 +1,5 @@
 /* ask-form renderer: a fixed catalog of ten element types, one glass card each, in spec order.
-   Agent-supplied strings are inserted as text, or as sanitized markdown (img forbidden). */
+   Agent-supplied strings are inserted as text, or as sanitized rich markdown via rich.js. */
 (() => {
   "use strict";
 
@@ -32,16 +32,8 @@
     return node;
   };
 
-  const markdown = (src) => {
-    const box = el("div", { class: "prose" });
-    if (!src) return box;
-    try {
-      const html = window.marked.parse(src, { gfm: true, breaks: false });
-      box.innerHTML = window.DOMPurify.sanitize(html, { FORBID_TAGS: ["img", "style", "form", "input"], FORBID_ATTR: ["style", "onerror", "onload"] });
-      for (const a of box.querySelectorAll("a")) { a.target = "_blank"; a.rel = "noopener noreferrer"; }
-    } catch { box.textContent = src; }
-    return box;
-  };
+  // Rich prose (sanitized GFM, diagrams, code, callouts) lives in rich.js.
+  const markdown = (src) => window.AskRich.prose(src);
 
   const setAnswer = (id, value) => {
     if (value === undefined) answers.delete(id); else answers.set(id, value);
@@ -71,6 +63,22 @@
     return row;
   };
 
+  // Options that carry `detail` get a Compare panel above the choices. It is for reading only:
+  // choosing an option shows its detail, switching tabs never chooses.
+  const withCompare = (q, group, body) => {
+    const detailed = q.options.filter((o) => o.detail);
+    if (!detailed.length) return body;
+    const compare = window.AskRich.tabs(
+      detailed.map((o) => ({ label: o.label, badge: o.recommended ? "Recommended" : null, node: markdown(o.detail) })),
+      { columns: detailed.length === 2 });
+    const values = detailed.map((o) => o.value);
+    group.addEventListener("change", (e) => {
+      const i = values.indexOf(e.target.value);
+      if (i >= 0 && e.target.checked) compare._select(i);
+    });
+    return el("div", {}, el("div", { class: "compare" }, el("div", { class: "compare-label", text: "Compare" }), compare), body);
+  };
+
   const renderSingle = (q) => {
     const group = el("fieldset", { class: "options", role: "radiogroup", "aria-label": q.label });
     let otherEl = null;
@@ -88,7 +96,7 @@
     };
     for (const opt of q.options) group.append(optionRow(q, opt, "radio", update));
     if (q.allow_other !== false) { otherEl = otherRow(q, "radio", update); group.append(otherEl); }
-    return group;
+    return withCompare(q, group, group);
   };
 
   const renderMulti = (q) => {
@@ -115,7 +123,7 @@
     };
     for (const opt of q.options) group.append(optionRow(q, opt, "checkbox", update));
     if (q.allow_other !== false) { otherEl = otherRow(q, "checkbox", update); group.append(otherEl); }
-    return el("div", {}, group, hint);
+    return withCompare(q, group, el("div", {}, group, hint));
   };
 
   const renderScale = (q) => {
@@ -246,6 +254,7 @@
       wrap.append(el("div", { class: "review-item" },
         el("div", { class: "opt-label", text: item.label }),
         item.description ? el("div", { class: "opt-desc", text: item.description }) : null,
+        item.detail ? el("details", { class: "item-detail" }, el("summary", { text: "Detail" }), markdown(item.detail)) : null,
         seg, withComment ? comment : null,
       ));
     }
@@ -255,37 +264,17 @@
   let assetIndex = 0;
   const renderContext = (q) => {
     const card = el("section", { class: "card context", "aria-label": q.label || "context" });
-    if (q.label) card.append(el("div", { class: "q-help", text: q.label }));
-    if (q.format === "markdown") card.append(markdown(q.content));
+    let body;
+    if (q.format === "markdown") body = markdown(q.content);
     else if (q.format === "image") {
       const src = /^https?:\/\//.test(q.src) ? q.src : `/asset/${assetIndex++}?t=${encodeURIComponent(token)}`;
-      card.append(el("img", { src, alt: q.label || "image" }));
-    } else if (q.format === "mermaid") {
-      const box = el("div", { class: "mermaid" });
-      const fallback = () => { box.replaceChildren(el("pre", {}, el("code", { text: q.content }))); };
-      card.append(box);
-      loadMermaid().then(async (m) => {
-        try {
-          m.initialize({ startOnLoad: false, theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default", securityLevel: "strict" });
-          const { svg } = await m.render(`m${Math.random().toString(36).slice(2)}`, q.content);
-          box.innerHTML = window.DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true }, ADD_TAGS: ["foreignObject"] });
-        } catch { fallback(); }
-      }).catch(fallback);
-    }
+      body = el("img", { src, alt: q.label || "image" });
+    } else if (q.format === "mermaid") body = window.AskRich.diagram(q.content);
+    else if (q.format === "tabs") body = window.AskRich.tabs(q.panels.map((p) => ({ label: p.label, node: markdown(p.content) })));
+    else if (q.format === "diff") body = window.AskRich.diff(q.content);
+    if (q.collapsed) card.append(el("details", { class: "context-fold" }, el("summary", { text: q.label || "Background" }), body));
+    else card.append(q.label ? el("div", { class: "q-help", text: q.label }) : null, body);
     return card;
-  };
-
-  let mermaidPromise = null;
-  const loadMermaid = () => {
-    if (window.mermaid) return Promise.resolve(window.mermaid);
-    if (mermaidPromise) return mermaidPromise;
-    mermaidPromise = new Promise((resolve, reject) => {
-      const s = el("script", { src: "https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.6.0/mermaid.min.js" });
-      s.onload = () => (window.mermaid ? resolve(window.mermaid) : reject(new Error("mermaid missing")));
-      s.onerror = () => reject(new Error("mermaid failed to load"));
-      document.head.append(s);
-    });
-    return mermaidPromise;
   };
 
   const RENDERERS = {
@@ -333,6 +322,49 @@
     const block = el("div", { class: "note-block" }, toggle, area);
     block._open = open;
     return block;
+  };
+
+  // Quote into note: selecting text in any rendered prose offers a Quote button that appends the
+  // selection as a `>` quote to the note of the card holding it, else of the next question, else to
+  // the form Comments. Pushback can then point at the exact sentence; it travels in meta.notes.
+  const quoteTarget = (anchor) => {
+    const blocks = [...document.querySelectorAll(".card .note-block")];
+    const holder = blocks.find((b) => b.closest(".card").contains(anchor));
+    const next = holder || blocks.find((b) => b.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_PRECEDING);
+    if (next) return { area: next.querySelector("textarea"), open: () => { if (next.querySelector("textarea").hidden) next._open(false); } };
+    return { area: $(".comments textarea"), open: () => {} };
+  };
+
+  const quoteButton = () => {
+    const btn = el("button", { type: "button", class: "quote-btn", text: "Quote", hidden: true, "aria-label": "Quote the selection into a note" });
+    let picked = null;
+    const hide = () => { btn.hidden = true; picked = null; };
+    document.addEventListener("selectionchange", () => {
+      const sel = getSelection();
+      const anchor = sel.rangeCount && !sel.isCollapsed ? sel.getRangeAt(0).commonAncestorContainer : null;
+      const prose = anchor && (anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement).closest(".prose");
+      const text = sel.toString().trim();
+      if (!prose || !text || finished) return hide();
+      const r = sel.getRangeAt(0).getBoundingClientRect();
+      picked = { text, anchor: prose };
+      btn.style.left = `${Math.max(8, Math.min(r.right + scrollX - 30, document.documentElement.clientWidth - 90))}px`;
+      btn.style.top = `${r.bottom + scrollY + 6}px`;
+      btn.hidden = false;
+    });
+    btn.addEventListener("mousedown", (e) => e.preventDefault());  // keep the selection alive
+    btn.addEventListener("click", () => {
+      if (!picked) return;
+      const { area, open } = quoteTarget(picked.anchor);
+      const quote = picked.text.split(/\r?\n/).map((l) => `> ${l}`.trimEnd()).join("\n");
+      open();
+      area.value = `${area.value.trim() ? `${area.value.trimEnd()}\n\n` : ""}${quote}\n\n`;
+      area.dispatchEvent(new Event("input", { bubbles: true }));
+      area.focus();
+      area.setSelectionRange(area.value.length, area.value.length);
+      getSelection().removeAllRanges();
+      hide();
+    });
+    return btn;
   };
 
   // Form-level comments card, always last.
@@ -415,12 +447,26 @@
   $("#title").textContent = spec.title;
   if (spec.intro) $("#intro").replaceChildren(markdown(spec.intro));
   const list = $("#questions");
+  // layout "split": a run of context panes and the questions after it form one segment; on wide
+  // screens the contexts sit sticky on the left beside their questions (see styles.css).
+  const split = spec.layout === "split";
+  $("#app").classList.toggle("split", split);
+  let segment = null;
+  const newSegment = () => {
+    const aside = el("div", { class: "seg-aside" }), main = el("div", { class: "seg-main" });
+    list.append(el("div", { class: "segment" }, aside, main));
+    return { aside, main };
+  };
   for (const q of spec.questions) {
-    if (q.type === "section") list.append(el("h2", { class: "section", text: q.label }));
-    else if (q.type === "context") list.append(renderContext(q));
-    else list.append(renderQuestion(q));
+    if (q.type === "section") { list.append(el("h2", { class: "section", text: q.label })); segment = null; }
+    else if (!split) list.append(q.type === "context" ? renderContext(q) : renderQuestion(q));
+    else if (q.type === "context") {
+      if (!segment || segment.main.children.length) segment = newSegment();
+      segment.aside.append(renderContext(q));
+    } else (segment ??= newSegment()).main.append(renderQuestion(q));
   }
-  list.append(commentsCard());
+  if (split) newSegment().main.append(commentsCard()); else list.append(commentsCard());
+  document.body.append(quoteButton());
   document.addEventListener("keydown", (e) => {
     if (e.key !== "n" || e.metaKey || e.ctrlKey || e.altKey) return;
     const a = document.activeElement;

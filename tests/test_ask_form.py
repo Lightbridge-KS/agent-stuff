@@ -202,6 +202,26 @@ class ValidatorCase(unittest.TestCase):
                 self.assert_valid(spec(q(type_, **good)))
                 self.assert_invalid(spec(q(type_, **bad)), frag)
 
+    def test_rich_content_fields(self):
+        """v2 additions are optional and validated: option detail, tabs panels, collapsed."""
+        detailed = [{"value": "a", "label": "A", "detail": "```mermaid\nflowchart LR\n  A --> B\n```"}, {"value": "b", "label": "B"}]
+        panels = [{"label": "Now", "content": "x"}, {"label": "Then", "content": "y"}]
+        self.assert_valid(spec(q("single_select", options=detailed), q("multi_select", "m", options=detailed)))
+        self.assert_valid(spec(q("context", format="tabs", panels=panels, collapsed=True)))
+        self.assert_valid(spec(q("context", format="markdown", content="x", collapsed=False)))
+        self.assert_invalid(spec(q("single_select", options=[{"value": "a", "label": "A", "detail": ""}])), "options[0].detail")
+        self.assert_invalid(spec(q("context", format="tabs", panels=panels[:1])), "panels")
+        self.assert_invalid(spec(q("context", format="tabs", panels=[*panels] * 4)), "panels")
+        self.assert_invalid(spec(q("context", format="tabs", panels=[panels[0], {"label": "B"}])), "panels[1].content")
+        self.assert_invalid(spec(q("context", format="markdown", content="x", collapsed="yes")), "collapsed")
+        self.assert_invalid(spec(q("context", format="video", content="x")), "format")
+        self.assert_valid(spec(q("context", format="diff", content="--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b")))
+        self.assert_invalid(spec(q("context", format="diff")), "content")
+        self.assert_valid(spec(q("short_text"), layout="split"))
+        self.assert_invalid(spec(q("short_text"), layout="grid"), "layout")
+        self.assert_valid(spec(q("review", items=[{"id": "i", "label": "I", "detail": "```diff\n-a\n+b\n```"}])))
+        self.assert_invalid(spec(q("review", items=[{"id": "i", "label": "I", "detail": 3}])), "items[0].detail")
+
     def test_validate_reports_answerable_required_assets(self):
         with tempfile.TemporaryDirectory() as td:
             img = Path(td) / "pic.png"
@@ -263,6 +283,21 @@ class ServerCase(unittest.TestCase):
             s.post("/cancel", {})
             code, out = s.finish()
         self.assertEqual((code, out["status"]), (1, "cancelled"))
+
+    def test_page_is_self_contained(self):
+        """v2: every library is vendored; the CSP allows scripts from self only."""
+        with Server(self.form()) as s:
+            html = s.get("/")[1].decode()
+            self.assertIn("script-src 'self';", html)
+            self.assertNotIn("cdnjs", html)
+            self.assertIn("/static/rich.js", html)
+            for path in ("/static/rich.js", "/static/vendor/mermaid.min.js", "/static/vendor/highlight.min.js"):
+                self.assertEqual(s.get(path, token=False)[0], 200, path)
+            s.post("/cancel", {})
+            s.finish()
+        static = SCRIPT.parent.parent / "static"
+        for own in ("app.js", "rich.js"):
+            self.assertNotRegex((static / own).read_text(), r"https?://", own)
 
     def test_asset_whitelist(self):
         with tempfile.TemporaryDirectory() as td:
@@ -378,10 +413,56 @@ class ServerCase(unittest.TestCase):
             self.assertIn("**Note:** loopback is proven", text)
             self.assertIn("**Answer:** _skipped_", text)
             self.assertIn("## Comments\n\nShip it.", text)
-            raw = json.loads(text.split("```json\n", 1)[1].rsplit("\n```", 1)[0])
+            tail = text.split("\n## Raw\n\n", 1)[1].strip().splitlines()
+            self.assertRegex(tail[0], r"^````+json$")  # the example's detail carries ``` fences
+            raw = json.loads("\n".join(tail[1:-1]))
             self.assertEqual(raw["result"]["answers"], out["answers"])
             self.assertEqual(raw["spec"]["title"], ex["title"])
             self.assertNotIn("_values", json.dumps(raw["spec"]))
+
+    def test_record_keeps_context_panes_in_order(self):
+        body = spec(
+            q("context", "why", format="markdown", content="Because:\n\n```python\nx = 1\n```"),
+            q("context", "flow", format="mermaid", content="flowchart LR\n  A --> B"),
+            q("context", "shot", format="image", src="https://example.com/a.png"),
+            q("short_text", "name"),
+        )
+        body["questions"][0].pop("label")
+        result = {"answers": {"name": "x"}, "meta": {}}
+        ctx = {"created": "2026-09-23T00:00:00", "project": "/p", "git": "none"}
+        text = ASK_FORM.render_record(body, result, ctx)
+        self.assertIn("*Context*\n\nBecause:\n\n```python\nx = 1\n```", text)
+        self.assertIn("*Context — Label*\n\n```mermaid\nflowchart LR\n  A --> B\n```", text)
+        self.assertIn("Image: `https://example.com/a.png`", text)
+        self.assertLess(text.index("```mermaid"), text.index("### Label  `name`"))
+        self.assertEqual(ASK_FORM._fence("text", "a ``` b"), "````text\na ``` b\n````")
+
+    def test_record_keeps_tabs_and_compared_detail(self):
+        body = spec(
+            q("context", "c", format="tabs", panels=[{"label": "Now", "content": "old"}, {"label": "Then", "content": "new"}]),
+            q("single_select", "pick", options=[{"value": "a", "label": "A", "detail": "Why **A**."}, {"value": "b", "label": "B"}]),
+        )
+        text = ASK_FORM.render_record(body, {"answers": {"pick": "a"}, "meta": {}}, {"created": "c", "project": "p", "git": "none"})
+        self.assertIn("#### Now\n\nold\n\n#### Then\n\nnew", text)
+        self.assertIn("<details><summary>Compared detail</summary>\n\n#### A\n\nWhy **A**.\n\n</details>", text)
+        self.assertNotIn("#### B", text)
+
+    def test_record_keeps_diff_and_item_detail(self):
+        body = spec(
+            q("context", "c", format="diff", content="@@ -1 +1 @@\n-a\n+b"),
+            q("review", "r", items=[{"id": "i", "label": "Hunk 1", "detail": "Why."}]),
+        )
+        result = {"answers": {"r": {"i": {"decision": "approve", "comment": ""}}}, "meta": {}}
+        text = ASK_FORM.render_record(body, result, {"created": "c", "project": "p", "git": "none"})
+        self.assertIn("```diff\n@@ -1 +1 @@\n-a\n+b\n```", text)
+        self.assertIn("<details><summary>Item detail</summary>\n\n#### Hunk 1\n\nWhy.", text)
+
+    def test_record_puts_quoted_notes_in_their_own_block(self):
+        body = spec(q("short_text", "a"), q("short_text", "b"))
+        meta = {"notes": {"a": "> quoted line\n\nReply.", "b": "plain"}}
+        text = ASK_FORM.render_record(body, {"answers": {}, "meta": meta}, {"created": "c", "project": "p", "git": "none"})
+        self.assertIn("**Note:**\n\n> quoted line\n\nReply.", text)
+        self.assertIn("**Note:** plain", text)
 
     def test_staged_record_is_verified_before_saved_is_reported(self):
         with tempfile.TemporaryDirectory() as td:

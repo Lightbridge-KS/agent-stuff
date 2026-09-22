@@ -130,6 +130,138 @@ h1 {
 .prose a { color: var(--blue); }
 .prose h1, .prose h2, .prose h3 { font-size: 1.05em; margin: 0.8em 0 0.3em; }
 
+/* ── rich prose (rich.js): code, callouts, details, diagrams ── */
+
+.prose > * + .code, .prose > * + .callout, .prose > * + details, .prose > * + .diagram { margin-top: 0.6em; }
+.prose .code, .prose .callout, .prose details, .prose .diagram { margin-bottom: 0.6em; }
+.prose > :last-child { margin-bottom: 0; }
+
+.code { border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--control); overflow: hidden; }
+.code-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 4px 6px 4px 14px; border-bottom: 1px solid var(--line);
+  font-size: 12px; color: var(--muted);
+}
+.code-lang { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.copy, .diagram-enlarge {
+  font: inherit; font-size: 12px; color: var(--muted); cursor: pointer;
+  background: transparent; border: 1px solid transparent; border-radius: 999px; padding: 3px 10px;
+}
+.copy:hover, .diagram-enlarge:hover { color: var(--ink); border-color: var(--line-strong); }
+.code pre { margin: 0; border: 0; border-radius: 0; background: none; }
+
+/* Syntax colours on the glass tokens: colour stays scarce, dark mode comes free. */
+.hljs-comment, .hljs-quote, .hljs-meta { color: var(--faint); font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type, .hljs-literal { color: var(--blue); }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute { color: var(--green); }
+.hljs-number, .hljs-symbol, .hljs-bullet, .hljs-variable, .hljs-template-variable { color: var(--amber); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-selector-id, .hljs-selector-class { font-weight: 600; }
+.hljs-deletion { color: var(--red); }
+.hljs-attr, .hljs-params, .hljs-property { color: var(--muted); }
+
+.callout {
+  padding: 10px 14px; border-radius: var(--radius-control);
+  border: 1px solid var(--line); border-left: 3px solid var(--muted); background: var(--control);
+}
+.callout-title { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+.callout-note, .callout-important { border-left-color: var(--blue); }
+.callout-note .callout-title, .callout-important .callout-title { color: var(--blue); }
+.callout-tip { border-left-color: var(--green); }
+.callout-tip .callout-title { color: var(--green); }
+.callout-warning { border-left-color: var(--amber); }
+.callout-warning .callout-title { color: var(--amber); }
+.callout-caution { border-left-color: var(--red); }
+.callout-caution .callout-title { color: var(--red); }
+
+.prose details { border: 1px solid var(--line); border-radius: var(--radius-control); padding: 8px 14px; }
+.prose details > summary { cursor: pointer; font-weight: 600; }
+.prose details[open] > summary { margin-bottom: 6px; }
+
+.diagram { position: relative; }
+.diagram svg { display: block; margin: 0 auto; }
+.diagram-source { color: var(--faint); }
+.diagram-enlarge { position: absolute; top: 0; right: 0; background: var(--glass-strong); }
+.diagram-stage { position: absolute; left: -10000px; top: 0; visibility: hidden; }
+.diagram-error summary { cursor: pointer; color: var(--amber); }
+.diagram-error pre { white-space: pre-wrap; }
+
+.diagram-dialog {
+  width: min(96vw, 1400px); height: min(92vh, 1000px); padding: 0;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-card);
+  background: var(--base); color: var(--ink);
+  display: flex; flex-direction: column;
+}
+.diagram-dialog:not([open]) { display: none; }
+.diagram-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+.diagram-toolbar { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.diagram-toolbar button {
+  font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; min-width: 34px;
+  background: var(--control); border: 1px solid var(--line-strong); border-radius: 999px; padding: 4px 12px;
+}
+.diagram-toolbar output { font-size: 13px; color: var(--muted); min-width: 44px; text-align: right; }
+.diagram-toolbar .grow { flex: 1; }
+.diagram-viewport { flex: 1; overflow: auto; padding: 12px; cursor: grab; }
+.diagram-viewport:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+pre.diff { padding: 8px 0; }
+pre.diff .dl { display: block; padding: 0 14px; }
+.dl-add { background: var(--green-soft); }
+.dl-del { background: var(--red-soft); }
+.dl-hunk { color: var(--blue); }
+.dl-file { color: var(--muted); font-weight: 600; }
+.dl-meta { color: var(--faint); font-style: italic; }
+
+.item-detail { margin: 6px 0 8px; }
+.item-detail > summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+.item-detail[open] > summary { margin-bottom: 8px; }
+
+/* ── tabs, Compare, folded context ── */
+
+.tablist { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.tablist [role="tab"] {
+  font: inherit; font-size: 14px; color: var(--muted); cursor: pointer; white-space: nowrap;
+  background: none; border: 0; border-bottom: 2px solid transparent; padding: 6px 10px 8px; margin-bottom: -1px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.tablist [role="tab"]:hover { color: var(--ink); }
+.tablist [role="tab"][aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--ink); }
+.tablist [role="tab"]:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: 6px; }
+.tabpanel:not(.active) { display: none; }
+.tabpanel-title { display: none; }
+@media (min-width: 760px) {
+  .tabs.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .tabs.cols > .tablist { display: none; }
+  .tabs.cols > .tabpanel { display: block; min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-control); }
+  .tabs.cols .tabpanel-title { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 6px; }
+}
+
+.compare { margin-bottom: 14px; padding: 12px 14px 14px; border-radius: var(--radius-control); background: var(--control); border: 1px solid var(--line); }
+.compare-label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+
+.context-fold > summary { cursor: pointer; color: var(--muted); }
+.context-fold[open] > summary { margin-bottom: 10px; }
+
+.quote-btn {
+  position: absolute; z-index: 20;
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  padding: 5px 12px; border-radius: 999px; border: 0;
+  background: var(--primary-bg); color: var(--primary-ink); box-shadow: var(--glass-shadow);
+}
+.quote-btn[hidden] { display: none; }
+
+/* ── split layout: contexts sticky beside the questions they inform ── */
+
+@media (min-width: 1100px) {
+  .page.split { max-width: 1280px; }
+  .page.split .segment {
+    display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: start;
+  }
+  .page.split .seg-aside {
+    position: sticky; top: 20px; max-height: calc(100vh - 130px); overflow-y: auto; border-radius: var(--radius-card);
+  }
+  .page.split .seg-aside:empty { display: block; }
+}
+
 /* ── cards ── */
 
 .section {
@@ -175,7 +307,6 @@ h1 {
 
 .card.context { padding: 18px 22px; background: var(--glass-strong); }
 .card.context img { display: block; max-width: 100%; border-radius: var(--radius-control); }
-.card.context .mermaid svg { max-width: 100%; height: auto; }
 
 .q-label {
   display: block;
