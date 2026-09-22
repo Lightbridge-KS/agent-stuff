@@ -403,8 +403,10 @@ EXAMPLE: dict[str, Any] = {
          "help": "One decision. Descriptions say what happens if chosen.",
          "recommendation": "CLI first: the spike already proved loopback works from the sandbox, and MCP can wrap it later.",
          "options": [
-             {"value": "cli", "label": "CLI first", "description": "Zero daemon; ships this week.", "recommended": True},
-             {"value": "mcp", "label": "MCP first", "description": "Works in every harness; two more days."},
+             {"value": "cli", "label": "CLI first", "description": "Zero daemon; ships this week.", "recommended": True,
+              "detail": "```mermaid\nflowchart LR\n  agent -->|stdin spec| cli[ask_form.py] -->|stdout JSON| agent\n```"},
+             {"value": "mcp", "label": "MCP first", "description": "Works in every harness; two more days.",
+              "detail": "> [!WARNING]\n> Needs a resident server per harness.\n\n```json\n{\"tool\": \"ask_form\", \"spec\": {}}\n```"},
          ]},
         {"id": "surfaces", "type": "multi_select", "label": "Which surfaces matter for v1?", "min": 1, "max": 3,
          "options": [{"value": "web", "label": "Web"}, {"value": "mobile", "label": "Mobile"},
@@ -412,6 +414,9 @@ EXAMPLE: dict[str, Any] = {
         {"id": "priority", "type": "ranking", "label": "Rank these by priority",
          "options": [{"value": "speed", "label": "Speed"}, {"value": "safety", "label": "Safety"},
                      {"value": "polish", "label": "Polish"}]},
+        {"id": "ctx_tabs", "type": "context", "format": "tabs", "label": "Today vs proposed", "panels": [
+            {"label": "Today", "content": "AskUserQuestion: at most **four** options, no sliders."},
+            {"label": "Proposed", "content": "A local form:\n\n```bash\nuv run --no-cache ask_form.py spec.json\n```"}]},
         {"id": "s_measures", "type": "section", "label": "Measures"},
         {"id": "confidence", "type": "scale", "label": "How confident are you in this plan?", "min": 1, "max": 5,
          "labels": {"1": "not at all", "5": "very"}, "recommended": 4, "recommendation": "Two spikes passed; the unknowns left are UI taste, not feasibility."},
@@ -425,8 +430,11 @@ EXAMPLE: dict[str, Any] = {
         {"id": "fit", "type": "matrix", "label": "Rate each component on each axis",
          "rows": [{"value": "cli", "label": "CLI"}, {"value": "renderer", "label": "Renderer"}],
          "columns": [{"value": "good", "label": "Good"}, {"value": "ok", "label": "OK"}, {"value": "bad", "label": "Bad"}]},
+        {"id": "ctx_change", "type": "context", "format": "diff", "label": "The change under review", "collapsed": True,
+         "content": "--- a/SKILL.md\n+++ b/SKILL.md\n@@ -1 +1 @@\n-name: ask\n+name: ask-form"},
         {"id": "decisions", "type": "review", "label": "Decide on each item",
-         "items": [{"id": "name", "label": "Name: ask-form", "description": "Descriptive; the agent reaches for 'ask'.", "recommended": "approve"},
+         "items": [{"id": "name", "label": "Name: ask-form", "description": "Descriptive; the agent reaches for 'ask'.", "recommended": "approve",
+                    "detail": "```diff\n-name: ask\n+name: ask-form\n```"},
                    {"id": "home", "label": "Home: inside the skill", "description": "Travels with the skill into every registry.", "recommended": "approve"}]},
     ],
 }
@@ -812,13 +820,16 @@ def render_record(spec: dict[str, Any], result: dict[str, Any], ctx: dict[str, s
         if eid in diverged:
             out.append("**Diverged** from the recommendation.")
         if eid in notes:
-            out.append(f"**Note:** {notes[eid]}")
+            note = notes[eid]
+            # A quoted (Quote button) or multi-paragraph note needs its own block to render as markdown.
+            out += ["**Note:**", "", note] if "\n" in note or note.startswith(">") else [f"**Note:** {note}"]
         out += _details_md(el)
         out.append("")
     if meta.get("comments"):
         out += ["## Comments", "", meta["comments"], ""]
     raw = json.dumps({"spec": spec, "result": result}, ensure_ascii=False, indent=2)
-    out += ["## Raw", "", "```json", raw, "```", ""]
+    # The spec may itself carry fences (detail, context); _fence outruns any backtick run inside.
+    out += ["## Raw", "", _fence("json", raw), ""]
     return "\n".join(out)
 
 

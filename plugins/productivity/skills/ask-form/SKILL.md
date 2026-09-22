@@ -2,12 +2,12 @@
 name: ask-form
 description: >-
   Ask the user through a local glass form when a chat question or AskUserQuestion cannot carry
-  it: sliders, rankings, matrices, long text, a diagram or image to react to, per-item
+  it: sliders, rankings, matrices, long text, a diagram, diff or image to react to, per-item
   approve/reject with comments, or more than four questions at once. Bundled CLI serves the
   form on 127.0.0.1, opens the browser, and returns the answers as JSON. Also on request
   ("use the form", "ask me with a form"). Needs a machine with a browser.
 metadata:
-  version: "2026-09-13"
+  version: "2026-09-23"
 ---
 
 # ask-form
@@ -58,7 +58,15 @@ notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2
 1. **Decide the surface** with the router above. State in one line why chat is not enough.
 2. **Draft the spec** (run `--example` if unsure of the shape). Compose well:
    - ≤ 8 elements; one decision per question; `required` only where an unanswered question blocks you.
-   - Put a `context` pane (markdown, mermaid, image) directly before the question it informs.
+   - Put a `context` pane directly before the question it informs. Every markdown field (`intro`,
+     `help`, `context`, `detail`) renders rich GFM: ```` ```mermaid ```` diagrams, highlighted code
+     with Copy, ```` ```diff ```` blocks, `> [!NOTE]` / `[!WARNING]` callouts, `<details>` folds.
+   - When the explanation *is* the choice, put it on the options: `options[].detail` (markdown) turns
+     into a Compare panel (tabs; side by side for two). Keep `description` to one line.
+   - A code change to approve: a `diff` context, or `review.items[].detail` with a diff fence per hunk.
+     Before/after or alternatives to read: `format: "tabs"`. Optional background: `collapsed: true`.
+   - A long explanation feeding 3–5 questions: top-level `"layout": "split"` keeps it pinned beside
+     them on wide screens.
    - Use `review` for a list of 💡 decisions the user must approve, revise, or reject one by one.
    - Option descriptions say what happens if chosen. Labels in sentence case, no filler.
    - **Recommend when you hold a view.** Mark the option with `recommended: true` (one per
@@ -107,8 +115,8 @@ notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2
 
 Every submitted form is saved as markdown under the project's lightbridge state,
 `~/.lightbridge/projects/<project-key>/asks/<YYYY-MM-DD_HHMM>_<slug>.md` (key = the git toplevel of
-the cwd, or the folder itself): frontmatter, one block per question with answer, recommendation,
-divergence and note, the comments, and the raw spec + result as JSON at the end. `meta.saved` on
+the cwd, or the folder itself): frontmatter, the context panes as readable markdown, one block per question with answer,
+recommendation, divergence, note and any compared detail, the comments, and the raw spec + result as JSON at the end. `meta.saved` on
 stdout is its path; cite it when you act on the answers. Cancelled runs save nothing. Nothing reads
 the archive automatically: when a design question comes back, `rg` the project's `asks/` before
 asking again. Pass `--no-save` for a throwaway form. If stderr says `not saved: …`, the answers are
@@ -118,17 +126,19 @@ still on stdout; mention the cause once and carry on.
 
 | type | answer |
 |---|---|
-| `section` (heading), `context` (`markdown` · `mermaid` · `image`) | none |
-| `single_select` (`options`, `allow_other` default on) | the value, or the typed text |
-| `multi_select` (`options`, `min`, `max`, `allow_other` default on) | list of values |
+| `section` (heading), `context` (`markdown` · `mermaid` · `image` · `tabs` + `panels` · `diff`; `collapsed`) | none |
+| `single_select` (`options[].detail`, `allow_other` default on) | the value, or the typed text |
+| `multi_select` (`options[].detail`, `min`, `max`, `allow_other` default on) | list of values |
 | `scale` (`min`, `max`, `step`, `labels`) · `number` (`min`, `max`, `step`, `unit`) | number |
 | `ranking` (`options`) | full ordering of values |
 | `short_text` (`max_length`) · `long_text` | string |
 | `matrix` (`rows`, `columns`) | `{row: column}` |
-| `review` (`items`, `decisions`, `comment`) | `{item: {decision, comment}}` |
+| `review` (`items[].detail`, `decisions`, `comment`) | `{item: {decision, comment}}` |
 
 Every question also takes an optional note (toggle, or `n` while the card has focus) and the form
-ends with an optional Comments card; you never declare these. Any answerable element takes a
+ends with an optional Comments card; you never declare these. Selecting text in rendered prose
+offers **Quote**, which drops it into the relevant note as a `>` quote: expect quoted pushback
+in `meta.notes`. Any answerable element takes a
 `recommendation` one-liner; options, scale/number values and review items take `recommended`. Fields and constraints: `--schema`.
 Closing the tab ends nothing: the run waits for Cancel or Send.
 
@@ -136,6 +146,8 @@ Closing the tab ends nothing: the run waits for Cancel or Send.
 
 Loopback only, random port, token in the URL gating the page, assets and the answer routes.
 `context.src` may name a local image; only files declared in the spec are served, nothing else on
-disk. Agent strings render as text or sanitized markdown; no images in markdown. Mermaid loads from
-cdnjs only when a diagram is present; offline it degrades to the source. Do not put PHI in a spec
+disk. Agent strings render as text or sanitized markdown; no images in markdown. Mermaid and
+highlight.js are vendored and load only when needed: the page makes no network request beyond
+loopback (except a `context.src` http(s) image you declare). A diagram that fails to parse shows
+its error and source in place. Do not put PHI in a spec
 you cannot justify showing in a browser tab.

@@ -413,7 +413,9 @@ class ServerCase(unittest.TestCase):
             self.assertIn("**Note:** loopback is proven", text)
             self.assertIn("**Answer:** _skipped_", text)
             self.assertIn("## Comments\n\nShip it.", text)
-            raw = json.loads(text.split("```json\n", 1)[1].rsplit("\n```", 1)[0])
+            tail = text.split("\n## Raw\n\n", 1)[1].strip().splitlines()
+            self.assertRegex(tail[0], r"^````+json$")  # the example's detail carries ``` fences
+            raw = json.loads("\n".join(tail[1:-1]))
             self.assertEqual(raw["result"]["answers"], out["answers"])
             self.assertEqual(raw["spec"]["title"], ex["title"])
             self.assertNotIn("_values", json.dumps(raw["spec"]))
@@ -454,6 +456,13 @@ class ServerCase(unittest.TestCase):
         text = ASK_FORM.render_record(body, result, {"created": "c", "project": "p", "git": "none"})
         self.assertIn("```diff\n@@ -1 +1 @@\n-a\n+b\n```", text)
         self.assertIn("<details><summary>Item detail</summary>\n\n#### Hunk 1\n\nWhy.", text)
+
+    def test_record_puts_quoted_notes_in_their_own_block(self):
+        body = spec(q("short_text", "a"), q("short_text", "b"))
+        meta = {"notes": {"a": "> quoted line\n\nReply.", "b": "plain"}}
+        text = ASK_FORM.render_record(body, {"answers": {}, "meta": meta}, {"created": "c", "project": "p", "git": "none"})
+        self.assertIn("**Note:**\n\n> quoted line\n\nReply.", text)
+        self.assertIn("**Note:** plain", text)
 
     def test_staged_record_is_verified_before_saved_is_reported(self):
         with tempfile.TemporaryDirectory() as td:
