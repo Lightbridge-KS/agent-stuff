@@ -264,6 +264,21 @@ class ServerCase(unittest.TestCase):
             code, out = s.finish()
         self.assertEqual((code, out["status"]), (1, "cancelled"))
 
+    def test_page_is_self_contained(self):
+        """v2: every library is vendored; the CSP allows scripts from self only."""
+        with Server(self.form()) as s:
+            html = s.get("/")[1].decode()
+            self.assertIn("script-src 'self';", html)
+            self.assertNotIn("cdnjs", html)
+            self.assertIn("/static/rich.js", html)
+            for path in ("/static/rich.js", "/static/vendor/mermaid.min.js", "/static/vendor/highlight.min.js"):
+                self.assertEqual(s.get(path, token=False)[0], 200, path)
+            s.post("/cancel", {})
+            s.finish()
+        static = SCRIPT.parent.parent / "static"
+        for own in ("app.js", "rich.js"):
+            self.assertNotRegex((static / own).read_text(), r"https?://", own)
+
     def test_asset_whitelist(self):
         with tempfile.TemporaryDirectory() as td:
             img = Path(td) / "pic.png"

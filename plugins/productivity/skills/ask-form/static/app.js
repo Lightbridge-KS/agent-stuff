@@ -1,5 +1,5 @@
 /* ask-form renderer: a fixed catalog of ten element types, one glass card each, in spec order.
-   Agent-supplied strings are inserted as text, or as sanitized markdown (img forbidden). */
+   Agent-supplied strings are inserted as text, or as sanitized rich markdown via rich.js. */
 (() => {
   "use strict";
 
@@ -32,16 +32,8 @@
     return node;
   };
 
-  const markdown = (src) => {
-    const box = el("div", { class: "prose" });
-    if (!src) return box;
-    try {
-      const html = window.marked.parse(src, { gfm: true, breaks: false });
-      box.innerHTML = window.DOMPurify.sanitize(html, { FORBID_TAGS: ["img", "style", "form", "input"], FORBID_ATTR: ["style", "onerror", "onload"] });
-      for (const a of box.querySelectorAll("a")) { a.target = "_blank"; a.rel = "noopener noreferrer"; }
-    } catch { box.textContent = src; }
-    return box;
-  };
+  // Rich prose (sanitized GFM, diagrams, code, callouts) lives in rich.js.
+  const markdown = (src) => window.AskRich.prose(src);
 
   const setAnswer = (id, value) => {
     if (value === undefined) answers.delete(id); else answers.set(id, value);
@@ -260,32 +252,8 @@
     else if (q.format === "image") {
       const src = /^https?:\/\//.test(q.src) ? q.src : `/asset/${assetIndex++}?t=${encodeURIComponent(token)}`;
       card.append(el("img", { src, alt: q.label || "image" }));
-    } else if (q.format === "mermaid") {
-      const box = el("div", { class: "mermaid" });
-      const fallback = () => { box.replaceChildren(el("pre", {}, el("code", { text: q.content }))); };
-      card.append(box);
-      loadMermaid().then(async (m) => {
-        try {
-          m.initialize({ startOnLoad: false, theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default", securityLevel: "strict" });
-          const { svg } = await m.render(`m${Math.random().toString(36).slice(2)}`, q.content);
-          box.innerHTML = window.DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true }, ADD_TAGS: ["foreignObject"] });
-        } catch { fallback(); }
-      }).catch(fallback);
-    }
+    } else if (q.format === "mermaid") card.append(window.AskRich.diagram(q.content));
     return card;
-  };
-
-  let mermaidPromise = null;
-  const loadMermaid = () => {
-    if (window.mermaid) return Promise.resolve(window.mermaid);
-    if (mermaidPromise) return mermaidPromise;
-    mermaidPromise = new Promise((resolve, reject) => {
-      const s = el("script", { src: "https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.6.0/mermaid.min.js" });
-      s.onload = () => (window.mermaid ? resolve(window.mermaid) : reject(new Error("mermaid missing")));
-      s.onerror = () => reject(new Error("mermaid failed to load"));
-      document.head.append(s);
-    });
-    return mermaidPromise;
   };
 
   const RENDERERS = {
