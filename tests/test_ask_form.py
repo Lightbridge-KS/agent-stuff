@@ -217,6 +217,8 @@ class ValidatorCase(unittest.TestCase):
         self.assert_invalid(spec(q("context", format="video", content="x")), "format")
         self.assert_valid(spec(q("context", format="diff", content="--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b")))
         self.assert_invalid(spec(q("context", format="diff")), "content")
+        self.assert_valid(spec(q("short_text"), layout="split"))
+        self.assert_invalid(spec(q("short_text"), layout="grid"), "layout")
         self.assert_valid(spec(q("review", items=[{"id": "i", "label": "I", "detail": "```diff\n-a\n+b\n```"}])))
         self.assert_invalid(spec(q("review", items=[{"id": "i", "label": "I", "detail": 3}])), "items[0].detail")
 

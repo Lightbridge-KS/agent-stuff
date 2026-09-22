@@ -62,6 +62,7 @@ ID_RE = re.compile(r"^[a-z0-9_-]+$")
 
 DISPLAY_TYPES = {"section", "context"}
 CONTEXT_FORMATS = ("markdown", "mermaid", "image", "tabs", "diff")
+LAYOUTS = ("stack", "split")
 OPTION_TYPES = {"single_select", "multi_select", "ranking"}
 ANSWER_TYPES = OPTION_TYPES | {"scale", "short_text", "long_text", "number", "matrix", "review"}
 ALL_TYPES = DISPLAY_TYPES | ANSWER_TYPES
@@ -203,6 +204,8 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
     for k in ("intro", "submit_label"):
         if k in spec and not isinstance(spec[k], str):
             errors.append({"path": f"$.{k}", "message": f"{k} must be a string"})
+    if "layout" in spec and spec["layout"] not in LAYOUTS:
+        errors.append({"path": "$.layout", "message": f"layout must be one of {', '.join(LAYOUTS)}"})
     qs = spec.get("questions")
     if not isinstance(qs, list) or not qs:
         errors.append({"path": "$.questions", "message": "questions must be a non-empty list"})
@@ -454,6 +457,8 @@ SCHEMA: dict[str, Any] = {
         "title": {"type": "string", "minLength": 1},
         "intro": {"type": "string", "description": "markdown"},
         "submit_label": {"type": "string"},
+        "layout": {"enum": list(LAYOUTS), "default": "stack",
+                   "description": "split: each run of context panes sits sticky beside the questions that follow it on wide screens"},
         "questions": {"type": "array", "minItems": 1, "items": {"oneOf": [
             _el("section", {}),
             _el("context", {"format": {"enum": list(CONTEXT_FORMATS)}, "content": {"type": "string", "description": "markdown, mermaid source, or a unified diff"},

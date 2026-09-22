@@ -249,6 +249,19 @@ pre.diff .dl { display: block; padding: 0 14px; }
 }
 .quote-btn[hidden] { display: none; }
 
+/* ── split layout: contexts sticky beside the questions they inform ── */
+
+@media (min-width: 1100px) {
+  .page.split { max-width: 1280px; }
+  .page.split .segment {
+    display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: start;
+  }
+  .page.split .seg-aside {
+    position: sticky; top: 20px; max-height: calc(100vh - 130px); overflow-y: auto; border-radius: var(--radius-card);
+  }
+  .page.split .seg-aside:empty { display: block; }
+}
+
 /* ── cards ── */
 
 .section {

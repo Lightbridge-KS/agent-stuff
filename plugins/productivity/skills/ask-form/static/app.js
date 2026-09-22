@@ -447,12 +447,25 @@
   $("#title").textContent = spec.title;
   if (spec.intro) $("#intro").replaceChildren(markdown(spec.intro));
   const list = $("#questions");
+  // layout "split": a run of context panes and the questions after it form one segment; on wide
+  // screens the contexts sit sticky on the left beside their questions (see styles.css).
+  const split = spec.layout === "split";
+  $("#app").classList.toggle("split", split);
+  let segment = null;
+  const newSegment = () => {
+    const aside = el("div", { class: "seg-aside" }), main = el("div", { class: "seg-main" });
+    list.append(el("div", { class: "segment" }, aside, main));
+    return { aside, main };
+  };
   for (const q of spec.questions) {
-    if (q.type === "section") list.append(el("h2", { class: "section", text: q.label }));
-    else if (q.type === "context") list.append(renderContext(q));
-    else list.append(renderQuestion(q));
+    if (q.type === "section") { list.append(el("h2", { class: "section", text: q.label })); segment = null; }
+    else if (!split) list.append(q.type === "context" ? renderContext(q) : renderQuestion(q));
+    else if (q.type === "context") {
+      if (!segment || segment.main.children.length) segment = newSegment();
+      segment.aside.append(renderContext(q));
+    } else (segment ??= newSegment()).main.append(renderQuestion(q));
   }
-  list.append(commentsCard());
+  if (split) newSegment().main.append(commentsCard()); else list.append(commentsCard());
   document.body.append(quoteButton());
   document.addEventListener("keydown", (e) => {
     if (e.key !== "n" || e.metaKey || e.ctrlKey || e.altKey) return;
