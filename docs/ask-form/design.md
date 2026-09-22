@@ -4,10 +4,13 @@ summary: Settled design for the `ask-form` skill (plugins/productivity) — an a
   validates a JSON spec (ten element types), serves one page on 127.0.0.1, opens the browser
   directly or through Codex's scoped launch path, blocks, and prints the answers as one JSON
   document. The CLI contract, spec and answer shapes, server routes and terminal state machine,
-  token scope, tier placement per generative-ui, and the UI direction.
+  token scope, tier placement per generative-ui, and the UI direction. v2 amendment: rich content
+  (mermaid/diff/highlighted code in any markdown, option detail + Compare, tabs, quote-into-note,
+  split layout, vendored libraries, context kept in the record).
 read_when:
   - implementing or changing plugins/productivity/skills/ask-form (ask_form.py, static/, SKILL.md)
   - adding an element type, a flag, a route, or a persistence path to ask-form
+  - changing how markdown, diagrams, code or context panes render in a form (static/rich.js)
   - deciding whether a question belongs in AskUserQuestion, ask-form, or chat
   - wondering why the CLI is bundled in the skill, why stdout is one JSON document, or why closing the tab is a timeout
 ---
@@ -148,12 +151,13 @@ a white-on-black (or black-on-white) primary button. Color only where it carries
 the answered edge and the footer fill line, green / amber / red on a chosen approve / revise / reject.
 Signature element: the footer's fill line advances with the answered count. Keyboard: Tab between cards, arrows
 within a group, `⌘⏎` submits; no digit shortcuts, no wrapping `<form>`. Markdown via vendored
-`marked` + `DOMPurify` (`img` forbidden); mermaid lazily from cdnjs with a code-block fallback.
+`marked` + `DOMPurify` (`img` forbidden); rich rendering per *Rich content (v2)* below.
 
 ## Security posture
 
 Loopback only. Token gates the page, assets and answer routes. Only spec-declared files are served.
-Agent strings render as text or sanitized markdown. CSP restricts scripts to self and cdnjs. The
+Agent strings render as text or sanitized markdown. CSP restricts scripts to self (v2: every
+library is vendored; no CDN). The
 server exits after one terminal outcome. The skill tells the agent not to put PHI in a spec it could
 not justify showing in a browser tab.
 
@@ -175,6 +179,54 @@ created, project, git, status, duration), one block per answerable question (ans
 recommendation, divergence, note), comments — with the raw spec and result as a JSON tail for
 machines. Slug and same-minute collision suffix mirror `plan_store.write_plan`. `lb status` shows the
 count; `lb doctor` and `lb mv` needed no change; the catalog lists `asks/` beside `handoffs/`.
+
+## Rich content (v2)
+
+Amended 2026-09-23 (KS, via an ask-form review; plan `elegant-purring-seahorse`). Tracker:
+[`progress/v2.md`](progress/v2.md). Forms carry agent explanation; v2 makes that explanation render
+as richly as `rich-document`, without its engine: all richness is client-side, the CLI stays
+stdlib-only, `spec_version` stays 1, and **no answer shape changes**.
+
+**Module.** `static/rich.js` is one deep module, `window.AskRich = {prose, diagram, diff, tabs}`;
+`app.js` stays the catalog. Its diagram behaviour is copied from rich-document's `viewer.js` (enlarge
+dialog with zoom/pan/Esc/focus restore; a serial off-screen render queue so diagrams in hidden tabs
+lay out; a per-diagram error with its source) rather than shared, while rich-document is experimental.
+
+**Rich prose** (every markdown surface: `intro`, `help`, `context.markdown`, and the new `detail`
+fields) — GFM dialect so the record also renders on GitHub and Obsidian:
+
+| source | renders as |
+|---|---|
+| ```` ```mermaid ```` fence | diagram, Enlarge button, re-rendered on light/dark change |
+| ```` ```diff ```` fence | file / hunk headers, green/red lines |
+| other code fence | language label, Copy, highlight.js colours on the glass tokens |
+| `> [!NOTE]` `TIP` `IMPORTANT` `WARNING` `CAUTION` | callout |
+| `<details><summary>` | collapsible block |
+
+**Catalog additions** (all optional):
+
+| field | effect |
+|---|---|
+| `single_select` / `multi_select` `options[].detail` (markdown) | Compare panel: tabs of the options (columns when exactly two carry detail); reading only, picking an option syncs the tab |
+| `review.items[].detail` (markdown) | per-item "Show detail" toggle |
+| `context.format: "tabs"` + `panels[{label, content}]` (2–6) | tabbed markdown panels |
+| `context.format: "diff"` + `content` | same renderer as a diff fence |
+| `context.collapsed: true` | the pane sits inside a `<details>` (summary = label or "Background") |
+| `spec.layout: "stack" \| "split"` | split: each run of contexts sits sticky beside the questions it precedes, ≥ 1100 px; stacks below |
+
+**Quote into note.** Selecting text in any rendered prose offers *Quote*; it appends `> …` to the
+note of the card holding the selection, else the next question, else Comments. It reuses
+`meta.notes`; nothing new crosses the wire.
+
+**Libraries.** `mermaid@11.6.0` (MIT) and `highlight.js@11.11.1` common bundle (BSD-3) are vendored
+under `static/vendor/` and loaded lazily only when a page needs them. The form works offline.
+
+**Record.** `render_record` writes context panes in spec order (markdown verbatim; mermaid and diff
+as fences; tabs as `####` panel headings; images as their reference), so the record keeps what the
+user saw when answering.
+
+**Not taken.** Glossary popovers are deferred; option ↔ diagram highlighting was rejected (it
+depends on Mermaid's internal SVG ids).
 
 ## Out of scope for v1 (tracked as Deferred)
 
