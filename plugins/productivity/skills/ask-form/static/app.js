@@ -322,6 +322,49 @@
     return block;
   };
 
+  // Quote into note: selecting text in any rendered prose offers a Quote button that appends the
+  // selection as a `>` quote to the note of the card holding it, else of the next question, else to
+  // the form Comments. Pushback can then point at the exact sentence; it travels in meta.notes.
+  const quoteTarget = (anchor) => {
+    const blocks = [...document.querySelectorAll(".card .note-block")];
+    const holder = blocks.find((b) => b.closest(".card").contains(anchor));
+    const next = holder || blocks.find((b) => b.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_PRECEDING);
+    if (next) return { area: next.querySelector("textarea"), open: () => { if (next.querySelector("textarea").hidden) next._open(false); } };
+    return { area: $(".comments textarea"), open: () => {} };
+  };
+
+  const quoteButton = () => {
+    const btn = el("button", { type: "button", class: "quote-btn", text: "Quote", hidden: true, "aria-label": "Quote the selection into a note" });
+    let picked = null;
+    const hide = () => { btn.hidden = true; picked = null; };
+    document.addEventListener("selectionchange", () => {
+      const sel = getSelection();
+      const anchor = sel.rangeCount && !sel.isCollapsed ? sel.getRangeAt(0).commonAncestorContainer : null;
+      const prose = anchor && (anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement).closest(".prose");
+      const text = sel.toString().trim();
+      if (!prose || !text || finished) return hide();
+      const r = sel.getRangeAt(0).getBoundingClientRect();
+      picked = { text, anchor: prose };
+      btn.style.left = `${Math.max(8, Math.min(r.right + scrollX - 30, document.documentElement.clientWidth - 90))}px`;
+      btn.style.top = `${r.bottom + scrollY + 6}px`;
+      btn.hidden = false;
+    });
+    btn.addEventListener("mousedown", (e) => e.preventDefault());  // keep the selection alive
+    btn.addEventListener("click", () => {
+      if (!picked) return;
+      const { area, open } = quoteTarget(picked.anchor);
+      const quote = picked.text.split(/\r?\n/).map((l) => `> ${l}`.trimEnd()).join("\n");
+      open();
+      area.value = `${area.value.trim() ? `${area.value.trimEnd()}\n\n` : ""}${quote}\n\n`;
+      area.dispatchEvent(new Event("input", { bubbles: true }));
+      area.focus();
+      area.setSelectionRange(area.value.length, area.value.length);
+      getSelection().removeAllRanges();
+      hide();
+    });
+    return btn;
+  };
+
   // Form-level comments card, always last.
   const commentsCard = () => {
     const area = el("textarea", { class: "control", placeholder: "Anything else, about the form as a whole", rows: 3, "aria-label": "Comments" });
@@ -408,6 +451,7 @@
     else list.append(renderQuestion(q));
   }
   list.append(commentsCard());
+  document.body.append(quoteButton());
   document.addEventListener("keydown", (e) => {
     if (e.key !== "n" || e.metaKey || e.ctrlKey || e.altKey) return;
     const a = document.activeElement;
