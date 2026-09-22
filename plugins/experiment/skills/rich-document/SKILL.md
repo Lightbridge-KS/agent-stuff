@@ -5,7 +5,7 @@ description: >-
   tabs, collapsible detail, or side-by-side comparisons. Write constrained Quarto
   Markdown; the bundled CLI renders, saves, and opens it with light/dark themes.
 metadata:
-  version: "2026-09-21"
+  version: "2026-09-22"
 ---
 
 # Rich document
@@ -31,7 +31,8 @@ uv run <skill_dir>/scripts/rich_document.py present explanation.qmd --json
 2. Run `present`. It validates before rendering and returns after viewer readiness,
    without waiting for the reader. Fix errors using the reported location and hint.
 3. Link the returned URL and saved HTML. Report warnings; `ready` describes the
-   server and validated artifact, not proof that the reader has seen it.
+   server and validated artifact, not proof that the reader has seen it or that
+   every diagram has rendered. Browser layout failures show beside the diagram.
 
 `--no-open` returns a URL without launching a browser; use the harness's browser
 tool or a separately permitted OS open action for that exact URL. A browser launch
@@ -47,8 +48,9 @@ uv run <skill_dir>/scripts/rich_document.py stop ARTIFACT_ID --json
 Project scope is the invocation directory (Git root, or that directory outside Git).
 Source paths do not change project scope. Persistent records live in the project's
 Lightbridge `artifacts/` subtree. `open` does not recompile or require the original
-source. `stop` stops the server and preserves saved files; temporary output is
-removed on normal stop. There are no viewer timers. Closing a tab does not reliably
+source. Renderer fixes apply to new `present` artifacts; `open` preserves the
+embedded renderer in an existing artifact. `stop` stops the server and preserves
+saved files; temporary output is removed on normal stop. There are no viewer timers. Closing a tab does not reliably
 stop a server. Do not stop the user's viewer merely because the agent turn ends.
 
 If a harness reaps detached children, run `serve ARTIFACT_ID` using its supported

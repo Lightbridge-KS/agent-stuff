@@ -87,24 +87,72 @@
     viewport.focus();
   }
 
-  function attach() {
-    document.querySelectorAll('svg[id^="mermaid-"]').forEach(svg => {
-      if (svg.closest(".rd-diagram, .rd-dialog")) return;
-      const wrapper = document.createElement("div");
-      wrapper.className = "rd-diagram";
-      svg.before(wrapper);
-      wrapper.append(svg);
-      const control = button("Enlarge diagram", () => enlarge(svg, control));
-      wrapper.append(control);
-    });
+  function diagramError(wrapper, source, reason) {
+    wrapper.dataset.rdState = "failed";
+    const panel = document.createElement("details");
+    panel.className = "rd-error";
+    const summary = document.createElement("summary");
+    summary.textContent = "This diagram could not be displayed. Show details and source.";
+    const error = document.createElement("pre");
+    error.textContent = String(reason).slice(0, 2000);
+    const code = document.createElement("pre");
+    code.textContent = source;
+    panel.append(summary, error, code);
+    wrapper.replaceChildren(panel);
   }
+
+  async function renderDiagrams() {
+    const diagrams = [...document.querySelectorAll('.rd-diagram[data-rd-state="pending"]')];
+    if (!diagrams.length) return;
+    // Layout must be measurable even for panels the reader never selects.
+    // A single queue also avoids Mermaid's shared-state races.
+    await document.fonts.ready;
+    const stage = document.createElement("div");
+    stage.className = "rd-diagram rd-render-stage";
+    stage.setAttribute("aria-hidden", "true");
+    stage.inert = true;
+    document.body.append(stage);
+    try {
+      let initializationError;
+      try {
+        mermaid.initialize({startOnLoad:false, securityLevel:"strict",
+          themeCSS:JSON.parse(document.getElementById("rd-mermaid-theme").textContent),
+          flowchart:{subGraphTitleMargin:{top:4, bottom:24}},
+          suppressErrorRendering:true, fontFamily:"system-ui, sans-serif"});
+      } catch (error) { initializationError = error; }
+      for (const [index, wrapper] of diagrams.entries()) {
+        const source = wrapper.querySelector(".rd-mermaid-source").textContent;
+        try {
+          if (initializationError) throw initializationError;
+          let ancestor = wrapper;
+          while (ancestor && ancestor.getBoundingClientRect().width === 0) ancestor = ancestor.parentElement;
+          stage.style.width = `${Math.max(240, ancestor?.getBoundingClientRect().width || 800)}px`;
+          const {svg: output} = await mermaid.render(`rd-mermaid-${index + 1}`, source, stage);
+          // Mermaid has strictly sanitized this SVG. Author HTML stays forbidden.
+          stage.innerHTML = output;
+          const svg = stage.querySelector("svg");
+          const box = svg?.viewBox.baseVal;
+          if (!box || ![box.x, box.y, box.width, box.height].every(Number.isFinite)
+              || box.width <= 0 || box.height <= 0) throw new Error("Diagram layout has invalid dimensions.");
+          svg.classList.add("mermaid-js");
+          svg.style.width = "100%";
+          svg.style.maxWidth = `${box.width}px`;
+          svg.style.height = "auto";
+          const control = button("Enlarge diagram", () => enlarge(svg, control));
+          wrapper.replaceChildren(svg, control);
+          wrapper.dataset.rdState = "rendered";
+        } catch (error) {
+          diagramError(wrapper, source, error);
+        } finally {
+          stage.replaceChildren();
+        }
+      }
+    } finally {
+      stage.remove();
+    }
+  }
+
   function init() {
-    attach();
-    // Mermaid rendering is asynchronous and can occur when a hidden tab opens.
-    new MutationObserver(attach).observe(document.querySelector("main") || document.body, {childList:true, subtree:true});
-    document.querySelectorAll(".panel-tabset").forEach(tabset => {
-      tabset.addEventListener("shown.bs.tab", attach);
-    });
     // Quarto emits clickable disclosure headers as divs; expose keyboard semantics.
     document.querySelectorAll('.callout-header[data-bs-toggle="collapse"]').forEach(header => {
       header.setAttribute("role", "button");
@@ -118,24 +166,10 @@
     });
     const toggle = document.querySelector(".quarto-color-scheme-toggle");
     if (toggle) toggle.setAttribute("aria-label", "Toggle light and dark theme");
-    // Surface a runtime diagram failure together with its retained source.
-    document.querySelectorAll("pre.mermaid").forEach(pre => {
-      const source = pre.textContent;
-      pre.dataset.rdSource = source;
-    });
-    window.addEventListener("unhandledrejection", event => {
-      if (!String(event.reason).match(/mermaid|parse error|diagram/i)) return;
-      const panel = document.createElement("details");
-      panel.className = "rd-error";
-      const summary = document.createElement("summary");
-      summary.textContent = "A diagram could not be displayed. Show details and source.";
-      const error = document.createElement("pre");
-      error.textContent = String(event.reason);
-      panel.append(summary, error);
-      document.querySelectorAll("[data-rd-source]").forEach(node => {
-        const code = document.createElement("pre"); code.textContent = node.dataset.rdSource; panel.append(code);
+    void renderDiagrams().catch(error => {
+      document.querySelectorAll('.rd-diagram[data-rd-state="pending"]').forEach(wrapper => {
+        diagramError(wrapper, wrapper.querySelector(".rd-mermaid-source").textContent, error);
       });
-      (document.querySelector("main") || document.body).append(panel);
     });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
