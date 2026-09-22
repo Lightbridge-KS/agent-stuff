@@ -398,6 +398,23 @@ class ServerCase(unittest.TestCase):
             self.assertEqual(raw["spec"]["title"], ex["title"])
             self.assertNotIn("_values", json.dumps(raw["spec"]))
 
+    def test_record_keeps_context_panes_in_order(self):
+        body = spec(
+            q("context", "why", format="markdown", content="Because:\n\n```python\nx = 1\n```"),
+            q("context", "flow", format="mermaid", content="flowchart LR\n  A --> B"),
+            q("context", "shot", format="image", src="https://example.com/a.png"),
+            q("short_text", "name"),
+        )
+        body["questions"][0].pop("label")
+        result = {"answers": {"name": "x"}, "meta": {}}
+        ctx = {"created": "2026-09-23T00:00:00", "project": "/p", "git": "none"}
+        text = ASK_FORM.render_record(body, result, ctx)
+        self.assertIn("*Context*\n\nBecause:\n\n```python\nx = 1\n```", text)
+        self.assertIn("*Context — Label*\n\n```mermaid\nflowchart LR\n  A --> B\n```", text)
+        self.assertIn("Image: `https://example.com/a.png`", text)
+        self.assertLess(text.index("```mermaid"), text.index("### Label  `name`"))
+        self.assertEqual(ASK_FORM._fence("text", "a ``` b"), "````text\na ``` b\n````")
+
     def test_staged_record_is_verified_before_saved_is_reported(self):
         with tempfile.TemporaryDirectory() as td:
             state, proj = Path(td) / "state", Path(td) / "proj"

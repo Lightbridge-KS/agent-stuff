@@ -720,6 +720,28 @@ def _recommended_md(el: dict[str, Any]) -> str | None:
     return None
 
 
+def _fence(lang: str, body: str) -> str:
+    """A code fence long enough that no backtick run inside the body can close it."""
+    run = max((len(m) for m in re.findall(r"`+", body)), default=0)
+    tick = "`" * max(3, run + 1)
+    return f"{tick}{lang}\n{body.rstrip()}\n{tick}"
+
+
+def _context_md(el: dict[str, Any]) -> list[str]:
+    """A context pane as readable GFM, so the record keeps what the user saw when answering."""
+    fmt = el.get("format")
+    head = f"*Context — {el['label']}*" if el.get("label") else "*Context*"
+    if fmt == "markdown":
+        body = el["content"].strip()
+    elif fmt == "mermaid":
+        body = _fence("mermaid", el["content"])
+    elif fmt == "image":
+        body = f"Image: `{el['src']}`"
+    else:
+        return []
+    return [head, "", body, ""]
+
+
 def render_record(spec: dict[str, Any], result: dict[str, Any], ctx: dict[str, str]) -> str:
     """The markdown record: frontmatter, one block per answerable question, comments, raw JSON."""
     meta = result.get("meta", {})
@@ -737,6 +759,7 @@ def render_record(spec: dict[str, Any], result: dict[str, Any], ctx: dict[str, s
             out += [f"## {el['label']}", ""]
             continue
         if t == "context":
+            out += _context_md(el)
             continue
         eid = el["id"]
         out.append(f"### {el['label']}  `{eid}`")
