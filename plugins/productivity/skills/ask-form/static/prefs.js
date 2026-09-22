@@ -2,7 +2,8 @@
    Loaded in <head> so <html data-theme data-layout> is set before first paint.
      AskPrefs.get(key)          "layout" → stack|split · "theme" → system|light|dark
      AskPrefs.set(key, value)   persists and re-applies; fires `askprefs:change` on document,
-                              detail {theme, layout}: which effective value changed
+                              detail {theme, layout, chosen}: which effective value changed,
+                              and whether the reader changed a stored choice
      AskPrefs.effectiveTheme()  light|dark after resolving "system"
    Stored as host-only cookies: every run binds a new random port and localStorage is per port,
    while cookies ignore the port, so a choice survives into the next form. Enum values only. */
@@ -24,22 +25,24 @@
     return t === "system" ? (system.matches ? "dark" : "light") : t;
   };
 
-  const apply = () => {
+  // `chosen`: the reader changed a stored choice, even if the effective value stayed the same
+  // (Dark picked while the OS is already dark) — the Settings radios still need to follow.
+  const apply = (chosen = false) => {
     const root = document.documentElement;
     const theme = effectiveTheme(), layout = get("layout");
-    const detail = { theme: root.dataset.theme !== theme, layout: root.dataset.layout !== layout };
+    const detail = { theme: root.dataset.theme !== theme, layout: root.dataset.layout !== layout, chosen };
     root.dataset.theme = theme;
     root.dataset.layout = layout;
-    if (detail.theme || detail.layout) document.dispatchEvent(new CustomEvent("askprefs:change", { detail }));
+    if (detail.theme || detail.layout || chosen) document.dispatchEvent(new CustomEvent("askprefs:change", { detail }));
   };
 
   const set = (key, value) => {
     if (!CHOICES[key]?.includes(value)) return;
     document.cookie = `askform_${key}=${value}; Path=/; Max-Age=${MAX_AGE}; SameSite=Strict`;
-    apply();
+    apply(true);
   };
 
-  system.addEventListener("change", apply);
+  system.addEventListener("change", () => apply());
   apply();
   window.AskPrefs = { get, set, effectiveTheme };
 })();

@@ -378,6 +378,38 @@
     );
   };
 
+  // ── reader settings ────────────────────────────────────────────────────────
+  // Layout and theme are the reader's (prefs.js persists them). The spec's `layout: "split"` is
+  // only a hint: a dot on the Settings button and a label on the Split option; it never applies.
+
+  const settingsPanel = () => {
+    const hasContext = spec.questions.some((q) => q.type === "context");
+    const hinted = hasContext && spec.layout === "split";
+    const button = $("#settings"), panel = $("#settings-panel");
+    const group = (key, legend, choices) => el("fieldset", { class: "settings-group" },
+      el("legend", { text: legend }),
+      ...choices.map(([value, label, extra]) => el("label", { class: "settings-choice" },
+        el("input", { type: "radio", name: `pref-${key}`, value, checked: window.AskPrefs.get(key) === value,
+          onchange: () => window.AskPrefs.set(key, value) }),
+        el("span", {}, el("span", { text: label }), extra || null))));
+    panel.replaceChildren(
+      el("h2", { class: "settings-title", text: "Settings" }),
+      hasContext ? group("layout", "Layout", [
+        ["stack", "One column"],
+        ["split", "Split: context beside questions", hinted ? el("span", { class: "rec", text: "Suggested for this form" }) : null],
+      ]) : null,
+      hasContext ? el("p", { class: "hint", text: "Split applies in windows at least 1100 px wide." }) : null,
+      group("theme", "Theme", [["system", "System"], ["light", "Light"], ["dark", "Dark"]]),
+      el("p", { class: "hint", text: "Remembered for your next forms." }),
+    );
+    const sync = () => {
+      button.classList.toggle("hinted", hinted && window.AskPrefs.get("layout") !== "split");
+      for (const input of panel.querySelectorAll("input")) input.checked = window.AskPrefs.get(input.name.slice(5)) === input.value;
+    };
+    document.addEventListener("askprefs:change", sync);
+    sync();
+  };
+
   // ── footer / submit ────────────────────────────────────────────────────────
 
   const footer = $("#footer"), progress = $("#progress"), fill = $("#fill"), submit = $("#submit"), cancel = $("#cancel");
@@ -447,10 +479,8 @@
   $("#title").textContent = spec.title;
   if (spec.intro) $("#intro").replaceChildren(markdown(spec.intro));
   const list = $("#questions");
-  // layout "split": a run of context panes and the questions after it form one segment; on wide
-  // screens the contexts sit sticky on the left beside their questions (see styles.css).
-  const split = spec.layout === "split";
-  $("#app").classList.toggle("split", split);
+  // A run of context panes and the questions after it form one segment. In the reader's Split
+  // layout (prefs.js → data-layout) the two sit side by side on wide screens; otherwise they stack.
   let segment = null;
   const newSegment = () => {
     const aside = el("div", { class: "seg-aside" }), main = el("div", { class: "seg-main" });
@@ -459,13 +489,13 @@
   };
   for (const q of spec.questions) {
     if (q.type === "section") { list.append(el("h2", { class: "section", text: q.label })); segment = null; }
-    else if (!split) list.append(q.type === "context" ? renderContext(q) : renderQuestion(q));
     else if (q.type === "context") {
       if (!segment || segment.main.children.length) segment = newSegment();
       segment.aside.append(renderContext(q));
     } else (segment ??= newSegment()).main.append(renderQuestion(q));
   }
-  if (split) newSegment().main.append(commentsCard()); else list.append(commentsCard());
+  newSegment().main.append(commentsCard());
+  settingsPanel();
   document.body.append(quoteButton());
   document.addEventListener("keydown", (e) => {
     if (e.key !== "n" || e.metaKey || e.ctrlKey || e.altKey) return;

@@ -23,7 +23,14 @@
 </main>
 <footer id="footer" class="footer" hidden>
   <div class="footer-inner">
-    <p id="progress" class="progress" aria-live="polite"></p>
+    <div class="footer-left">
+      <button id="settings" type="button" class="settings-btn" popovertarget="settings-panel" aria-label="Settings: layout and theme" title="Settings">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>
+        </svg>
+      </button>
+      <p id="progress" class="progress" aria-live="polite"></p>
+    </div>
     <div class="actions">
       <button id="cancel" type="button" class="btn quiet">Cancel</button>
       <button id="submit" type="button" class="btn primary">Send answers</button>
@@ -31,6 +38,7 @@
   </div>
   <div id="fill" class="fill"></div>
 </footer>
+<div id="settings-panel" class="settings-panel" popover></div>
 <script src="/static/vendor/marked.min.js"></script>
 <script src="/static/vendor/purify.min.js"></script>
 <script src="/static/rich.js"></script>
