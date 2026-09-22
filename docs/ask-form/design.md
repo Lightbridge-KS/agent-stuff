@@ -218,9 +218,10 @@ fields) — GFM dialect so the record also renders on GitHub and Obsidian:
 the call rich-document made for its theme. A ⚙ button at the footer's left opens a native popover:
 *Layout* (One column, default · Split: each run of context panes and the questions after it become
 one segment; from 1100 px the two columns sit side by side, both sticky so the shorter stays in
-view, and the footer widens to match) and *Theme* (System · Light · Dark). `static/prefs.js` loads
+view, and the footer widens to match; *Explanation on* Right (default: questions left) or Left —
+a visual flip only, the DOM keeps explanation first for Tab order, screen readers and Quote) and *Theme* (System · Light · Dark). `static/prefs.js` loads
 in `<head>` and sets `data-theme` / `data-layout` on `<html>` before first paint. Choices persist in
-two host-only cookies on `127.0.0.1` (`askform_layout`, `askform_theme`; SameSite=Strict, one year):
+host-only cookies on `127.0.0.1` (`askform_layout`, `askform_side`, `askform_theme`; SameSite=Strict, one year):
 every run binds a new random port and `localStorage` is per port, while cookies ignore the port.
 They carry only those enum values, never answers. Precedence: the reader's stored choice, else one
 column and the system theme; the spec's `layout` hint never applies anything.

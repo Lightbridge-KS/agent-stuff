@@ -255,9 +255,14 @@ pre.diff .dl { display: block; padding: 0 14px; }
 @media (min-width: 1100px) {
   :root[data-layout="split"] .page,
   :root[data-layout="split"] .footer-inner { max-width: 1280px; }
+  /* Default side "right": questions left, explanation right. Only the visual order flips; the DOM
+     keeps explanation first, so Tab order, screen readers and Quote's "next question" hold. */
   :root[data-layout="split"] .segment {
-    display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: start;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; align-items: start;
   }
+  :root[data-layout="split"] .seg-aside { order: 2; }
+  :root[data-layout="split"][data-side="left"] .segment { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+  :root[data-layout="split"][data-side="left"] .seg-aside { order: 0; }
   /* Both columns stick: the shorter one stays in view while the taller one scrolls. A column as tall
      as its row has no room to stick, so nothing becomes unreachable. */
   :root[data-layout="split"] .seg-aside,
@@ -289,6 +294,9 @@ pre.diff .dl { display: block; padding: 0 14px; }
 .settings-group legend { padding: 0; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .settings-choice { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 14px; cursor: pointer; }
 .settings-choice .rec { margin-left: 6px; }
+.settings-sub { margin: -2px 0 8px 26px; }
+.settings-sub[hidden] { display: none; }
+.settings-sub .settings-choice { display: inline-flex; margin-right: 14px; }
 .settings-panel .hint { margin: 2px 0 10px; font-size: 12px; }
 .settings-panel .hint:last-child { margin-bottom: 0; }
 

@@ -396,14 +396,18 @@
       el("h2", { class: "settings-title", text: "Settings" }),
       hasContext ? group("layout", "Layout", [
         ["stack", "One column"],
-        ["split", "Split: context beside questions", hinted ? el("span", { class: "rec", text: "Suggested for this form" }) : null],
+        ["split", "Split: explanation beside questions", hinted ? el("span", { class: "rec", text: "Suggested for this form" }) : null],
       ]) : null,
+      hasContext ? group("side", "Explanation on", [["right", "Right"], ["left", "Left"]]) : null,
       hasContext ? el("p", { class: "hint", text: "Split applies in windows at least 1100 px wide." }) : null,
       group("theme", "Theme", [["system", "System"], ["light", "Light"], ["dark", "Dark"]]),
       el("p", { class: "hint", text: "Remembered for your next forms." }),
     );
+    const sideGroup = panel.querySelector("input[name=pref-side]")?.closest("fieldset");
+    sideGroup?.classList.add("settings-sub");
     const sync = () => {
       button.classList.toggle("hinted", hinted && window.AskPrefs.get("layout") !== "split");
+      if (sideGroup) sideGroup.hidden = window.AskPrefs.get("layout") !== "split";
       for (const input of panel.querySelectorAll("input")) input.checked = window.AskPrefs.get(input.name.slice(5)) === input.value;
     };
     document.addEventListener("askprefs:change", sync);

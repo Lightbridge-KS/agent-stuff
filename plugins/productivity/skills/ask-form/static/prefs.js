@@ -1,6 +1,7 @@
 /* ask-form reader preferences: layout and theme belong to the reader, never to the spec.
-   Loaded in <head> so <html data-theme data-layout> is set before first paint.
-     AskPrefs.get(key)          "layout" → stack|split · "theme" → system|light|dark
+   Loaded in <head> so <html data-theme data-layout data-side> is set before first paint.
+     AskPrefs.get(key)          "layout" → stack|split · "side" → right|left (where the explanation
+                                sits in split) · "theme" → system|light|dark
      AskPrefs.set(key, value)   persists and re-applies; fires `askprefs:change` on document,
                               detail {theme, layout, chosen}: which effective value changed,
                               and whether the reader changed a stored choice
@@ -10,7 +11,7 @@
 (() => {
   "use strict";
 
-  const CHOICES = { layout: ["stack", "split"], theme: ["system", "light", "dark"] };
+  const CHOICES = { layout: ["stack", "split"], side: ["right", "left"], theme: ["system", "light", "dark"] };
   const MAX_AGE = 60 * 60 * 24 * 365;
   const system = matchMedia("(prefers-color-scheme: dark)");
 
@@ -29,10 +30,11 @@
   // (Dark picked while the OS is already dark) — the Settings radios still need to follow.
   const apply = (chosen = false) => {
     const root = document.documentElement;
-    const theme = effectiveTheme(), layout = get("layout");
-    const detail = { theme: root.dataset.theme !== theme, layout: root.dataset.layout !== layout, chosen };
+    const theme = effectiveTheme(), layout = get("layout"), side = get("side");
+    const detail = { theme: root.dataset.theme !== theme, layout: root.dataset.layout !== layout || root.dataset.side !== side, chosen };
     root.dataset.theme = theme;
     root.dataset.layout = layout;
+    root.dataset.side = side;
     if (detail.theme || detail.layout || chosen) document.dispatchEvent(new CustomEvent("askprefs:change", { detail }));
   };
 
