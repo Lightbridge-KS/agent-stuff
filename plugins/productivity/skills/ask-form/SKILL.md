@@ -65,8 +65,9 @@ notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2
      into a Compare panel (tabs; side by side for two). Keep `description` to one line.
    - A code change to approve: a `diff` context, or `review.items[].detail` with a diff fence per hunk.
      Before/after or alternatives to read: `format: "tabs"`. Optional background: `collapsed: true`.
-   - A long explanation feeding 3–5 questions: top-level `"layout": "split"` keeps it pinned beside
-     them on wide screens.
+   - A long explanation feeding 3–5 questions: top-level `"layout": "split"` *suggests* the reader's
+     Split view (context pinned beside its questions). It is only a hint: layout and theme belong to
+     the reader (⚙ Settings in the footer, remembered across forms), so never rely on split.
    - Use `review` for a list of 💡 decisions the user must approve, revise, or reject one by one.
    - Option descriptions say what happens if chosen. Labels in sentence case, no filler.
    - **Recommend when you hold a view.** Mark the option with `recommended: true` (one per
@@ -147,7 +148,8 @@ Closing the tab ends nothing: the run waits for Cancel or Send.
 Loopback only, random port, token in the URL gating the page, assets and the answer routes.
 `context.src` may name a local image; only files declared in the spec are served, nothing else on
 disk. Agent strings render as text or sanitized markdown; no images in markdown. Mermaid and
-highlight.js are vendored and load only when needed: the page makes no network request beyond
+highlight.js are vendored and load only when needed; the reader's layout and theme live in two enum
+cookies on `127.0.0.1`, never answers. The page makes no network request beyond
 loopback (except a `context.src` http(s) image you declare). A diagram that fails to parse shows
 its error and source in place. Do not put PHI in a spec
 you cannot justify showing in a browser tab.

@@ -466,7 +466,7 @@ SCHEMA: dict[str, Any] = {
         "intro": {"type": "string", "description": "markdown"},
         "submit_label": {"type": "string"},
         "layout": {"enum": list(LAYOUTS), "default": "stack",
-                   "description": "split: each run of context panes sits sticky beside the questions that follow it on wide screens"},
+                   "description": "a hint only: split suggests the reader's Split view (context beside its questions); the reader owns layout and theme"},
         "questions": {"type": "array", "minItems": 1, "items": {"oneOf": [
             _el("section", {}),
             _el("context", {"format": {"enum": list(CONTEXT_FORMATS)}, "content": {"type": "string", "description": "markdown, mermaid source, or a unified diff"},
