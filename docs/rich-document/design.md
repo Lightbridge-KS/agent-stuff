@@ -7,7 +7,7 @@ read_when:
 
 # Rich document — design
 
-Status: **browser slice implemented; experimental** · 2026-09-21.
+Status: **browser slice implemented; experimental** · corrected 2026-09-22.
 Scope: [requirements](req/prd.md). Reference: [ask-form](../ask-form/design.md).
 Implementation evidence and verification limits: [progress](progress/v1.md).
 
@@ -261,7 +261,7 @@ non-git-directory fallback. The correct namespace is `.lightbridge`.
 ```
 
 The manifest records schema version, title, creation time, original source and HTML hashes,
-renderer/theme versions, declared assets, and render warnings. The directory
+renderer/theme/viewer versions, declared assets, and render warnings. The directory
 is the inventory; avoid adding a database or parallel index. Publish atomically
 after successful validation/render. A revision creates a new artifact, preserving the previous explanation. Revision
 lineage is not represented in v1.
@@ -355,12 +355,23 @@ checkout use can resolve its canonical sibling CLI without copying resolver logi
 Viewer startup is serialized per artifact using an OS lock. Runtime records live
 in private temporary state, separate from manifests. Healthy viewers are reused;
 stop authenticates to the live endpoint rather than trusting a recorded PID.
-No viewer activity/lifetime logic runs. The saved HTML is hash-checked on open.
+No viewer activity/lifetime logic runs. A fresh viewer hash-checks the saved HTML; a healthy reused viewer retains the
+already-loaded bytes.
 
-Owned CSS preserves Mermaid contrast when switching themes. Diagram enlargement
+The [owned Mermaid lifecycle](adr/0001-owned-mermaid-rendering.md) replaces Quarto's
+load-time initializer. Diagram source is masked as inert code during compilation;
+the final filter emits escaped placeholders. The pinned browser library and
+Quarto diagram CSS are embedded without its initializer. A serial queue renders
+in a measurable off-screen container, then inserts completed SVGs and controls.
+Inactive panels render without being selected. Each failure retains its own
+source and does not stop subsequent diagrams. `validate` checks profile/syntax;
+`ready` describes compile/viewer readiness, not successful browser layout.
+
+Owned CSS preserves Mermaid contrast when switching themes, including path and
+ellipse shapes with separate fill/outline components. Diagram enlargement
 moves the existing SVG into a native dialog and restores it afterward, avoiding
 duplicate marker IDs. Explicit Tab wrapping, Escape, focus restoration, keyboard
-zoom, and scroll/drag pan support exploration. Print CSS exposes all tab panels.
+zoom, and scroll/drag pan support exploration. Print CSS overrides Quarto's inactive-panel hiding rule to expose all tab panels.
 
 [The tracker](progress/v1.md) records exact automated and browser evidence.
 MCP delivery, other operating systems/harnesses, direct file viewing, exact

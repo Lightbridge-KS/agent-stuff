@@ -32,6 +32,7 @@ keys, or Quarto options. The engine owns theme, execution, filters, and includes
 Blank lines separate headings and code fences. Use more colons for an outer div
 than its nested divs. Tabs and columns belong in the main article; they cannot
 nest. Their bodies accept ordinary content, diagrams, images, and callouts.
+Straight paired single/double quotes are ordinary prose; smart typography is preserved.
 Callouts cannot contain nested layouts or diagrams. Widths are equal; columns
 stack on narrow screens. Div classes/attributes outside this catalog are errors.
 
@@ -54,3 +55,9 @@ The artifact HTML embeds its dependencies. No external publication takes place.
 Viewer choices are local browser state, not source metadata. The toggle selects
 light/dark; diagrams have an enlargement dialog with zoom, drag/scroll pan, Reset,
 and Escape/Close. No countdown or automatic shutdown applies to the viewer.
+
+Diagrams render independently, including in inactive tabs. A browser layout failure
+shows a local disclosure with its source and does not stop later diagrams. Syntax
+validation cannot guarantee browser layout. Existing saved HTML retains its
+embedded renderer; run `present` on the archived source to create a corrected
+artifact after a renderer update.

@@ -24,6 +24,7 @@ import yaml
 SKILL = Path(__file__).resolve().parent.parent
 ASSETS = SKILL / "assets"
 ENGINE_VERSION = "1.9.38"
+VIEWER_VERSION = "2026-09-22"
 MAX_SOURCE = 1_000_000
 MAX_ASSET = 10_000_000
 MAX_ASSETS = 20_000_000
@@ -183,6 +184,7 @@ def resolve_assets(meta: dict, source: Path) -> dict[str, Path]:
 
 
 PLAIN_NODES = {"Str", "Space", "SoftBreak", "LineBreak", "Emph", "Strong", "Strikeout",
+               "Quoted", "DoubleQuote", "SingleQuote",
                "Para", "Plain", "BlockQuote", "BulletList", "OrderedList", "HorizontalRule",
                "Table", "Figure", "AlignLeft", "AlignRight", "AlignCenter", "AlignDefault", "ColWidthDefault",
                "ColWidth", "DefaultStyle", "Decimal", "LowerRoman", "UpperRoman", "LowerAlpha",
@@ -284,6 +286,16 @@ def validate_tree(ast: dict, assets: dict[str, Path]) -> list[str]:
     return diagrams
 
 
+def mermaid_bundle(work: Path, quarto: str) -> Path:
+    """Locate both parser and browser builds from the verified Quarto install."""
+    paths = command([quarto, "--paths"], cwd=work).splitlines()
+    if len(paths) == 2:
+        directory = Path(paths[1]) / "formats/html/mermaid"
+        if all((directory / name).is_file() for name in ("mermaid.js", "mermaid.min.js", "embed-mermaid.css")):
+            return directory
+    raise Failure(3, "dependency", "Cannot locate Quarto's bundled Mermaid files; reinstall the verified Quarto version.")
+
+
 def parse_source(source: Path, work: Path, quarto: str) -> dict:
     if not source.is_file() or source.stat().st_size > MAX_SOURCE:
         invalid("Source must be an existing UTF-8 document no larger than 1 MB.")
@@ -301,10 +313,7 @@ def parse_source(source: Path, work: Path, quarto: str) -> dict:
     if diagrams:
         diagram_file = work / "diagrams.json"
         diagram_file.write_text(json.dumps(diagrams), encoding="utf-8")
-        paths = command([quarto, "--paths"], cwd=work).splitlines()
-        if len(paths) != 2:
-            raise Failure(3, "dependency", "Cannot locate Quarto's bundled Mermaid parser.")
-        bundle = Path(paths[1]) / "formats/html/mermaid/mermaid.js"
+        bundle = mermaid_bundle(work, quarto) / "mermaid.js"
         checked = json.loads(command([quarto, "run", str(ASSETS / "check_mermaid.ts"), str(bundle), str(diagram_file)], cwd=work))
         for item in checked:
             if not item["valid"]:
@@ -314,8 +323,7 @@ def parse_source(source: Path, work: Path, quarto: str) -> dict:
 
 def canonical_body(document: dict, work: Path, quarto: str) -> tuple[str, dict]:
     ast = copy.deepcopy(document["ast"])
-    replacements = {}
-    literal_code = {}
+    literal_code = {"code": {}, "diagrams": {}}
 
     def rewrite(value):
         if isinstance(value, list):
@@ -324,19 +332,18 @@ def canonical_body(document: dict, work: Path, quarto: str) -> tuple[str, dict]:
         elif isinstance(value, dict):
             if value.get("t") == "CodeBlock" and value["c"][0][1] == ["mermaid"]:
                 key = "RDDIAGRAM" + uuid.uuid4().hex
-                replacements[key] = value["c"][1]
-                value.update(t="Para", c=[{"t": "Str", "c": key}])
+                literal_code["diagrams"][key] = value["c"][1]
+                # Quarto sees only inert code. The owned final filter emits the
+                # diagram placeholder, so no Quarto Mermaid initializer is added.
+                value["c"] = [["", [], []], key]
             elif value.get("t") in {"CodeBlock", "Code"}:
                 key = "RDCODE" + uuid.uuid4().hex
-                literal_code[key] = value["c"][1]
+                literal_code["code"][key] = value["c"][1]
                 value["c"][1] = key
             else:
                 rewrite(value.get("c"))
     rewrite(ast["blocks"])
     body = command([quarto, "pandoc", "--from", "json", "--to", "markdown", "--wrap=none"], cwd=work, stdin=json.dumps(ast))
-    for key, diagram in replacements.items():
-        fence = "`" * max(3, max((len(m[0]) + 1 for m in re.finditer(r"`+", diagram)), default=3))
-        body = body.replace(key, f"{fence}{{mermaid}}\n{diagram}\n{fence}")
     return body, literal_code
 
 
@@ -405,12 +412,19 @@ def build(source: Path, saved: bool = True) -> tuple[Path, dict]:
             asset_hashes[relative] = hashlib.sha256((work / relative).read_bytes()).hexdigest()
         for filename in ("theme.css", "theme-dark.scss", "viewer.js", "viewer.css", "restore-code.lua"):
             shutil.copyfile(ASSETS / filename, work / filename)
+        diagram_script = ""
+        if doc["diagrams"]:
+            bundle = mermaid_bundle(work, quarto)
+            shutil.copyfile(bundle / "mermaid.min.js", work / "mermaid.min.js")
+            # Retain Quarto's diagram-type theme rules without its initializer.
+            theme = json.dumps((bundle / "embed-mermaid.css").read_text(encoding="utf-8")).replace("<", "\\u003c")
+            diagram_script = f'<script type="application/json" id="rd-mermaid-theme">{theme}</script><script src="mermaid.min.js"></script>'
         owned = {"title": doc["meta"]["title"], "format": {"html": {
             "theme": {"light": "cosmo", "dark": ["cosmo", "theme-dark.scss"]},
             "respect-user-color-scheme": True, "toc": True, "toc-title": "On this page",
             "embed-resources": True, "code-copy": True, "anchor-sections": True,
             "css": ["theme.css", "viewer.css"], "include-after-body": {"text":
-                f'<footer class="rd-footer">Artifact {artifact_id} · Quarto {ENGINE_VERSION}</footer><script src="viewer.js"></script>'}}},
+                f'<footer class="rd-footer">Artifact {artifact_id} · Quarto {ENGINE_VERSION}</footer>{diagram_script}<script src="viewer.js"></script>'}}},
             "execute": {"enabled": False}, "filters": ["restore-code.lua"]}
         if "subtitle" in doc["meta"]:
             owned["subtitle"] = doc["meta"]["subtitle"]
@@ -428,7 +442,7 @@ def build(source: Path, saved: bool = True) -> tuple[Path, dict]:
         audit_html(html.read_text(encoding="utf-8"))
         manifest = {"schema_version": 1, "id": artifact_id, "title": doc["meta"]["title"],
                     "created": datetime.now(timezone.utc).isoformat(), "renderer": f"quarto {ENGINE_VERSION}",
-                    "theme_version": "2026-09-21", "profile_version": 1, "saved": saved,
+                    "theme_version": VIEWER_VERSION, "viewer_version": VIEWER_VERSION, "profile_version": 1, "saved": saved,
                     "source_sha256": hashlib.sha256(doc["text"].encode()).hexdigest(),
                     "html_sha256": hashlib.sha256(html.read_bytes()).hexdigest(),
                     "assets": asset_hashes, "diagram_count": len(doc["diagrams"]), "warnings": warnings}

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
+from html.parser import HTMLParser
 import json
 import os
 from pathlib import Path
@@ -84,6 +85,22 @@ class ProfileTests(unittest.TestCase):
                 core.validate_tree(ast(node), {})
         literal = block("CodeBlock", [["", ["html"], []], "<script>{{< include }}</script>"])
         self.assertEqual(core.validate_tree(ast(literal), {}), [])
+
+    def test_quoted_prose_recursively_validates_content(self):
+        for quote in ("DoubleQuote", "SingleQuote"):
+            safe = block("Quoted", [block(quote, None), [block("Emph", [block("Str", "hello")])]])
+            self.assertEqual(core.validate_tree(ast(block("Para", [safe])), {}), [])
+            for unsafe in (block("RawInline", ["html", "<script>bad</script>"]),
+                           block("Link", [["", [], []], [block("Str", "bad")], ["javascript:alert(1)", ""]])):
+                with self.subTest(quote=quote, unsafe=unsafe), self.assertRaises(core.Failure):
+                    core.validate_tree(ast(block("Quoted", [block(quote, None), [unsafe]])), {})
+
+    def test_missing_mermaid_browser_bundle_is_actionable(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(core, "command", return_value=f"bin\n{temp}\n"):
+            with self.assertRaises(core.Failure) as caught:
+                core.mermaid_bundle(Path(temp), "quarto")
+            self.assertEqual(caught.exception.result["stage"], "dependency")
+            self.assertIn("reinstall", str(caught.exception))
 
     def test_catalog_layout_constraints(self):
         tabs = div("panel-tabset", heading("Before"), text("Old"), heading("After"), text("New"))
@@ -249,6 +266,28 @@ class LiveTests(unittest.TestCase):
         png.unlink()
         archived = Path(result["source_path"])
         self.assertTrue((archived.parent / "assets/tiny.png").is_file())
+
+    def test_quotes_and_owned_diagram_compilation(self):
+        source = self.source((ROOT / "tests/fixtures/rich-document/regressions.qmd").read_text())
+        result = self.cli("present", str(source), "--no-open", "--no-save")
+        self.ids.append(result["artifact_id"])
+        html = Path(result["html_path"]).read_text()
+        self.assertIn("“hello”", html)
+        self.assertIn("‘goodbye’", html)
+        self.assertIn("&lt;literal&gt;", html)
+        class DiagramCounter(HTMLParser):
+            count = 0
+
+            def handle_starttag(self, tag, attrs):
+                if tag == "div" and dict(attrs).get("data-rd-state") == "pending":
+                    self.count += 1
+
+        counter = DiagramCounter()
+        counter.feed(html)
+        self.assertEqual(counter.count, 6)
+        self.assertNotIn("const _quartoMermaid", html)
+        self.assertNotIn('class="mermaid-js"', html)
+        self.assertIn("rd-mermaid-source", html)
 
 
 if __name__ == "__main__":

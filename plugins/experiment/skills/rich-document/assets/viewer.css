@@ -1,3 +1,5 @@
+.rd-render-stage { position: fixed; left: -100000px; top: 0; pointer-events: none; }
+.rd-mermaid-source { white-space: pre-wrap; }
 .rd-diagram { margin: 1.5rem 0; }
 .rd-diagram > button { display: block; margin: .5rem 0 .5rem auto; }
 .rd-diagram button, .rd-dialog button {
@@ -32,7 +34,9 @@
 }
 @media print {
   .rd-diagram > button, .quarto-color-scheme-toggle, .rd-dialog { display: none !important; }
-  .tab-content > .tab-pane { display: block !important; opacity: 1 !important; }
+  /* Override Quarto's .tab-pane:not(.active) important rule as well. */
+  .panel-tabset .tab-content > .tab-pane,
+  .panel-tabset .tab-content > .tab-pane:not(.active) { display: block !important; opacity: 1 !important; }
 }
 /* Keep diagram colors tied to the active document theme, including in dialogs. */
 .rd-diagram svg, .rd-dialog svg {
@@ -45,14 +49,21 @@
   --mermaid-label-bg-color: var(--document-surface);
   --mermaid-label-fg-color: var(--document-text);
   --mermaid-edge-color: var(--document-text);
+  --mermaid-font-family: system-ui, sans-serif;
+  --mermaid-font-weight: 400;
 }
-:is(.rd-diagram, .rd-dialog) svg :is(.node rect, .node circle, .node polygon, rect.actor, .labelBox) {
+:is(.rd-diagram, .rd-dialog) svg :is(.node rect, .node circle, .node ellipse, .node polygon, .node path, rect.actor, .labelBox, .cluster rect) {
   fill: var(--document-surface) !important; stroke: var(--document-accent) !important;
 }
+/* Rough.js emits separate fill and outline paths for shapes such as stadiums. */
+:is(.rd-diagram, .rd-dialog) svg .node path[fill="none"] { fill: none !important; }
+:is(.rd-diagram, .rd-dialog) svg .node path[stroke="none"] { stroke: none !important; }
 :is(.rd-diagram, .rd-dialog) svg :is(text, text tspan, .messageText, .labelText) {
   fill: var(--document-text) !important; stroke: none !important;
 }
 :is(.rd-diagram, .rd-dialog) svg :is(.nodeLabel, .edgeLabel, .label) { color: var(--document-text) !important; }
+:is(.rd-diagram, .rd-dialog) svg :is(.edgeLabel, .edgeLabel p, .labelBkg) { background-color: var(--document-surface) !important; }
+:is(.rd-diagram, .rd-dialog) svg .edgeLabel rect { fill: var(--document-surface) !important; }
 :is(.rd-diagram, .rd-dialog) svg :is(.flowchart-link, .messageLine0, .messageLine1, .actor-line, .loopLine) {
   stroke: var(--document-text) !important;
 }

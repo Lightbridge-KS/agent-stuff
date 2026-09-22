@@ -1,0 +1,57 @@
+---
+title: Rich document browser regressions
+---
+
+She said "hello" and 'goodbye'. It isn't executable: `"<literal>"`.
+
+## Shapes
+
+```{mermaid}
+flowchart LR
+  r[Rectangle] --> c[(Cylinder)] --> s([Stadium])
+  s --> d{Diamond} --> o((Circle))
+```
+
+## Tabs
+
+::: {.panel-tabset}
+### First
+
+```{mermaid}
+flowchart LR
+  A --> B
+```
+
+### Hidden subgraph
+
+```{mermaid}
+flowchart LR
+  subgraph S[A sufficiently long group title that wraps]
+    C -->|label| D
+  end
+```
+
+### Hidden sequence
+
+```{mermaid}
+sequenceDiagram
+  Client->>Server: Request
+  Server-->>Client: Response
+```
+:::
+
+## Failure isolation
+
+The browser test injects a failure in this otherwise valid diagram.
+
+```{mermaid}
+flowchart LR
+  FAIL_FOR_TEST --> Next
+```
+
+## After
+
+```{mermaid}
+flowchart LR
+  E --> F
+```

@@ -49,6 +49,10 @@ test:
 test-rich-document-live:
     RICH_DOCUMENT_LIVE=1 uv run tests/test_rich_document.py
 
+# Prepare self-checking browser fixture; open URL and require #rd-test-result PASS.
+test-rich-document-browser:
+    uv run tests/test_rich_document_browser.py
+
 # Remove build artifacts
 clean:
     rm -rf dist
