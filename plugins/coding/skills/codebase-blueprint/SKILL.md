@@ -5,7 +5,7 @@ description: >-
   object model that satisfies all of them — prose rules become machine-checked invariants.
   Use when design is settled and you are about to build, or on name / near-match.
 metadata:
-  version: "2026-09-11"
+  version: "2026-09-24"
 ---
 
 # Codebase Blueprint
@@ -23,7 +23,7 @@ certainly skipped Phase 1.
 
 ```
 design fluid    ─►  c4-architect · system-architecture · data-architecture · surface-architecture
-                    · extensibility-architecture · security-architecture
+                    · extensibility-architecture · security-architecture · testability-architecture
 design settled  ─►  codebase-blueprint   ← you are here: reconcile, then compile
 code exists     ─►  improve-codebase-architecture
 ```
@@ -33,8 +33,9 @@ use `system-architecture` in explain mode.
 
 ## Inputs
 
-Every design doc in the repo (`docs/design/`, `_docs/`, a PRD, this conversation) **and the
-vendored docs of the framework actually chosen**. The framework is an input, not context.
+Every design doc in the repo (`docs/design/`, `docs/tests/`, `_docs/`, a PRD, this
+conversation) **and the vendored docs of the framework actually chosen**. The framework is
+an input, not context.
 If the design docs are still fluid, stop and send the user back to the design lenses — this
 lens reconciles settled claims and has nothing to bite on otherwise.
 

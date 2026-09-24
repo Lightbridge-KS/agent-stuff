@@ -7,7 +7,7 @@ description: >-
   Markdown doc with Mermaid diagrams. Use on name or near-match (plugin / extension /
   extensibility / "should this be a plugin system or config?").
 metadata:
-  version: "2026-09-11"
+  version: "2026-09-24"
 ---
 
 # Extensibility Architecture
@@ -192,9 +192,10 @@ survives). If the host contains an agent, this is where the self-modification lo
 
 ## Write the document
 
-**Cross-link:** check the output directory for sibling lens docs (`system-architecture`,
-`data-architecture`, `surface-architecture`, `agentic-architecture`,
-`security-architecture`) and add a "See also" line under the title for each found — match
+**Cross-link:** check the output directory — and `docs/tests/`, where the testability doc
+lives — for sibling lens docs (`system-architecture`, `data-architecture`,
+`surface-architecture`, `agentic-architecture`, `security-architecture`,
+`testability-architecture`) and add a "See also" line under the title for each found — match
 on *topic*, not filename (a hand-named `ARCHITECTURE.md` or a `*_ux_design.md` in a
 `_docs/` annex counts) — the set triangulates one system. If none, the doc stands alone.
 
