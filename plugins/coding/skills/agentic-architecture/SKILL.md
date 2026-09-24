@@ -5,7 +5,7 @@ description: >-
   (loop, memory, tools, skills, MCP, subagents, hooks) — or design one from requirements.
   Use on name or near-match.
 metadata:
-  version: "2026-09-11"
+  version: "2026-09-24"
 ---
 
 # Agentic Architecture
@@ -138,14 +138,16 @@ sits in the product.
 
 ## Write the document
 
-**Cross-link:** check the output directory for related docs and add a "See also" line under
+**Cross-link:** check the output directory — and `docs/tests/`, where the testability doc
+lives — for related docs and add a "See also" line under
 the title for each — match on *topic*, not just filename suffix (a hand-named
 `ARCHITECTURE.md` counts as the structure doc). Canonical siblings: `system-architecture`
 (generic structure), `ax-interface` output (the agent-facing surface, judged),
 `surface-architecture` / `data-architecture` (the outside / the data),
 `extensibility-architecture` (how the system changes after it ships — the deep view of §7),
 `security-architecture` (the threat model — the agent as an actor, the context window as a
-trust boundary).
+trust boundary), `testability-architecture` (how the system proves it works — the agent as
+a tester).
 
 Use this skeleton. Keep prose tight; let the diagrams carry the structure.
 
