@@ -119,8 +119,9 @@ validate (one per `single_select`, value within range, decision within `decision
 preselects**; the user still chooses. `meta.diverged` lists answered ids where the choice differs
 from the recommendation (multi_select: set inequality; review: any item), so the agent knows where
 to ask rather than proceed. Recommended options are not reordered. `--schema` prints
-the JSON Schema and is the single source of truth for fields; `--example` prints a spec covering
-every type.
+the JSON Schema and is the single source of truth for fields: it states every rule `--validate`
+enforces that JSON Schema can express, names the rest in its `$comment`, and a conformance test
+holds the two in agreement case by case. `--example` prints a spec covering every type.
 
 ## Server
 

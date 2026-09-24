@@ -89,6 +89,10 @@ def _is_num(v: Any) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool)
 
 
+def _is_int(v: Any) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
 def _check_options(opts: Any, path: str, errors: list[dict[str, str]], key: str = "options") -> list[str]:
     """Validate an option/item/row/column list; return its values."""
     if not isinstance(opts, list) or not opts:
@@ -141,6 +145,16 @@ def _check_range(el: dict[str, Any], path: str, errors: list[dict[str, str]], re
         errors.append({"path": f"{path}.min", "message": "min must not exceed max"})
     if step is not None and (not _is_num(step) or step <= 0):
         errors.append({"path": f"{path}.step", "message": "step must be a positive number"})
+
+
+def _check_count_range(el: dict[str, Any], path: str, errors: list[dict[str, str]]) -> None:
+    """multi_select min/max count selections: non-negative integers."""
+    lo, hi = el.get("min"), el.get("max")
+    for k, v in (("min", lo), ("max", hi)):
+        if v is not None and not (_is_int(v) and v >= 0):
+            errors.append({"path": f"{path}.{k}", "message": f"{k} must be a non-negative integer"})
+    if _is_int(lo) and _is_int(hi) and lo > hi:
+        errors.append({"path": f"{path}.min", "message": "min must not exceed max"})
 
 
 def _check_asset(src: Any, path: str, errors: list[dict[str, str]], compiled: Compiled) -> None:
@@ -227,7 +241,7 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
         if etype not in ALL_TYPES:
             errors.append({"path": f"{path}.type", "message": f"unknown type; one of {', '.join(sorted(ALL_TYPES))}"})
             continue
-        if etype != "context" and (not isinstance(el.get("label"), str) or not el["label"].strip()):
+        if (etype != "context" or "label" in el) and (not isinstance(el.get("label"), str) or not el["label"].strip()):
             errors.append({"path": f"{path}.label", "message": "label must be a non-empty string"})
         if "help" in el and not isinstance(el["help"], str):
             errors.append({"path": f"{path}.help", "message": "help must be a string"})
@@ -260,7 +274,7 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
             if "allow_other" in el and not isinstance(el["allow_other"], bool):
                 errors.append({"path": f"{path}.allow_other", "message": "allow_other must be a boolean"})
             if etype == "multi_select":
-                _check_range(el, path, errors, required=False)
+                _check_count_range(el, path, errors)
         elif etype == "scale":
             _check_range(el, path, errors, required=True)
             _check_recommended_number(el, path, errors)
@@ -271,8 +285,10 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
             _check_recommended_number(el, path, errors)
             if "unit" in el and not isinstance(el["unit"], str):
                 errors.append({"path": f"{path}.unit", "message": "unit must be a string"})
-        elif etype == "short_text":
-            if "max_length" in el and not (isinstance(el["max_length"], int) and el["max_length"] > 0):
+        elif etype in ("short_text", "long_text"):
+            if "placeholder" in el and not isinstance(el["placeholder"], str):
+                errors.append({"path": f"{path}.placeholder", "message": "placeholder must be a string"})
+            if etype == "short_text" and "max_length" in el and not (_is_int(el["max_length"]) and el["max_length"] > 0):
                 errors.append({"path": f"{path}.max_length", "message": "max_length must be a positive integer"})
         elif etype == "matrix":
             el["_rows"] = _check_options(el.get("rows"), path, errors, key="rows")
@@ -439,20 +455,33 @@ EXAMPLE: dict[str, Any] = {
     ],
 }
 
-_OPTION_ITEMS = {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["value", "label"],
-                 "properties": {"value": {"type": "string", "minLength": 1}, "label": {"type": "string", "minLength": 1},
-                                "description": {"type": "string"},
-                                "recommended": {"type": "boolean", "description": "badge this option; at most one per single_select; not for ranking"}}}}
-_DETAIL = {"type": "string", "description": "markdown shown in the Compare panel (mermaid, code, alerts allowed); reading only"}
-_DETAIL_OPTIONS = {**_OPTION_ITEMS, "items": {**_OPTION_ITEMS["items"], "properties": {**_OPTION_ITEMS["items"]["properties"], "detail": _DETAIL}}}
+# The schema states every rule `validate_spec` enforces that JSON Schema can express; the rest are
+# named in `$comment`. tests/test_ask_form.py (SchemaConformanceCase) keeps the two agreeing.
+_TEXT = {"type": "string", "pattern": r"\S"}  # the validator strips before checking non-empty
+_OPTION = {"type": "object", "required": ["value", "label"],
+           "properties": {"value": {"type": "string", "minLength": 1}, "label": {"type": "string", "minLength": 1},
+                          "description": {"type": "string"},
+                          "detail": {**_TEXT, "description": "markdown shown in the Compare panel of single_select / multi_select (mermaid, code, alerts allowed); reading only"},
+                          "recommended": {"type": "boolean", "description": "badge this option; at most one per single_select; not for ranking"}}}
+_OPTION_ITEMS = {"type": "array", "minItems": 1, "items": _OPTION}
+_ONE_RECOMMENDED = {"contains": {"type": "object", "required": ["recommended"], "properties": {"recommended": {"const": True}}},
+                    "minContains": 0, "maxContains": 1}
+_RANKING_ITEMS = {**_OPTION_ITEMS, "items": {**_OPTION, "properties": {**_OPTION["properties"], "recommended": {
+    "const": False, "description": "ranking has no recommended option; the given order is the recommendation"}}}}
 _BASE_PROPS = {"id": {"type": "string", "pattern": ID_RE.pattern}, "type": {"type": "string"},
-               "label": {"type": "string", "minLength": 1}, "help": {"type": "string"}, "required": {"type": "boolean"},
-               "recommendation": {"type": "string", "description": "one line: what the agent recommends and why; shown under the help text"}}
+               "label": _TEXT, "help": {"type": "string"}, "required": {"type": "boolean"},
+               "recommendation": {**_TEXT, "description": "one line: what the agent recommends and why; shown under the help text"}}
+_POSITIVE = {"type": "number", "exclusiveMinimum": 0}
+_COUNT = {"type": "integer", "minimum": 0}
 
 
-def _el(type_name: str, props: dict[str, Any], required: list[str] | None = None) -> dict[str, Any]:
+def _el(type_name: str, props: dict[str, Any], required: list[str] | None = None, **extra: Any) -> dict[str, Any]:
     return {"type": "object", "required": ["id", "type"] + (["label"] if type_name != "context" else []) + (required or []),
-            "properties": {**_BASE_PROPS, "type": {"const": type_name}, **props}}
+            "properties": {**_BASE_PROPS, "type": {"const": type_name}, **props}, **extra}
+
+
+def _when_format(formats: list[str], then: dict[str, Any]) -> dict[str, Any]:
+    return {"if": {"required": ["format"], "properties": {"format": {"enum": formats}}}, "then": then}
 
 
 SCHEMA: dict[str, Any] = {
@@ -462,42 +491,51 @@ SCHEMA: dict[str, Any] = {
     "required": ["spec_version", "title", "questions"],
     "properties": {
         "spec_version": {"const": SPEC_VERSION},
-        "title": {"type": "string", "minLength": 1},
+        "title": _TEXT,
         "intro": {"type": "string", "description": "markdown"},
         "submit_label": {"type": "string"},
         "layout": {"enum": list(LAYOUTS), "default": "stack",
                    "description": "a hint only: split suggests the reader's Split view (context beside its questions); the reader owns layout and theme"},
         "questions": {"type": "array", "minItems": 1, "items": {"oneOf": [
             _el("section", {}),
-            _el("context", {"format": {"enum": list(CONTEXT_FORMATS)}, "content": {"type": "string", "description": "markdown, mermaid source, or a unified diff"},
+            _el("context", {"format": {"enum": list(CONTEXT_FORMATS)},
+                            "content": {"type": "string", "description": "markdown, mermaid source, or a unified diff"},
                             "src": {"type": "string", "description": "local image path or http(s) URL"},
-                            "panels": {"type": "array", "minItems": 2, "maxItems": 6, "description": "format tabs: markdown panels",
-                                       "items": {"type": "object", "required": ["label", "content"],
-                                                 "properties": {"label": {"type": "string"}, "content": {"type": "string"}}}},
-                            "collapsed": {"type": "boolean", "default": False, "description": "start folded behind the label"}}, ["format"]),
-            _el("single_select", {"options": _DETAIL_OPTIONS, "allow_other": {"type": "boolean", "default": True}}, ["options"]),
-            _el("multi_select", {"options": _DETAIL_OPTIONS, "allow_other": {"type": "boolean", "default": True},
-                                 "min": {"type": "integer"}, "max": {"type": "integer"}}, ["options"]),
-            _el("scale", {"min": {"type": "number"}, "max": {"type": "number"}, "step": {"type": "number"},
+                            "panels": {"type": "array", "description": "format tabs: 2 to 6 markdown panels"},
+                            "collapsed": {"type": "boolean", "default": False, "description": "start folded behind the label"}}, ["format"],
+                allOf=[
+                    _when_format(["markdown", "mermaid", "diff"], {"required": ["content"], "properties": {"content": {"minLength": 1}}}),
+                    _when_format(["image"], {"required": ["src"], "properties": {"src": {"minLength": 1}}}),
+                    _when_format(["tabs"], {"required": ["panels"], "properties": {"panels": {
+                        "minItems": 2, "maxItems": 6,
+                        "items": {"type": "object", "required": ["label", "content"], "properties": {"label": _TEXT, "content": _TEXT}}}}}),
+                ]),
+            _el("single_select", {"options": {**_OPTION_ITEMS, **_ONE_RECOMMENDED}, "allow_other": {"type": "boolean", "default": True}}, ["options"]),
+            _el("multi_select", {"options": _OPTION_ITEMS, "allow_other": {"type": "boolean", "default": True},
+                                 "min": _COUNT, "max": _COUNT}, ["options"]),
+            _el("scale", {"min": {"type": "number"}, "max": {"type": "number"}, "step": _POSITIVE,
                           "labels": {"type": "object", "additionalProperties": {"type": "string"}},
                           "recommended": {"type": "number", "description": "marked on the slider; never preselected"}}, ["min", "max"]),
-            _el("ranking", {"options": _OPTION_ITEMS}, ["options"]),
+            _el("ranking", {"options": _RANKING_ITEMS}, ["options"]),
             _el("short_text", {"placeholder": {"type": "string"}, "max_length": {"type": "integer", "minimum": 1}}),
             _el("long_text", {"placeholder": {"type": "string"}}),
-            _el("number", {"min": {"type": "number"}, "max": {"type": "number"}, "step": {"type": "number"}, "unit": {"type": "string"},
+            _el("number", {"min": {"type": "number"}, "max": {"type": "number"}, "step": _POSITIVE, "unit": {"type": "string"},
                            "recommended": {"type": "number"}}),
             _el("matrix", {"rows": _OPTION_ITEMS, "columns": _OPTION_ITEMS}, ["rows", "columns"]),
             _el("review", {"items": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["id", "label"],
-                                     "properties": {"id": {"type": "string"}, "label": {"type": "string"}, "description": {"type": "string"},
-                                                    "detail": {"type": "string", "description": "markdown behind a per-item Detail toggle (a diff fence for a change)"},
+                                     "properties": {"id": {"type": "string", "minLength": 1}, "label": {"type": "string", "minLength": 1},
+                                                    "description": {"type": "string"},
+                                                    "detail": {**_TEXT, "description": "markdown behind a per-item Detail toggle (a diff fence for a change)"},
                                                     "recommended": {"type": "string", "description": "one of decisions"}}}},
-                           "decisions": {"type": "array", "minItems": 2, "items": {"type": "string"}, "default": DEFAULT_DECISIONS},
+                           "decisions": {"type": "array", "minItems": 2, "items": {"type": "string", "minLength": 1}, "default": DEFAULT_DECISIONS},
                            "comment": {"type": "boolean", "default": True}}, ["items"]),
         ]}},
     },
     "$comment": "Answers: single_select → string · multi_select → [string] · scale/number → number · ranking → [value] full order · "
                 "short_text/long_text → string · matrix → {row: column} · review → {item: {decision, comment}}. "
-                "Ids answered through 'other' are listed in meta.other; unanswered optional ids in meta.skipped; per-question notes in meta.notes {id: text}; form-level comments in meta.comments; meta.diverged lists answered ids where the user chose against a recommendation.",
+                "Ids answered through 'other' are listed in meta.other; unanswered optional ids in meta.skipped; per-question notes in meta.notes {id: text}; form-level comments in meta.comments; meta.diverged lists answered ids where the user chose against a recommendation. "
+                "--validate also enforces what this schema cannot express: element ids unique; option values, item ids, row and column values unique within their list; "
+                "min ≤ max; a recommended number within min..max; a review item's recommended one of its decisions; a local image src a readable image file.",
 }
 
 
