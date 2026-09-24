@@ -124,8 +124,11 @@ feature owns a subtree **or file** registered here.
     per the Conventions above:
     - `config.toml` — the project's config (the Sections in this catalog).
     - `handoffs/` — the `handoff` skill's journal + inbox.
-    - `asks/` — the `ask-form` skill's records: one markdown file per submitted form
-      (answers, notes, comments, raw JSON). Always-on, no section; `--no-save` skips one.
+    - `asks/` — submitted decisions from `ask-form` and `ask-form-qmd`: one top-level
+      Markdown record per form (context, answers, notes, comments, raw JSON). Always-on,
+      no section; `--no-save` skips one. Quarto forms also keep a companion source,
+      assets, rendering, and result bundle in `asks/_bundles/<ask-id>/`; the Markdown
+      file is its completion marker. Existing plain ask-form records remain unchanged.
     - `artifacts/` — the `rich-document` skill's immutable artifact directories:
       source, manifest, declared image assets, and rendered HTML. Saved by default,
       no config section; explicit `--no-save` uses temporary output. The bundled
@@ -165,6 +168,10 @@ feature owns a subtree **or file** registered here.
     projects the session repo's ego view (outgoing edges, backlinks, compact mentions)
     from `graph.toml`, paths verified via `repos.toml`. Graph absent → readers stay
     silent.
+- The `ask-form-qmd` CLI owns its submitted bundles and transcripts, resolves state with
+  `lb path --json`, and reopens them read-only; format/lifecycle in
+  [its source contract](../../../../experiment/skills/ask-form-qmd/references/source.md).
+  Neither producer's archive is injected at session start.
 - **Trade-off (accepted):** nothing in the repo means nothing travels with a clone —
   config does not follow the repo to another machine. A moved/renamed repo is repaired
   with `lb mv OLD NEW` (`lightbridge doctor` detects the orphan and names the fix).
