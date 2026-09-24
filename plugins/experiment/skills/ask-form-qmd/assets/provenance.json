@@ -1,0 +1,15 @@
+{
+  "copied_from_revision": "18090231f9c5506e6ce639cd85d8190e0693a425",
+  "sha256": {
+    "plugins/experiment/skills/rich-document/assets/theme.css": "31ce3123344a7e62b5628ebc07e37120c9b0057a39051b631acb20e95746ab85",
+    "plugins/experiment/skills/rich-document/assets/theme-dark.scss": "8e01e1599c45312adc70d68bd923fa41988ad74f3d0dc30a996b2ad3b3413d68",
+    "plugins/experiment/skills/rich-document/assets/viewer.css": "3b34e340e61ed104c5a79717a60eb762bf47fffd8609c57fb45cca9112c2fcb0",
+    "plugins/experiment/skills/rich-document/assets/viewer.js": "d8846ee85f58acf9f088b6d7a18d65f8798d1807a9ca4bafbb91c24f6b0553c2",
+    "plugins/experiment/skills/rich-document/assets/restore-code.lua": "b7ea114a822c2c149824d2f18b89da847597a5750f928f2270d37cd42a719f99",
+    "plugins/experiment/skills/rich-document/assets/check_mermaid.ts": "20901b6c91acfa370a5101f45cbe9893338990c148ff7945e7b465adba994317",
+    "plugins/experiment/skills/rich-document/scripts/rd_core.py": "9eacee687d8f92a7ddd796ec609fa373edcdbc32a968d81706b9b5d6fd252473",
+    "plugins/experiment/skills/rich-document/scripts/rd_viewer.py": "1bf20f6afd8e2bc3abf56923048f61e0ae5765c2b9c358cfb5ad63c0919c1077",
+    "plugins/productivity/skills/ask-form/scripts/ask_form.py": "d541d929e7562f020b8d2415302222965923f7e6aa214e0ddbe2d290352c05f4"
+  },
+  "policy": "Independent maintained copies; no runtime sibling dependencies."
+}

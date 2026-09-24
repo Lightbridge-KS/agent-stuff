@@ -1,0 +1,3 @@
+interface:
+  display_name: "Ask Form QMD"
+  short_description: "Collect decisions through rich Quarto forms"

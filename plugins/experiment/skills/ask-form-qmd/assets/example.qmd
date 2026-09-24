@@ -1,0 +1,139 @@
+---
+title: Review a document-led form
+subtitle: Native controls with rich context
+form:
+  version: 1
+---
+
+## The proposal
+
+Keep reading context and explicit decisions in one document. Recommendations are
+visible; no answer is chosen automatically.
+
+```{mermaid}
+flowchart LR
+  A[Read context] --> B[Choose answers]
+  B --> C[Validate and record]
+```
+
+::: {.panel-tabset}
+### Document
+
+Quarto supplies readable prose, code, comparisons, and diagrams.
+
+### Collection
+
+```{mermaid}
+flowchart LR
+  A[Native controls] -->|JSON| B[Local receiver]
+```
+:::
+
+```{ask}
+id: direction
+type: single_select
+label: Which direction should proceed?
+required: true
+options:
+  - value: native
+    label: Quarto and native controls
+    recommended: true
+    detail: |
+      Keep **structured answers** beside rich context.
+
+      ```python
+      result = collect_answers()
+      ```
+  - value: current
+    label: Keep the current form
+    description: Avoid adding a document compiler.
+recommendation: Native controls fit longer technical reviews.
+```
+
+```{ask}
+id: priorities
+type: multi_select
+label: What matters most?
+min: 1
+max: 3
+options:
+  - {value: clarity, label: Clarity, recommended: true}
+  - {value: offline, label: Offline use}
+  - {value: speed, label: Speed}
+```
+
+## Practical details
+
+```{ask}
+id: confidence
+type: scale
+label: How promising is the approach?
+min: 1
+max: 5
+step: 1
+recommended: 4
+```
+
+```{ask}
+id: budget
+type: number
+label: Time budget
+unit: minutes
+min: 5
+max: 120
+step: 5
+```
+
+```{ask}
+id: order
+type: ranking
+label: Order the priorities
+options:
+  - {value: clarity, label: Clarity}
+  - {value: speed, label: Speed}
+  - {value: flexibility, label: Flexibility}
+```
+
+```{ask}
+id: title
+type: short_text
+label: Give the experiment a name
+max_length: 80
+```
+
+```{ask}
+id: reasoning
+type: long_text
+label: Explain the reasoning
+placeholder: What works? What should change?
+```
+
+## Acceptance
+
+```{ask}
+id: fit
+type: matrix
+label: Where does the approach fit?
+rows:
+  - {value: quick, label: Quick decisions}
+  - {value: detailed, label: Detailed reviews}
+columns:
+  - {value: "yes", label: Good fit}
+  - {value: maybe, label: Maybe}
+  - {value: poor, label: Poor fit}
+```
+
+```{ask}
+id: review
+type: review
+label: Review the direction
+items:
+  - id: renderer
+    label: Use Quarto for rich context
+    recommended: approve
+  - id: archive
+    label: Keep one decision archive
+    recommended: approve
+    detail: |
+      The Markdown transcript and its companion bundle stay together.
+```

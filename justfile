@@ -44,6 +44,7 @@ test:
     uv run tests/test_deidentify.py
     uv run tests/test_ask_form.py
     uv run tests/test_rich_document.py
+    uv run tests/test_ask_form_qmd.py
 
 # Real Quarto + loopback viewer acceptance (browser interaction checked separately).
 test-rich-document-live:
@@ -56,3 +57,7 @@ test-rich-document-browser:
 # Remove build artifacts
 clean:
     rm -rf dist
+
+# Real Quarto compilation and isolated-package acceptance.
+test-ask-form-qmd-live:
+    ASK_QMD_LIVE=1 uv run tests/test_ask_form_qmd.py

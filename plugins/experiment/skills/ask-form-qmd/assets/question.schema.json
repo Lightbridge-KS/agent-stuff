@@ -1,0 +1,607 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ask-form-qmd question v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "label",
+        "options"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "type": {
+          "const": "single_select"
+        },
+        "label": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "help": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "recommendation": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "one line: what the agent recommends and why; shown with the question"
+        },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "value",
+              "label"
+            ],
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "constrained rich Markdown in an expandable detail block; reading only"
+              },
+              "recommended": {
+                "type": "boolean",
+                "description": "badge this option; at most one per single_select; not for ranking"
+              }
+            },
+            "additionalProperties": false
+          },
+          "contains": {
+            "type": "object",
+            "required": [
+              "recommended"
+            ],
+            "properties": {
+              "recommended": {
+                "const": true
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        "allow_other": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "label",
+        "options"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "type": {
+          "const": "multi_select"
+        },
+        "label": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "help": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "recommendation": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "one line: what the agent recommends and why; shown with the question"
+        },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "value",
+              "label"
+            ],
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "constrained rich Markdown in an expandable detail block; reading only"
+              },
+              "recommended": {
+                "type": "boolean",
+                "description": "badge this option; at most one per single_select; not for ranking"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "allow_other": {
+          "type": "boolean",
+          "default": true
+        },
+        "min": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "label",
+        "min",
+        "max"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "type": {
+          "const": "scale"
+        },
+        "label": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "help": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "recommendation": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "one line: what the agent recommends and why; shown with the question"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "step": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "recommended": {
+          "type": "number",
+          "description": "marked on the slider; never preselected"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "label",
+        "options"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "type": {
+          "const": "ranking"
+        },
+        "label": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "help": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "recommendation": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "one line: what the agent recommends and why; shown with the question"
+        },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "value",
+              "label"
+            ],
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "constrained rich Markdown in an expandable detail block; reading only"
+              },
+              "recommended": {
+                "const": false,
+                "description": "ranking has no recommended option; the given order is the recommendation"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "label"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "type": {
+          "const": "short_text"
+        },
+        "label": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "help": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "recommendation": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "one line: what the agent recommends and why; shown with the question"
+        },
+        "placeholder": {
+          "type": "string"
+        },
+        "max_length": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "label"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "type": {
+          "const": "long_text"
+        },
+        "label": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "help": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "recommendation": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "one line: what the agent recommends and why; shown with the question"
+        },
+        "placeholder": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "label"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "type": {
+          "const": "number"
+        },
+        "label": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "help": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "recommendation": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "one line: what the agent recommends and why; shown with the question"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "step": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "unit": {
+          "type": "string"
+        },
+        "recommended": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "label",
+        "rows",
+        "columns"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "type": {
+          "const": "matrix"
+        },
+        "label": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "help": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "recommendation": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "one line: what the agent recommends and why; shown with the question"
+        },
+        "rows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "value",
+              "label"
+            ],
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "constrained rich Markdown in an expandable detail block; reading only"
+              },
+              "recommended": {
+                "type": "boolean",
+                "description": "badge this option; at most one per single_select; not for ranking"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "value",
+              "label"
+            ],
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "constrained rich Markdown in an expandable detail block; reading only"
+              },
+              "recommended": {
+                "type": "boolean",
+                "description": "badge this option; at most one per single_select; not for ranking"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "label",
+        "items"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "type": {
+          "const": "review"
+        },
+        "label": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "help": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "recommendation": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "one line: what the agent recommends and why; shown with the question"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "label"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "markdown behind a per-item Detail toggle (a diff fence for a change)"
+              },
+              "recommended": {
+                "type": "string",
+                "description": "one of decisions"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "decisions": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [
+            "approve",
+            "revise",
+            "reject"
+          ]
+        },
+        "comment": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

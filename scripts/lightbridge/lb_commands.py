@@ -395,7 +395,7 @@ def cmd_status(
             print(row("sections", f"[{name}]  (unknown — not in the catalog)"))
     print(row("state", f"handoffs {state['handoffs']} + {state['inbox']} inbox — handoff.py"))
     print(row("state", f"plans {state['plans']} — plan_store.py"))
-    print(row("state", f"asks {state['asks']} — ask_form.py"))
+    print(row("state", f"asks {state['asks']} — ask-form / ask-form-qmd"))
     print(
         row(
             "registry",

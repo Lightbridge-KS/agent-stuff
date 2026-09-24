@@ -1,0 +1,54 @@
+body {
+  --document-bg: #f6f5f1;
+  --document-text: #25333c;
+  --document-heading: #173f49;
+  --document-muted: #63777d;
+  --document-surface: #fff;
+  --document-border: #d9e1df;
+  --document-accent: #278078;
+  background: var(--document-bg);
+  color: var(--document-text);
+  color-scheme: light;
+}
+body.quarto-dark {
+  --document-bg: #080808;
+  --document-text: #d7e3e7;
+  --document-heading: #b5ded8;
+  --document-muted: #a6b8c0;
+  --document-surface: #151515;
+  --document-border: #303030;
+  --document-accent: #73c6b8;
+  color-scheme: dark;
+}
+#quarto-content { max-width: 1280px; margin: auto; }
+#title-block-header { padding: 2.2rem 0 1.4rem; border-bottom: 3px solid var(--document-accent); }
+h1, h2, h3 { color: var(--document-heading); }
+h1.title { font-weight: 700; letter-spacing: -0.035em; }
+.subtitle { color: var(--document-muted); }
+div.callout { background: var(--document-surface); border-radius: 8px; }
+.panel-tabset { margin: 1.4rem 0; }
+.tab-content { background: var(--document-surface); padding: 1.2rem; border: 1px solid var(--document-border); }
+.mermaid { background: var(--document-surface); padding: 1rem; border-radius: 10px; }
+/* Mermaid's generated label background otherwise retains its light default. */
+.edgeLabel .labelBkg, .edgeLabel p { background: var(--document-bg) !important; }
+#quarto-margin-sidebar { padding-top: 3.5rem; }
+.quarto-color-scheme-toggle.top-right {
+  position: fixed;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  min-width: 44px;
+  min-height: 44px;
+  padding: .3rem .8rem;
+  border: 1px solid var(--document-border);
+  border-radius: 999px;
+  background: var(--document-surface);
+  color: var(--document-heading);
+  opacity: 1;
+  z-index: 20;
+  text-decoration: none;
+}
+.quarto-color-scheme-toggle.top-right::after { content: "Theme"; font-size: .85rem; }
+.quarto-color-scheme-toggle:focus-visible { outline: 3px solid var(--document-accent); outline-offset: 3px; }
+@media (max-width: 640px) { .columns { display: block; } .column { width: 100% !important; } }
