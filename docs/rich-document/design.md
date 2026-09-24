@@ -174,7 +174,7 @@ or two columns within the article, not an additional site shell.
 
 **Accepted 2026-09-21 — visual direction:** retain the preview's light article theme.
 Add a matching dark theme with an always-available theme toggle in the viewer
-chrome. Use Quarto's native light/dark theme mechanism, including adaptive code
+chrome, fixed at the top right while scrolling. Use Quarto's native light/dark theme mechanism, including adaptive code
 highlighting and diagram styling; theme switching must not reset tabs or panels.
 Initially follow the browser/OS color preference, then remember an explicit
 choice when browser storage is available. The preference belongs to the viewer,

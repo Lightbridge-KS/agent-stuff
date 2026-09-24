@@ -24,7 +24,7 @@ import yaml
 SKILL = Path(__file__).resolve().parent.parent
 ASSETS = SKILL / "assets"
 ENGINE_VERSION = "1.9.38"
-VIEWER_VERSION = "2026-09-22"
+VIEWER_VERSION = "2026-09-24"
 MAX_SOURCE = 1_000_000
 MAX_ASSET = 10_000_000
 MAX_ASSETS = 20_000_000
