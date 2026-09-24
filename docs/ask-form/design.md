@@ -202,6 +202,7 @@ fields) — GFM dialect so the record also renders on GitHub and Obsidian:
 | other code fence | language label, Copy, highlight.js colours on the glass tokens |
 | `> [!NOTE]` `TIP` `IMPORTANT` `WARNING` `CAUTION` | callout |
 | `<details><summary>` | collapsible block |
+| GFM table | quiet full grid using theme borders; the table scrolls within its own outlined region when wide |
 
 **Catalog additions** (all optional):
 
