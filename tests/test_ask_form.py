@@ -1,11 +1,12 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = []
+# dependencies = ["jsonschema>=4.23"]
 # ///
 """Behavioral tests for the ask-form skill's bundled CLI (`ask_form.py`).
 
-The validator is exercised through the real process (`--validate`, `--example`, `--schema`);
+The validator is exercised through the real process (`--validate`, `--example`, `--schema`),
+and `--schema` is held to agree with it case by case (the CLI itself stays stdlib-only);
 the server is started with `--no-open`, its URL read from the first stderr line, and driven
 over HTTP with urllib exactly as the browser page would be — token scope, route contract,
 answer validation, the terminal state machine (submit / cancel / timeout, first writer wins)
@@ -16,6 +17,7 @@ and stdout purity (one JSON document per run, every exit path).
 from __future__ import annotations
 
 import contextlib
+import copy
 import hashlib
 import importlib.util
 import io
@@ -256,6 +258,96 @@ class ValidatorCase(unittest.TestCase):
             os.close(slave)
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertIn("terminal", json.loads(r.stdout)["errors"][0]["message"])
+
+
+ONE_REC = [{"value": "a", "label": "A", "recommended": True}, {"value": "b", "label": "B"}]
+TWO_REC = [{"value": "a", "label": "A", "recommended": True}, {"value": "b", "label": "B", "recommended": True}]
+PANELS = [{"label": "Now", "content": "x"}, {"label": "Then", "content": "y"}]
+
+# (case, spec, both must accept?) — every rule JSON Schema can express, on both sides of it.
+AGREEMENT_CASES = [
+    ("multi_select counts", spec(q("multi_select", options=OPTS, min=0, max=2)), True),
+    ("multi_select fractional min", spec(q("multi_select", options=OPTS, min=1.5)), False),
+    ("multi_select negative max", spec(q("multi_select", options=OPTS, max=-1)), False),
+    ("multi_select boolean min", spec(q("multi_select", options=OPTS, min=True)), False),
+    ("multi_select two recommended", spec(q("multi_select", options=TWO_REC)), True),
+    ("single_select one recommended", spec(q("single_select", options=ONE_REC)), True),
+    ("single_select two recommended", spec(q("single_select", options=TWO_REC)), False),
+    ("ranking recommended false", spec(q("ranking", options=[{**OPTS[0], "recommended": False}, OPTS[1]])), True),
+    ("ranking recommended true", spec(q("ranking", options=ONE_REC)), False),
+    ("option detail blank", spec(q("single_select", options=[{**OPTS[0], "detail": "  "}, OPTS[1]])), False),
+    ("matrix row detail", spec(q("matrix", rows=[{**OPTS[0], "detail": "x"}], columns=OPTS)), True),
+    ("option label empty", spec(q("ranking", options=[{"value": "a", "label": ""}])), False),
+    ("title blank", spec(q("short_text"), title="   "), False),
+    ("label blank", spec(q("short_text", label="   ")), False),
+    ("recommendation blank", spec(q("short_text", recommendation="  ")), False),
+    ("short_text boolean max_length", spec(q("short_text", max_length=True)), False),
+    ("short_text placeholder", spec(q("short_text", placeholder="p")), True),
+    ("long_text placeholder not text", spec(q("long_text", placeholder=5)), False),
+    ("scale fractional step", spec(q("scale", min=0, max=1, step=0.25)), True),
+    ("scale zero step", spec(q("scale", min=0, max=1, step=0)), False),
+    ("number negative step", spec(q("number", step=-1)), False),
+    ("number unbounded", spec(q("number")), True),
+    ("context markdown", spec(q("context", format="markdown", content="x")), True),
+    ("context markdown no content", spec(q("context", format="markdown")), False),
+    ("context mermaid empty content", spec(q("context", format="mermaid", content="")), False),
+    ("context image url", spec(q("context", format="image", src="https://example.com/a.png")), True),
+    ("context image no src", spec(q("context", format="image")), False),
+    ("context tabs", spec(q("context", format="tabs", panels=PANELS)), True),
+    ("context tabs no panels", spec(q("context", format="tabs")), False),
+    ("context tabs one panel", spec(q("context", format="tabs", panels=PANELS[:1])), False),
+    ("context tabs blank panel", spec(q("context", format="tabs", panels=[PANELS[0], {"label": "B", "content": " "}])), False),
+    ("context without label", spec({"id": "c", "type": "context", "format": "markdown", "content": "x"}), True),
+    ("context empty label", spec(q("context", format="markdown", content="x", label="")), False),
+    ("review custom decisions", spec(q("review", items=[{"id": "i", "label": "I", "recommended": "yes"}], decisions=["yes", "no"])), True),
+    ("review empty item id", spec(q("review", items=[{"id": "", "label": "I"}])), False),
+    ("review empty decision", spec(q("review", items=[{"id": "i", "label": "I"}], decisions=["ok", ""])), False),
+    ("review blank detail", spec(q("review", items=[{"id": "i", "label": "I", "detail": " "}])), False),
+]
+
+# Rules only `--validate` can check; the schema's `$comment` names each of them.
+VALIDATOR_ONLY_CASES = [
+    ("duplicate element id", spec(q("short_text"), q("long_text"))),
+    ("duplicate option value", spec(q("single_select", options=[OPTS[0], {**OPTS[1], "value": "a"}]))),
+    ("min above max", spec(q("number", min=5, max=1))),
+    ("recommended outside range", spec(q("scale", min=1, max=5, recommended=9))),
+    ("review recommended not a decision", spec(q("review", items=[{"id": "i", "label": "I", "recommended": "maybe"}]))),
+    ("unreadable image src", spec(q("context", format="image", src="/definitely/missing.png"))),
+]
+
+
+class SchemaConformanceCase(unittest.TestCase):
+    """`--schema` is the documented single source of truth for fields: it must agree with `--validate`."""
+
+    @classmethod
+    def setUpClass(cls):
+        import jsonschema
+
+        r = run("--schema")
+        assert r.returncode == 0, r.stderr
+        cls.schema = json.loads(r.stdout)
+        jsonschema.Draft202012Validator.check_schema(cls.schema)
+        cls.checker = jsonschema.Draft202012Validator(cls.schema)
+
+    def verdicts(self, body: dict) -> tuple[bool, bool]:
+        errors, _ = ASK_FORM.validate_spec(copy.deepcopy(body))  # the validator annotates the spec it checks
+        return self.checker.is_valid(body), not errors
+
+    def test_example_conforms_to_schema(self):
+        example = json.loads(run("--example").stdout)
+        self.assertEqual([e.message for e in self.checker.iter_errors(example)], [])
+
+    def test_schema_and_validator_agree(self):
+        for name, body, ok in AGREEMENT_CASES:
+            with self.subTest(case=name):
+                self.assertEqual(self.verdicts(body), (ok, ok), "(schema, validator)")
+
+    def test_validator_only_rules_are_named_in_the_schema(self):
+        for name, body in VALIDATOR_ONLY_CASES:
+            with self.subTest(case=name):
+                self.assertEqual(self.verdicts(body), (True, False), "(schema, validator)")
+        for phrase in ("ids unique", "values unique", "min ≤ max", "within min..max", "one of its decisions", "readable image file"):
+            self.assertIn(phrase, self.schema["$comment"])
 
 
 class ServerCase(unittest.TestCase):
