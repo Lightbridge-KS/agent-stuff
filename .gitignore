@@ -15,3 +15,5 @@ _temp/
 
 # Build output (packaged skill archives)
 dist/
+
+/.luarc.json
