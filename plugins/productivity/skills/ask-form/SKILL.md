@@ -7,7 +7,7 @@ description: >-
   form on 127.0.0.1, opens the browser, and returns the answers as JSON. Also on request
   ("use the form", "ask me with a form"). Needs a machine with a browser.
 metadata:
-  version: "2026-09-23"
+  version: "2026-09-24"
 ---
 
 # ask-form
@@ -59,8 +59,9 @@ notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2
 2. **Draft the spec** (run `--example` if unsure of the shape). Compose well:
    - ≤ 8 elements; one decision per question; `required` only where an unanswered question blocks you.
    - Put a `context` pane directly before the question it informs. Every markdown field (`intro`,
-     `help`, `context`, `detail`) renders rich GFM: ```` ```mermaid ```` diagrams, highlighted code
-     with Copy, ```` ```diff ```` blocks, `> [!NOTE]` / `[!WARNING]` callouts, `<details>` folds.
+     `help`, `context`, `detail`) renders rich GFM: outlined tables, ```` ```mermaid ```` diagrams,
+     highlighted code with Copy, ```` ```diff ```` blocks, `> [!NOTE]` / `[!WARNING]` callouts,
+     `<details>` folds.
    - When the explanation *is* the choice, put it on the options: `options[].detail` (markdown) turns
      into a Compare panel (tabs; side by side for two). Keep `description` to one line.
    - A code change to approve: a `diff` context, or `review.items[].detail` with a diff fence per hunk.

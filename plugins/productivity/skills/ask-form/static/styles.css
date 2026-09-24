@@ -130,6 +130,16 @@ h1 {
 .prose pre code { background: none; padding: 0; }
 .prose a { color: var(--blue); }
 .prose h1, .prose h2, .prose h3 { font-size: 1.05em; margin: 0.8em 0 0.3em; }
+.prose .md-table-scroll {
+  max-width: 100%; overflow-x: auto; margin: 0.6em 0;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-control);
+}
+.prose .md-table-scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.prose .md-table-scroll table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.prose .md-table-scroll :is(th, td) { padding: 8px 12px; vertical-align: top; border-bottom: 1px solid var(--line); }
+.prose .md-table-scroll :is(th, td):not(:last-child) { border-right: 1px solid var(--line); }
+.prose .md-table-scroll thead { background: var(--control); }
+.prose .md-table-scroll tbody tr:last-child > * { border-bottom: 0; }
 
 /* ── rich prose (rich.js): code, callouts, details, diagrams ── */
 

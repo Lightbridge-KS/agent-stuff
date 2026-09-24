@@ -124,6 +124,11 @@
     for (const a of box.querySelectorAll("a")) { a.target = "_blank"; a.rel = "noopener noreferrer"; }
     for (const q of [...box.querySelectorAll("blockquote")]) enhanceAlert(q);
     for (const pre of [...box.querySelectorAll("pre")]) enhanceCode(pre);
+    for (const table of [...box.querySelectorAll("table")]) {
+      const scroll = el("div", { class: "md-table-scroll", tabindex: "0", "aria-label": "Scrollable table" });
+      table.replaceWith(scroll);
+      scroll.append(table);
+    }
     return box;
   };
 
