@@ -33,6 +33,7 @@ div.callout { background: var(--document-surface); border-radius: 8px; }
 .edgeLabel .labelBkg, .edgeLabel p { background: var(--document-bg) !important; }
 #quarto-margin-sidebar { padding-top: 3.5rem; }
 .quarto-color-scheme-toggle.top-right {
+  position: fixed;
   display: inline-flex;
   align-items: center;
   justify-content: center;
