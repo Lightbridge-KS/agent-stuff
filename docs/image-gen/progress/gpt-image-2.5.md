@@ -38,7 +38,7 @@ Decisions (KS, 2026-09-26):
 - [x] `uv run bin/validate.py` + `uv run tests/test_imagegen.py` green — 2026-09-26
 - [x] `just test` (whole suite, 22 files) green — 2026-09-26
 - [x] Live smoke (user-approved, sandbox-disabled `lb key run openai-image-gen -- …`) — 2026-09-26, see below
-- [ ] Landed
+- [X] Landed
 
 ## Live smoke
 
