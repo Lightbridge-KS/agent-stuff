@@ -84,6 +84,18 @@ does not mean a person has read it. Source/render warnings must not be silently
 converted into success. Mermaid syntax needs explicit checking because browser
 rendering can fail after the HTML build succeeds.
 
+### Choosing the rung
+
+The skill owns the whole ladder, not only its top rung. A chat answer carries
+prose or one plain-text shape (pseudocode, call tree, surface tree, file tree, or
+a `diff` of one); the skill's `references/shapes.md` is that catalog, adapted from
+HumanLayer's `show-me`. A rich document is warranted when a Mermaid diagram earns
+its place, since a terminal cannot render one, or when two of these hold: a
+comparison wanting tabs or columns, detail worth collapsing, length beyond a
+terminal screen, or a reader who will return to it. The catalog's blocks map onto
+the shapes: a tabset compares variants of one thing, columns pair two things, a
+collapsed callout holds a caveat. **Accepted 2026-09-26.**
+
 ### Authoring profile
 
 Use Quarto's Markdown syntax without exposing its entire execution/configuration
