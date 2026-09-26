@@ -64,6 +64,7 @@ DISPLAY_TYPES = {"section", "context"}
 CONTEXT_FORMATS = ("markdown", "mermaid", "image", "tabs", "diff")
 LAYOUTS = ("stack", "split")
 OPTION_TYPES = {"single_select", "multi_select", "ranking"}
+MATRIX_KEYS = ("rows", "columns")
 ANSWER_TYPES = OPTION_TYPES | {"scale", "short_text", "long_text", "number", "matrix", "review"}
 ALL_TYPES = DISPLAY_TYPES | ANSWER_TYPES
 DEFAULT_DECISIONS = ["approve", "revise", "reject"]
@@ -93,6 +94,11 @@ def _is_int(v: Any) -> bool:
     return isinstance(v, int) and not isinstance(v, bool)
 
 
+def _objects(v: Any) -> list[tuple[int, dict[str, Any]]]:
+    """(index, entry) for each object in a list; nothing for a malformed one (already reported)."""
+    return [(j, o) for j, o in enumerate(v) if isinstance(o, dict)] if isinstance(v, list) else []
+
+
 def _check_options(opts: Any, path: str, errors: list[dict[str, str]], key: str = "options") -> list[str]:
     """Validate an option/item/row/column list; return its values."""
     if not isinstance(opts, list) or not opts:
@@ -106,7 +112,7 @@ def _check_options(opts: Any, path: str, errors: list[dict[str, str]], key: str 
             continue
         vkey = "id" if key == "items" else "value"
         v, label = o.get(vkey), o.get("label")
-        if key != "items" and "recommended" in o and not isinstance(o["recommended"], bool):
+        if key == "options" and "recommended" in o and not isinstance(o["recommended"], bool):
             errors.append({"path": f"{p}.recommended", "message": "recommended must be a boolean"})
         if not isinstance(v, str) or not v:
             errors.append({"path": f"{p}.{vkey}", "message": f"{vkey} must be a non-empty string"})
@@ -118,7 +124,9 @@ def _check_options(opts: Any, path: str, errors: list[dict[str, str]], key: str 
             errors.append({"path": f"{p}.label", "message": "label must be a non-empty string"})
         if "description" in o and not isinstance(o["description"], str):
             errors.append({"path": f"{p}.description", "message": "description must be a string"})
-        if "detail" in o and not (isinstance(o["detail"], str) and o["detail"].strip()):
+        if "detail" in o and key in MATRIX_KEYS:
+            errors.append({"path": f"{p}.detail", "message": "a matrix row or column takes no detail; explain it in a context pane before the matrix"})
+        elif "detail" in o and not (isinstance(o["detail"], str) and o["detail"].strip()):
             errors.append({"path": f"{p}.detail", "message": "detail must be a non-empty markdown string"})
     return values
 
@@ -198,6 +206,8 @@ def diverged_ids(answers: dict[str, Any], compiled: Compiled) -> list[str]:
             same = isinstance(val, list) and set(val) == set(rec)
         elif t == "review":
             same = isinstance(val, dict) and all(val.get(i, {}).get("decision") == d for i, d in rec.items())
+        elif t == "matrix":
+            same = isinstance(val, dict) and all(val.get(r) == c for r, c in rec.items())
         else:
             same = val == rec
         if not same:
@@ -264,7 +274,7 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
                 errors.append({"path": f"{path}.content", "message": "content must be a non-empty string"})
         elif etype in OPTION_TYPES:
             el["_values"] = _check_options(el.get("options"), path, errors)
-            recs = [o["value"] for o in el.get("options", []) if isinstance(o, dict) and o.get("recommended") is True and isinstance(o.get("value"), str)]
+            recs = [o["value"] for _, o in _objects(el.get("options")) if o.get("recommended") is True and isinstance(o.get("value"), str)]
             if etype == "single_select" and len(recs) > 1:
                 errors.append({"path": f"{path}.options", "message": "single_select may mark at most one option recommended"})
             if etype == "ranking" and recs:
@@ -293,6 +303,18 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
         elif etype == "matrix":
             el["_rows"] = _check_options(el.get("rows"), path, errors, key="rows")
             el["_cols"] = _check_options(el.get("columns"), path, errors, key="columns")
+            for j, col in _objects(el.get("columns")):
+                if "recommended" in col:
+                    errors.append({"path": f"{path}.columns[{j}].recommended", "message": "a column is not recommended; set rows[].recommended to the column you recommend for that row"})
+            recmap = {}
+            for j, row in _objects(el.get("rows")):
+                if "recommended" in row:
+                    if row["recommended"] not in el["_cols"]:
+                        errors.append({"path": f"{path}.rows[{j}].recommended", "message": f"recommended must be one of the column values: {', '.join(el['_cols'])}"})
+                    elif isinstance(row.get("value"), str):
+                        recmap[row["value"]] = row["recommended"]
+            if recmap:
+                el["_recommended"] = recmap
         elif etype == "review":
             el["_items"] = _check_options(el.get("items"), path, errors, key="items")
             decisions = el.get("decisions", DEFAULT_DECISIONS)
@@ -302,8 +324,8 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
                 errors.append({"path": f"{path}.comment", "message": "comment must be a boolean"})
             if isinstance(decisions, list):
                 recmap = {}
-                for j, it in enumerate(el.get("items", [])):
-                    if isinstance(it, dict) and "recommended" in it:
+                for j, it in _objects(el.get("items")):
+                    if "recommended" in it:
                         if it["recommended"] not in decisions:
                             errors.append({"path": f"{path}.items[{j}].recommended", "message": f"recommended must be one of {', '.join(map(str, decisions))}"})
                         elif isinstance(it.get("id"), str):
@@ -443,9 +465,12 @@ EXAMPLE: dict[str, Any] = {
         {"id": "s_review", "type": "section", "label": "Review"},
         {"id": "ctx_diagram", "type": "context", "format": "mermaid",
          "content": "flowchart LR\n  A[agent] -->|spec.json| B[ask_form.py]\n  B -->|serves| C[browser]\n  C -->|answers| B\n  B -->|stdout| A"},
-        {"id": "fit", "type": "matrix", "label": "Rate each component on each axis",
-         "rows": [{"value": "cli", "label": "CLI"}, {"value": "renderer", "label": "Renderer"}],
-         "columns": [{"value": "good", "label": "Good"}, {"value": "ok", "label": "OK"}, {"value": "bad", "label": "Bad"}]},
+        {"id": "fit", "type": "matrix", "label": "Rate each component",
+         "recommendation": "The CLI is covered by tests; the renderer has no automated check yet.",
+         "rows": [{"value": "cli", "label": "CLI", "description": "Validates, serves, prints JSON.", "recommended": "good"},
+                  {"value": "renderer", "label": "Renderer", "description": "One glass card per element."}],
+         "columns": [{"value": "good", "label": "Good"}, {"value": "ok", "label": "OK", "description": "needs polish"},
+                     {"value": "bad", "label": "Bad"}]},
         {"id": "ctx_change", "type": "context", "format": "diff", "label": "The change under review", "collapsed": True,
          "content": "--- a/SKILL.md\n+++ b/SKILL.md\n@@ -1 +1 @@\n-name: ask\n+name: ask-form"},
         {"id": "decisions", "type": "review", "label": "Decide on each item",
@@ -471,6 +496,15 @@ _RANKING_ITEMS = {**_OPTION_ITEMS, "items": {**_OPTION, "properties": {**_OPTION
 _BASE_PROPS = {"id": {"type": "string", "pattern": ID_RE.pattern}, "type": {"type": "string"},
                "label": _TEXT, "help": {"type": "string"}, "required": {"type": "boolean"},
                "recommendation": {**_TEXT, "description": "one line: what the agent recommends and why; shown under the help text"}}
+_NOT_IN_MATRIX = {"not": {}, "description": "not rendered in a matrix; explain in a context pane before it"}
+_MATRIX_ROWS = {**_OPTION_ITEMS, "items": {**_OPTION, "properties": {
+    **_OPTION["properties"], "description": {"type": "string", "description": "one line under the row label"},
+    "detail": _NOT_IN_MATRIX,
+    "recommended": {"type": "string", "minLength": 1, "description": "the column value recommended for this row; badged, never preselected"}}}}
+_MATRIX_COLUMNS = {**_OPTION_ITEMS, "items": {**_OPTION, "properties": {
+    **_OPTION["properties"], "description": {"type": "string", "description": "a few words under the column header"},
+    "detail": _NOT_IN_MATRIX,
+    "recommended": {"not": {}, "description": "recommend per row instead: rows[].recommended"}}}}
 _POSITIVE = {"type": "number", "exclusiveMinimum": 0}
 _COUNT = {"type": "integer", "minimum": 0}
 
@@ -521,7 +555,7 @@ SCHEMA: dict[str, Any] = {
             _el("long_text", {"placeholder": {"type": "string"}}),
             _el("number", {"min": {"type": "number"}, "max": {"type": "number"}, "step": _POSITIVE, "unit": {"type": "string"},
                            "recommended": {"type": "number"}}),
-            _el("matrix", {"rows": _OPTION_ITEMS, "columns": _OPTION_ITEMS}, ["rows", "columns"]),
+            _el("matrix", {"rows": _MATRIX_ROWS, "columns": _MATRIX_COLUMNS}, ["rows", "columns"]),
             _el("review", {"items": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["id", "label"],
                                      "properties": {"id": {"type": "string", "minLength": 1}, "label": {"type": "string", "minLength": 1},
                                                     "description": {"type": "string"},
@@ -535,7 +569,8 @@ SCHEMA: dict[str, Any] = {
                 "short_text/long_text → string · matrix → {row: column} · review → {item: {decision, comment}}. "
                 "Ids answered through 'other' are listed in meta.other; unanswered optional ids in meta.skipped; per-question notes in meta.notes {id: text}; form-level comments in meta.comments; meta.diverged lists answered ids where the user chose against a recommendation. "
                 "--validate also enforces what this schema cannot express: element ids unique; option values, item ids, row and column values unique within their list; "
-                "min ≤ max; a recommended number within min..max; a review item's recommended one of its decisions; a local image src a readable image file.",
+                "min ≤ max; a recommended number within min..max; a review item's recommended one of its decisions; "
+                "a matrix row's recommended one of its column values; a local image src a readable image file.",
 }
 
 
@@ -767,8 +802,13 @@ def _answer_md(el: dict[str, Any], val: Any, is_other: bool) -> str:
     if t == "number":
         return f"{val} {el['unit']}" if el.get("unit") else str(val)
     if t == "matrix":
-        rows, cols = _labels(el, "rows"), _labels(el, "columns")
-        return "\n" + "\n".join(f"- {rows.get(r, r)} → {cols.get(c, c)}" for r, c in val.items())
+        rows, cols = {r.get("value"): r for _, r in _objects(el.get("rows"))}, _labels(el, "columns")
+        lines = []
+        for r, c in val.items():
+            row = rows.get(r, {})
+            desc = str(row.get("description") or "").strip()
+            lines.append(f"- {row.get('label', r)} → {cols.get(c, c)}" + (f" — _{desc}_" if desc else ""))
+        return "\n" + "\n".join(lines)
     if t == "review":
         items = _labels(el, "items")
         lines = []
@@ -792,6 +832,10 @@ def _recommended_md(el: dict[str, Any]) -> str | None:
     if t == "review":
         recs = [(it.get("label"), it["recommended"]) for it in el.get("items", []) if isinstance(it, dict) and "recommended" in it]
         return ", ".join(f"{lab}: {d}" for lab, d in recs) if recs else None
+    if t == "matrix":
+        cols = _labels(el, "columns")
+        recs = [(r.get("label"), cols.get(r["recommended"], r["recommended"])) for _, r in _objects(el.get("rows")) if "recommended" in r]
+        return ", ".join(f"{lab}: {c}" for lab, c in recs) if recs else None
     return None
 
 

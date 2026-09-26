@@ -224,6 +224,23 @@ class ValidatorCase(unittest.TestCase):
         self.assert_valid(spec(q("review", items=[{"id": "i", "label": "I", "detail": "```diff\n-a\n+b\n```"}])))
         self.assert_invalid(spec(q("review", items=[{"id": "i", "label": "I", "detail": 3}])), "items[0].detail")
 
+    def test_matrix_row_and_column_fields(self):
+        """A matrix row takes a description and recommends a column; anything the page drops is rejected."""
+        rows = [{"value": "push", "label": "git push", "description": "Publishes commits.", "recommended": "ask"},
+                {"value": "status", "label": "git status"}]
+        cols = [{"value": "allow", "label": "Allow", "description": "no prompt"}, {"value": "ask", "label": "Ask"}]
+        self.assert_valid(spec(q("matrix", rows=rows, columns=cols, recommendation="Ask before anything leaves the machine.")))
+        self.assert_invalid(spec(q("matrix", rows=[{**rows[0], "recommended": "deny"}], columns=cols)), "rows[0].recommended")
+        self.assert_invalid(spec(q("matrix", rows=[{**rows[0], "recommended": True}], columns=cols)), "rows[0].recommended")
+        self.assert_invalid(spec(q("matrix", rows=[{**rows[1], "detail": "x"}], columns=cols)), "rows[0].detail")
+        self.assert_invalid(spec(q("matrix", rows=rows, columns=[{**cols[0], "detail": "x"}, cols[1]])), "columns[0].detail")
+        self.assert_invalid(spec(q("matrix", rows=rows, columns=[cols[0], {**cols[1], "recommended": True}])), "columns[1].recommended")
+
+    def test_malformed_lists_are_exit_2_not_a_traceback(self):
+        self.assert_invalid(spec(q("review", items=5)), "items")
+        self.assert_invalid(spec(q("matrix", rows=None, columns=7)), "rows")
+        self.assert_invalid(spec(q("single_select", options=None)), "options")
+
     def test_validate_reports_answerable_required_assets(self):
         with tempfile.TemporaryDirectory() as td:
             img = Path(td) / "pic.png"
@@ -276,7 +293,12 @@ AGREEMENT_CASES = [
     ("ranking recommended false", spec(q("ranking", options=[{**OPTS[0], "recommended": False}, OPTS[1]])), True),
     ("ranking recommended true", spec(q("ranking", options=ONE_REC)), False),
     ("option detail blank", spec(q("single_select", options=[{**OPTS[0], "detail": "  "}, OPTS[1]])), False),
-    ("matrix row detail", spec(q("matrix", rows=[{**OPTS[0], "detail": "x"}], columns=OPTS)), True),
+    ("matrix row description", spec(q("matrix", rows=OPTS, columns=OPTS)), True),
+    ("matrix row recommends a column", spec(q("matrix", rows=[{**OPTS[0], "recommended": "b"}], columns=OPTS)), True),
+    ("matrix row recommended boolean", spec(q("matrix", rows=[{**OPTS[0], "recommended": True}], columns=OPTS)), False),
+    ("matrix row detail", spec(q("matrix", rows=[{**OPTS[0], "detail": "x"}], columns=OPTS)), False),
+    ("matrix column detail", spec(q("matrix", rows=OPTS, columns=[{**OPTS[0], "detail": "x"}])), False),
+    ("matrix column recommended", spec(q("matrix", rows=OPTS, columns=[{**OPTS[0], "recommended": False}])), False),
     ("option label empty", spec(q("ranking", options=[{"value": "a", "label": ""}])), False),
     ("title blank", spec(q("short_text"), title="   "), False),
     ("label blank", spec(q("short_text", label="   ")), False),
@@ -312,6 +334,7 @@ VALIDATOR_ONLY_CASES = [
     ("min above max", spec(q("number", min=5, max=1))),
     ("recommended outside range", spec(q("scale", min=1, max=5, recommended=9))),
     ("review recommended not a decision", spec(q("review", items=[{"id": "i", "label": "I", "recommended": "maybe"}]))),
+    ("matrix row recommended not a column", spec(q("matrix", rows=[{**OPTS[0], "recommended": "zzz"}], columns=OPTS))),
     ("unreadable image src", spec(q("context", format="image", src="/definitely/missing.png"))),
 ]
 
@@ -346,7 +369,8 @@ class SchemaConformanceCase(unittest.TestCase):
         for name, body in VALIDATOR_ONLY_CASES:
             with self.subTest(case=name):
                 self.assertEqual(self.verdicts(body), (True, False), "(schema, validator)")
-        for phrase in ("ids unique", "values unique", "min ≤ max", "within min..max", "one of its decisions", "readable image file"):
+        for phrase in ("ids unique", "values unique", "min ≤ max", "within min..max", "one of its decisions",
+                       "one of its column values", "readable image file"):
             self.assertIn(phrase, self.schema["$comment"])
 
 
@@ -464,9 +488,10 @@ class ServerCase(unittest.TestCase):
         self.assertEqual(out["meta"]["skipped"], [])
 
     def test_diverged_reports_choices_against_recommendations(self):
-        ex = json.loads(run("--example").stdout)  # cli recommended; confidence 4; both review items approve
+        ex = json.loads(run("--example").stdout)  # cli recommended; confidence 4; both review items approve; fit cli → good
         base = {"approach": "cli", "confidence": 4,
-                "decisions": {"name": {"decision": "approve", "comment": ""}, "home": {"decision": "approve", "comment": ""}}}
+                "decisions": {"name": {"decision": "approve", "comment": ""}, "home": {"decision": "approve", "comment": ""}},
+                "fit": {"cli": "good", "renderer": "bad"}}  # renderer carries no recommendation
         with Server(ex) as s:
             s.post("/submit", {"answers": base})
             code, out = s.finish()
@@ -474,9 +499,28 @@ class ServerCase(unittest.TestCase):
         self.assertNotIn("diverged", out["meta"])
         with Server(ex) as s:
             s.post("/submit", {"answers": {**base, "approach": "mcp", "confidence": 2,
-                                           "decisions": {"name": {"decision": "approve", "comment": ""}, "home": {"decision": "reject", "comment": "no"}}}})
+                                           "decisions": {"name": {"decision": "approve", "comment": ""}, "home": {"decision": "reject", "comment": "no"}},
+                                           "fit": {"cli": "ok", "renderer": "bad"}}})
             code, out = s.finish()
-        self.assertEqual(out["meta"]["diverged"], ["approach", "confidence", "decisions"])
+        self.assertEqual(out["meta"]["diverged"], ["approach", "confidence", "decisions", "fit"])
+
+    def test_page_carries_matrix_row_and_column_fields(self):
+        """Regression: row descriptions and recommendations must reach the page, not only the schema."""
+        ex = json.loads(run("--example").stdout)
+        with Server(ex) as s:
+            html = s.get("/")[1].decode()
+            s.post("/cancel", {})
+            s.finish()
+        inlined = json.loads(html.split('<script id="spec" type="application/json">', 1)[1].split("</script>", 1)[0])
+        fit = next(e for e in inlined["questions"] if e["id"] == "fit")
+        self.assertTrue(all(r.get("description") for r in fit["rows"]), fit["rows"])
+        self.assertEqual(fit["rows"][0]["recommended"], "good")
+        self.assertTrue(any(c.get("description") for c in fit["columns"]), fit["columns"])
+        self.assertNotIn("_recommended", fit)  # validator scratch stays server-side
+        app = (SCRIPT.parent.parent / "static" / "app.js").read_text()
+        matrix = app.split("const renderMatrix", 1)[1].split("const renderReview", 1)[0]
+        for field in ("r.description", "r.recommended", "c.description"):
+            self.assertIn(field, matrix, f"renderMatrix ignores {field}")
 
     def test_record_saved_under_project_asks(self):
         ex = json.loads(run("--example").stdout)
@@ -551,6 +595,18 @@ class ServerCase(unittest.TestCase):
         text = ASK_FORM.render_record(body, result, {"created": "c", "project": "p", "git": "none"})
         self.assertIn("```diff\n@@ -1 +1 @@\n-a\n+b\n```", text)
         self.assertIn("<details><summary>Item detail</summary>\n\n#### Hunk 1\n\nWhy.", text)
+
+    def test_record_keeps_matrix_row_descriptions_and_recommendations(self):
+        body = spec(q("matrix", "perm",
+                      rows=[{"value": "push", "label": "git push", "description": "Publishes commits.", "recommended": "ask"},
+                            {"value": "status", "label": "git status"}],
+                      columns=[{"value": "allow", "label": "Allow"}, {"value": "ask", "label": "Ask"}],
+                      recommendation="Ask before anything leaves the machine."))
+        result = {"answers": {"perm": {"push": "allow", "status": "allow"}}, "meta": {"diverged": ["perm"]}}
+        text = ASK_FORM.render_record(body, result, {"created": "c", "project": "p", "git": "none"})
+        self.assertIn("- git push → Allow — _Publishes commits._\n- git status → Allow\n", text)
+        self.assertIn("**Recommended:** git push: Ask — Ask before anything leaves the machine.", text)
+        self.assertIn("**Diverged** from the recommendation.", text)
 
     def test_record_puts_quoted_notes_in_their_own_block(self):
         body = spec(q("short_text", "a"), q("short_text", "b"))

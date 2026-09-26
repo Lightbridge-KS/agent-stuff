@@ -100,7 +100,7 @@ are display-only.
 | `scale` (`min`, `max`, `step?`, `labels?`) · `number` (`min?`, `max?`, `step?`, `unit?`) | number |
 | `ranking` (`options`) | full ordering of values |
 | `short_text` (`max_length?`) · `long_text` | string |
-| `matrix` (`rows`, `columns`) | `{row: column}` |
+| `matrix` (`rows[{value,label,description?,recommended?}]`, `columns[{value,label,description?}]`) | `{row: column}` |
 | `review` (`items[{id,label,description?}]`, `decisions?`, `comment?`) | `{item: {decision, comment}}` |
 | `context` (`format: markdown\|mermaid\|image`, `content` or `src`) · `section` | none |
 
@@ -114,11 +114,14 @@ shapes stay stable; blank notes are dropped.
 **Recommendations** (KS, 2026-09-03) are a spec flag, not label text, so they render consistently,
 validate (one per `single_select`, value within range, decision within `decisions`, none on
 `ranking`), and can be checked against the answer: `options[].recommended: true`,
-`scale`/`number` `recommended: <n>`, `review.items[].recommended: "<decision>"`, plus an element-level
+`scale`/`number` `recommended: <n>`, `review.items[].recommended: "<decision>"`,
+`matrix.rows[].recommended: "<column value>"` (2026-09-25: a row picks a column, like a review item
+picks a decision; a boolean on a row or any column said nothing), plus an element-level
 `recommendation` one-liner ("Agent recommends …") rendered under the help. The tool **never
 preselects**; the user still chooses. `meta.diverged` lists answered ids where the choice differs
-from the recommendation (multi_select: set inequality; review: any item), so the agent knows where
-to ask rather than proceed. Recommended options are not reordered. `--schema` prints
+from the recommendation (multi_select: set inequality; review and matrix: any item or row), so the
+agent knows where to ask rather than proceed. A field the page does not render is rejected, not
+ignored: matrix rows and columns take `description` but no `detail`. Recommended options are not reordered. `--schema` prints
 the JSON Schema and is the single source of truth for fields: it states every rule `--validate`
 enforces that JSON Schema can express, names the rest in its `$comment`, and a conformance test
 holds the two in agreement case by case. `--example` prints a spec covering every type.

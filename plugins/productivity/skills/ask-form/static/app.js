@@ -202,10 +202,13 @@
     return el("div", {}, list, el("p", { class: "hint", text: "Move items with the arrows, or keep the order shown." }), touched ? null : confirm);
   };
 
+  // A row may recommend one column: badged beside the row label, dotted on its cell, never preselected.
   const renderMatrix = (q) => {
     const picks = {};
+    const colLabel = Object.fromEntries(q.columns.map((c) => [c.value, c.label]));
     const table = el("table", { class: "matrix" });
-    table.append(el("thead", {}, el("tr", {}, el("th", { text: "" }), ...q.columns.map((c) => el("th", { text: c.label })))));
+    table.append(el("thead", {}, el("tr", {}, el("th", { text: "" }), ...q.columns.map((c) =>
+      el("th", {}, c.label, c.description ? el("div", { class: "opt-desc", text: c.description }) : null)))));
     const body = el("tbody");
     const hint = el("p", { class: "hint" });
     const update = () => {
@@ -214,10 +217,13 @@
       setAnswer(q.id, n === q.rows.length ? { ...picks } : undefined);
     };
     for (const r of q.rows) {
-      const tr = el("tr", {}, el("td", { text: r.label }));
+      const tr = el("tr", {}, el("td", {},
+        el("div", { class: "opt-label", text: r.label }, r.recommended ? recBadge(`Recommended: ${colLabel[r.recommended]}`) : null),
+        r.description ? el("div", { class: "opt-desc", text: r.description }) : null));
       for (const c of q.columns) {
-        const input = el("input", { type: "radio", name: `${q.id}:${r.value}`, value: c.value, "aria-label": `${r.label}: ${c.label}`, onchange: () => { picks[r.value] = c.value; update(); } });
-        tr.append(el("td", {}, el("label", {}, input)));
+        const rec = r.recommended === c.value;
+        const input = el("input", { type: "radio", name: `${q.id}:${r.value}`, value: c.value, "aria-label": `${r.label}: ${c.label}${rec ? " (recommended)" : ""}`, onchange: () => { picks[r.value] = c.value; update(); } });
+        tr.append(el("td", {}, el("label", { "data-rec": rec ? "true" : undefined, title: rec ? "Recommended" : undefined }, input)));
       }
       body.append(tr);
     }
