@@ -64,7 +64,10 @@ DISPLAY_TYPES = {"section", "context"}
 CONTEXT_FORMATS = ("markdown", "mermaid", "image", "tabs", "diff")
 LAYOUTS = ("stack", "split")
 OPTION_TYPES = {"single_select", "multi_select", "ranking"}
-MATRIX_KEYS = ("rows", "columns")
+# Element types whose page shows an option, row or column as label + description only: a detail there
+# would reach the record but never the user, so it is rejected, and the schema says so in these words.
+NO_DETAIL = {"ranking": "a ranking option takes no detail; explain it in a context pane before the ranking",
+             "matrix": "a matrix row or column takes no detail; explain it in a context pane before the matrix"}
 ANSWER_TYPES = OPTION_TYPES | {"scale", "short_text", "long_text", "number", "matrix", "review"}
 ALL_TYPES = DISPLAY_TYPES | ANSWER_TYPES
 DEFAULT_DECISIONS = ["approve", "revise", "reject"]
@@ -99,8 +102,8 @@ def _objects(v: Any) -> list[tuple[int, dict[str, Any]]]:
     return [(j, o) for j, o in enumerate(v) if isinstance(o, dict)] if isinstance(v, list) else []
 
 
-def _check_options(opts: Any, path: str, errors: list[dict[str, str]], key: str = "options") -> list[str]:
-    """Validate an option/item/row/column list; return its values."""
+def _check_options(opts: Any, path: str, errors: list[dict[str, str]], key: str = "options", etype: str = "") -> list[str]:
+    """Validate an option/item/row/column list of an `etype` element; return its values."""
     if not isinstance(opts, list) or not opts:
         errors.append({"path": f"{path}.{key}", "message": f"{key} must be a non-empty list"})
         return []
@@ -124,8 +127,8 @@ def _check_options(opts: Any, path: str, errors: list[dict[str, str]], key: str 
             errors.append({"path": f"{p}.label", "message": "label must be a non-empty string"})
         if "description" in o and not isinstance(o["description"], str):
             errors.append({"path": f"{p}.description", "message": "description must be a string"})
-        if "detail" in o and key in MATRIX_KEYS:
-            errors.append({"path": f"{p}.detail", "message": "a matrix row or column takes no detail; explain it in a context pane before the matrix"})
+        if "detail" in o and etype in NO_DETAIL:
+            errors.append({"path": f"{p}.detail", "message": NO_DETAIL[etype]})
         elif "detail" in o and not (isinstance(o["detail"], str) and o["detail"].strip()):
             errors.append({"path": f"{p}.detail", "message": "detail must be a non-empty markdown string"})
     return values
@@ -273,7 +276,7 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
             elif not isinstance(el.get("content"), str) or not el["content"]:
                 errors.append({"path": f"{path}.content", "message": "content must be a non-empty string"})
         elif etype in OPTION_TYPES:
-            el["_values"] = _check_options(el.get("options"), path, errors)
+            el["_values"] = _check_options(el.get("options"), path, errors, etype=etype)
             recs = [o["value"] for _, o in _objects(el.get("options")) if o.get("recommended") is True and isinstance(o.get("value"), str)]
             if etype == "single_select" and len(recs) > 1:
                 errors.append({"path": f"{path}.options", "message": "single_select may mark at most one option recommended"})
@@ -301,8 +304,8 @@ def validate_spec(spec: Any) -> tuple[list[dict[str, str]], Compiled]:
             if etype == "short_text" and "max_length" in el and not (_is_int(el["max_length"]) and el["max_length"] > 0):
                 errors.append({"path": f"{path}.max_length", "message": "max_length must be a positive integer"})
         elif etype == "matrix":
-            el["_rows"] = _check_options(el.get("rows"), path, errors, key="rows")
-            el["_cols"] = _check_options(el.get("columns"), path, errors, key="columns")
+            el["_rows"] = _check_options(el.get("rows"), path, errors, key="rows", etype=etype)
+            el["_cols"] = _check_options(el.get("columns"), path, errors, key="columns", etype=etype)
             for j, col in _objects(el.get("columns")):
                 if "recommended" in col:
                     errors.append({"path": f"{path}.columns[{j}].recommended", "message": "a column is not recommended; set rows[].recommended to the column you recommend for that row"})
@@ -491,12 +494,13 @@ _OPTION = {"type": "object", "required": ["value", "label"],
 _OPTION_ITEMS = {"type": "array", "minItems": 1, "items": _OPTION}
 _ONE_RECOMMENDED = {"contains": {"type": "object", "required": ["recommended"], "properties": {"recommended": {"const": True}}},
                     "minContains": 0, "maxContains": 1}
-_RANKING_ITEMS = {**_OPTION_ITEMS, "items": {**_OPTION, "properties": {**_OPTION["properties"], "recommended": {
-    "const": False, "description": "ranking has no recommended option; the given order is the recommendation"}}}}
+_RANKING_ITEMS = {**_OPTION_ITEMS, "items": {**_OPTION, "properties": {
+    **_OPTION["properties"], "detail": {"not": {}, "description": NO_DETAIL["ranking"]},
+    "recommended": {"const": False, "description": "ranking has no recommended option; the given order is the recommendation"}}}}
 _BASE_PROPS = {"id": {"type": "string", "pattern": ID_RE.pattern}, "type": {"type": "string"},
                "label": _TEXT, "help": {"type": "string"}, "required": {"type": "boolean"},
                "recommendation": {**_TEXT, "description": "one line: what the agent recommends and why; shown under the help text"}}
-_NOT_IN_MATRIX = {"not": {}, "description": "not rendered in a matrix; explain in a context pane before it"}
+_NOT_IN_MATRIX = {"not": {}, "description": NO_DETAIL["matrix"]}
 _MATRIX_ROWS = {**_OPTION_ITEMS, "items": {**_OPTION, "properties": {
     **_OPTION["properties"], "description": {"type": "string", "description": "one line under the row label"},
     "detail": _NOT_IN_MATRIX,
@@ -894,17 +898,23 @@ def render_record(spec: dict[str, Any], result: dict[str, Any], ctx: dict[str, s
             continue
         eid = el["id"]
         out.append(f"### {el['label']}  `{eid}`")
-        out.append(f"**Answer:** {_answer_md(el, answers[eid], eid in other)}" if eid in answers else "**Answer:** _skipped_")
+        answer = _answer_md(el, answers[eid], eid in other) if eid in answers else "_skipped_"
+        out.append(f"**Answer:** {answer}")
+        after = []
         rec = _recommended_md(el)
         if rec or el.get("recommendation"):
             why = f" — {el['recommendation']}" if el.get("recommendation") else ""
-            out.append(f"**Recommended:** {rec or '—'}{why}")
+            after.append(f"**Recommended:** {rec or '—'}{why}")
         if eid in diverged:
-            out.append("**Diverged** from the recommendation.")
+            after.append("**Diverged** from the recommendation.")
         if eid in notes:
             note = notes[eid]
             # A quoted (Quote button) or multi-paragraph note needs its own block to render as markdown.
-            out += ["**Note:**", "", note] if "\n" in note or note.startswith(">") else [f"**Note:** {note}"]
+            after += ["**Note:**", "", note] if "\n" in note or note.startswith(">") else [f"**Note:** {note}"]
+        # A block answer (list or quote) would take the next line in as a lazy continuation; close it first.
+        if after and answer.startswith("\n"):
+            out.append("")
+        out += after
         out += _details_md(el)
         out.append("")
     if meta.get("comments"):

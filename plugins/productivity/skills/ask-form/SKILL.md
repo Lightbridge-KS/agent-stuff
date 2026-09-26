@@ -7,7 +7,7 @@ description: >-
   form on 127.0.0.1, opens the browser, and returns the answers as JSON. Also on request
   ("use the form", "ask me with a form"). Needs a machine with a browser.
 metadata:
-  version: "2026-09-25"
+  version: "2026-09-26"
 ---
 
 # ask-form
@@ -63,7 +63,8 @@ notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2
      highlighted code with Copy, ```` ```diff ```` blocks, `> [!NOTE]` / `[!WARNING]` callouts,
      `<details>` folds.
    - When the explanation *is* the choice, put it on the options: `options[].detail` (markdown) turns
-     into a Compare panel (tabs; side by side for two). Keep `description` to one line.
+     a `single_select` / `multi_select` into a Compare panel (tabs; side by side for two). Keep
+     `description` to one line.
    - A code change to approve: a `diff` context, or `review.items[].detail` with a diff fence per hunk.
      Before/after or alternatives to read: `format: "tabs"`. Optional background: `collapsed: true`.
    - A long explanation feeding 3–5 questions: top-level `"layout": "split"` *suggests* the reader's
@@ -132,7 +133,7 @@ still on stdout; mention the cause once and carry on.
 | `single_select` (`options[].detail`, `allow_other` default on) | the value, or the typed text |
 | `multi_select` (`options[].detail`, `min`, `max`, `allow_other` default on) | list of values |
 | `scale` (`min`, `max`, `step`, `labels`) · `number` (`min`, `max`, `step`, `unit`) | number |
-| `ranking` (`options`) | full ordering of values |
+| `ranking` (`options[].description`; no `detail`: explain in a `context` before it) | full ordering of values |
 | `short_text` (`max_length`) · `long_text` | string |
 | `matrix` (`rows[].description`, `rows[].recommended` = a column value; `columns[].description` a few words; no `detail`) | `{row: column}` |
 | `review` (`items[].detail`, `decisions`, `comment`) | `{item: {decision, comment}}` |
