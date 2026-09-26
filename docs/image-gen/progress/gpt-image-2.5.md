@@ -36,28 +36,37 @@ Decisions (KS, 2026-09-26):
 - [x] SKILL.md, `references/api.md` (cost ladder from the docs calculator), `references/prompting.md`
       — (this PR)
 - [x] `uv run bin/validate.py` + `uv run tests/test_imagegen.py` green — 2026-09-26
-- [ ] `just test` (whole suite) green
-- [ ] Live smoke (user-approved, sandbox-disabled `lb key run openai-image-gen -- …`): see below
+- [x] `just test` (whole suite, 22 files) green — 2026-09-26
+- [x] Live smoke (user-approved, sandbox-disabled `lb key run openai-image-gen -- …`) — 2026-09-26, see below
 - [ ] Landed
 
 ## Live smoke
 
+Record: `_playground/2026-09-26_image-gen-2.5-smoke/NOTES.md` (gitignored). Every image
+was read back.
+
 | Call | Model | Quality | Size | Output tokens | $ | Wall time | Read-back |
 |---|---|---|---|---|---|---|---|
-| generate | sunburst | high | 1024x1024 | | | | |
-| generate | flare | high | 1024x1024 | | | | |
-| edit (transparent) | sunburst | high | auto | | | | |
-| iterate t1 / t2 | sunburst via gpt-6-sol | high | auto | | | | |
-| iterate on old-shape sidecar | | | | | | | |
+| generate (transparent logo) | sunburst | high | 1024x1024 | 1756 | 0.053 | 33 s | ok |
+| generate (same prompt) | flare | high | 1024x1024 | 1756 | 0.053 | 20 s | ok |
+| edit (recolor, transparent) | sunburst | high | auto | 2058 (+1074 in) | 0.070 | 32 s | only the asked change |
+| iterate t1 → t2 | sunburst via gpt-6-sol | high | 1024x1024 | driver ~100/turn; image tokens not itemized | — | 29 s / 28 s | text exact, chain intact |
+| iterate on old-shape sidecar | sunburst via gpt-6-sol | high | 1024x1024 | as above | — | 30 s | chain ok, `image_model` written in place; one unasked color drift (see NOTES) |
+
+Observations: Sunburst and Flare consumed identical tokens (the calculator's number), so the
+same-price claim holds; Flare was ~1.7× faster on one sample. Responses `usage` reports only
+the driver's tokens, so `iterate` image cost is invisible in `--json`. Transparent `generate`
+outputs peak at alpha 254 (edit outputs reach 255); edges are crisp either way.
 
 ## Now / Next
 
-- Run the smoke, fill the table, then open the PR for review.
+- Draft PR open; land after review, then `bin/install.py --claude` re-sync is a no-op (symlink).
 
 ## Deferred
 
-- **Per-verb model split** (`generate` → Flare): reopen only if the smoke shows Sunburst
-  materially slower or costlier on one-shot generation. Numbers go here.
+- **Per-verb model split** (`generate` → Flare): smoke showed equal cost and Flare ~1.7×
+  faster on one-shot generate (20 s vs 33 s, n=1). Kept single-default for simplicity; reopen
+  if agent workflows feel latency-bound on `generate`.
 - **`partial_images` streaming** — 100 extra output tokens per frame; no agent use case yet.
 - **`input_fidelity`** — docs are silent for 2.5; stays unexposed until documented.
 - **`--model` short aliases** (`sunburst`, `flare`) — not worth a mapping while there are two.
