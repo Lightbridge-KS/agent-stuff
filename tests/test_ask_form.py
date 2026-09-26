@@ -236,6 +236,15 @@ class ValidatorCase(unittest.TestCase):
         self.assert_invalid(spec(q("matrix", rows=rows, columns=[{**cols[0], "detail": "x"}, cols[1]])), "columns[0].detail")
         self.assert_invalid(spec(q("matrix", rows=rows, columns=[cols[0], {**cols[1], "recommended": True}])), "columns[1].recommended")
 
+    def test_ranking_options_take_no_detail(self):
+        """The ranking page shows label and description only, so a detail would reach the record unseen."""
+        self.assert_valid(spec(q("ranking", options=OPTS)))
+        for detail in ("Why **A**.", "  "):
+            r = run("--validate", stdin=json.dumps(spec(q("ranking", options=[{**OPTS[0], "detail": detail}, OPTS[1]]))))
+            self.assertEqual(r.returncode, 2, r.stdout)
+            errors = [e for e in json.loads(r.stdout)["errors"] if e["path"].endswith("options[0].detail")]
+            self.assertEqual([e["message"] for e in errors], [ASK_FORM.NO_DETAIL["ranking"]])
+
     def test_malformed_lists_are_exit_2_not_a_traceback(self):
         self.assert_invalid(spec(q("review", items=5)), "items")
         self.assert_invalid(spec(q("matrix", rows=None, columns=7)), "rows")
@@ -293,6 +302,10 @@ AGREEMENT_CASES = [
     ("ranking recommended false", spec(q("ranking", options=[{**OPTS[0], "recommended": False}, OPTS[1]])), True),
     ("ranking recommended true", spec(q("ranking", options=ONE_REC)), False),
     ("option detail blank", spec(q("single_select", options=[{**OPTS[0], "detail": "  "}, OPTS[1]])), False),
+    ("single_select option detail", spec(q("single_select", options=[{**OPTS[0], "detail": "x"}, OPTS[1]])), True),
+    ("multi_select option detail", spec(q("multi_select", options=[{**OPTS[0], "detail": "x"}, OPTS[1]])), True),
+    ("ranking option description", spec(q("ranking", options=OPTS)), True),
+    ("ranking option detail", spec(q("ranking", options=[{**OPTS[0], "detail": "x"}, OPTS[1]])), False),
     ("matrix row description", spec(q("matrix", rows=OPTS, columns=OPTS)), True),
     ("matrix row recommends a column", spec(q("matrix", rows=[{**OPTS[0], "recommended": "b"}], columns=OPTS)), True),
     ("matrix row recommended boolean", spec(q("matrix", rows=[{**OPTS[0], "recommended": True}], columns=OPTS)), False),
@@ -607,6 +620,20 @@ class ServerCase(unittest.TestCase):
         self.assertIn("- git push → Allow — _Publishes commits._\n- git status → Allow\n", text)
         self.assertIn("**Recommended:** git push: Ask — Ask before anything leaves the machine.", text)
         self.assertIn("**Diverged** from the recommendation.", text)
+
+    def test_record_ends_block_answers_before_the_next_line(self):
+        """GFM reads a line right after a list or quote as a lazy continuation of its last item."""
+        body = spec(q("multi_select", "ms", options=ONE_REC, recommendation="why"),
+                    q("ranking", "rk", options=OPTS, recommendation="why"),
+                    q("long_text", "lt"), q("single_select", "ss", options=ONE_REC))
+        answers = {"ms": ["b"], "rk": ["b", "a"], "lt": "my answer", "ss": "b"}
+        meta = {"diverged": ["ms", "ss"], "notes": {"lt": "a note"}}
+        text = ASK_FORM.render_record(body, {"answers": answers, "meta": meta}, {"created": "c", "project": "p", "git": "none"})
+        self.assertIn("- B `b`\n\n**Recommended:** A `a` — why\n**Diverged** from the recommendation.\n", text)
+        self.assertIn("2. A\n\n**Recommended:** — — why\n", text)
+        self.assertIn("> my answer\n\n**Note:** a note\n", text)
+        self.assertIn("**Answer:** B `b`\n**Recommended:** A `a`\n", text)  # one-line answers stay one paragraph
+        self.assertNotIn("\n\n\n", text.split("## Raw")[0])
 
     def test_record_puts_quoted_notes_in_their_own_block(self):
         body = spec(q("short_text", "a"), q("short_text", "b"))

@@ -98,7 +98,7 @@ are display-only.
 | `single_select` (`options[{value,label,description?}]`, `allow_other?` default true) | string |
 | `multi_select` (+ `min?`, `max?`) | `[string]` |
 | `scale` (`min`, `max`, `step?`, `labels?`) · `number` (`min?`, `max?`, `step?`, `unit?`) | number |
-| `ranking` (`options`) | full ordering of values |
+| `ranking` (`options[{value,label,description?}]`) | full ordering of values |
 | `short_text` (`max_length?`) · `long_text` | string |
 | `matrix` (`rows[{value,label,description?,recommended?}]`, `columns[{value,label,description?}]`) | `{row: column}` |
 | `review` (`items[{id,label,description?}]`, `decisions?`, `comment?`) | `{item: {decision, comment}}` |
@@ -121,10 +121,12 @@ picks a decision; a boolean on a row or any column said nothing), plus an elemen
 preselects**; the user still chooses. `meta.diverged` lists answered ids where the choice differs
 from the recommendation (multi_select: set inequality; review and matrix: any item or row), so the
 agent knows where to ask rather than proceed. A field the page does not render is rejected, not
-ignored: matrix rows and columns take `description` but no `detail`. Recommended options are not reordered. `--schema` prints
-the JSON Schema and is the single source of truth for fields: it states every rule `--validate`
-enforces that JSON Schema can express, names the rest in its `$comment`, and a conformance test
-holds the two in agreement case by case. `--example` prints a spec covering every type.
+ignored: ranking options and matrix rows and columns take `description` but no `detail`
+(2026-09-26: the ranking page never had a Compare panel, yet the record showed "Compared detail").
+Recommended options are not reordered. `--schema` prints the JSON Schema and is the single source of
+truth for fields: it states every rule `--validate` enforces that JSON Schema can express, names the
+rest in its `$comment`, and a conformance test holds the two in agreement case by case.
+`--example` prints a spec covering every type.
 
 ## Server
 
