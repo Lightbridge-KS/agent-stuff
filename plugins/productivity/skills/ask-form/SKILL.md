@@ -7,7 +7,7 @@ description: >-
   form on 127.0.0.1, opens the browser, and returns the answers as JSON. Also on request
   ("use the form", "ask me with a form"). Needs a machine with a browser.
 metadata:
-  version: "2026-09-24"
+  version: "2026-09-25"
 ---
 
 # ask-form
@@ -73,9 +73,9 @@ notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2
    - Option descriptions say what happens if chosen. Labels in sentence case, no filler.
    - **Recommend when you hold a view.** Mark the option with `recommended: true` (one per
      `single_select`; several allowed in `multi_select`), a value with `recommended: 4` on `scale` /
-     `number`, a decision with `recommended: "approve"` on a `review` item, and say *why* in one line
-     with the element's `recommendation` field. The tool badges it and never preselects: the user
-     still chooses.
+     `number`, a decision with `recommended: "approve"` on a `review` item, a column with
+     `recommended: "ask"` on a `matrix` row, and say *why* in one line with the element's
+     `recommendation` field. The tool badges it and never preselects: the user still chooses.
 3. **Run it** via stdin, **as an ongoing/background process** so the harness's shell timeout cannot
    cut the wait (Claude Code: `run_in_background: true`; stdout lands in the task's output file).
    The form has no timeout of its own; it waits until the user submits or cancels.
@@ -134,7 +134,7 @@ still on stdout; mention the cause once and carry on.
 | `scale` (`min`, `max`, `step`, `labels`) · `number` (`min`, `max`, `step`, `unit`) | number |
 | `ranking` (`options`) | full ordering of values |
 | `short_text` (`max_length`) · `long_text` | string |
-| `matrix` (`rows`, `columns`) | `{row: column}` |
+| `matrix` (`rows[].description`, `rows[].recommended` = a column value; `columns[].description` a few words; no `detail`) | `{row: column}` |
 | `review` (`items[].detail`, `decisions`, `comment`) | `{item: {decision, comment}}` |
 
 Every question also takes an optional note (toggle, or `n` while the card has focus) and the form
