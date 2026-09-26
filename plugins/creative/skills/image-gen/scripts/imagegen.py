@@ -1,9 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["openai>=1.60", "typer>=0.12"]
+# dependencies = ["openai>=3.19", "typer>=0.12"]
 # ///
-"""Deterministic CLI for OpenAI gpt-image-2 — the shell an agent drives.
+"""Deterministic CLI for OpenAI GPT Image 2.5 — the shell an agent drives.
 
 Three verbs, three jobs:
 
@@ -41,10 +41,12 @@ EXIT_PARAMS = 2  # request invalid — fix parameters and rerun
 EXIT_BLOCKED = 3  # moderation / image_generation_user_error — rewrite, don't retry
 EXIT_AUTH = 4  # auth, quota, rate limit, or network — environment problem
 
-DEFAULT_MODEL = "gpt-image-2"
-DEFAULT_DRIVER = "gpt-5.6"  # mainline model carrying the image_generation tool
+DEFAULT_MODEL = "gpt-image-2.5-sunburst"  # "most capable"; edits and multi-turn precision
+FAST_MODEL = "gpt-image-2.5-flare"  # same price per token, tuned for speed (help text only)
+DEFAULT_DRIVER = "gpt-6-sol"  # mainline model carrying the image_generation tool
+XHIGH_PREFIX = "gpt-image-2.5"  # only these models accept quality xhigh / max
 
-# gpt-image-2 size constraints (validated locally before any API spend)
+# GPT Image size constraints, shared by 2 and 2.5 (validated locally before any API spend)
 MAX_EDGE = 3840
 MIN_PIXELS = 655_360
 MAX_PIXELS = 8_294_400
@@ -58,6 +60,8 @@ class Quality(str, Enum):
     low = "low"
     medium = "medium"
     high = "high"
+    xhigh = "xhigh"
+    max = "max"
     auto = "auto"
 
 
@@ -86,7 +90,7 @@ def fail(code: int, message: str) -> None:
 
 
 def validate_size(size: str) -> None:
-    """Enforce gpt-image-2 size constraints locally (exit 2 on violation)."""
+    """Enforce GPT Image size constraints locally (exit 2 on violation)."""
     if size == "auto":
         return
     try:
@@ -105,7 +109,17 @@ def validate_size(size: str) -> None:
     if not MIN_PIXELS <= w * h <= MAX_PIXELS:
         problems.append(f"total pixels must be within {MIN_PIXELS:,}–{MAX_PIXELS:,}")
     if problems:
-        fail(EXIT_PARAMS, f"--size {size} violates gpt-image-2 constraints: " + "; ".join(problems))
+        fail(EXIT_PARAMS, f"--size {size} violates GPT Image size constraints: " + "; ".join(problems))
+
+
+def validate_quality(model: str, quality: Quality) -> None:
+    """xhigh / max exist only on GPT Image 2.5 (earlier models stop at high) — exit 2."""
+    if quality in (Quality.xhigh, Quality.max) and not model.startswith(XHIGH_PREFIX):
+        fail(
+            EXIT_PARAMS,
+            f"--quality {quality.value} is only supported by {XHIGH_PREFIX}-* models, not {model}; "
+            "use --quality high or drop --model",
+        )
 
 
 def validate_output_opts(
@@ -204,11 +218,12 @@ def emit(as_json: bool, payload: dict, summary: str) -> None:
 
 OutOpt = Annotated[Path, typer.Option("--out", "-o", help="Output image path (bytes go here, never stdout).")]
 SizeOpt = Annotated[str, typer.Option(help="'auto' or WIDTHxHEIGHT; edges ×16, ≤3840px, ratio ≤3:1.")]
-QualityOpt = Annotated[Quality, typer.Option(help="low ≈ $0.005/img (drafts, bulk) · medium · high (finals).")]
+QualityOpt = Annotated[Quality, typer.Option(help="1024²: low ≈ $0.006 (fixtures) · medium ≈ $0.013 (drafts) · high ≈ $0.05 (default) · xhigh ≈ $0.09 (small text) · max ≈ $0.21 (last resort, 2.5 only).")]
 BackgroundOpt = Annotated[Background, typer.Option(help="'transparent' needs png/webp.")]
 FormatOpt = Annotated[Format, typer.Option("--format", "-f", help="png (default) · jpeg (fastest) · webp.")]
 CompressionOpt = Annotated[Optional[int], typer.Option(help="0–100, jpeg/webp only.")]
 JsonOpt = Annotated[bool, typer.Option("--json", help="Emit metadata JSON instead of the summary line.")]
+ModelOpt = Annotated[str, typer.Option(help=f"Image model: {DEFAULT_MODEL} (default) · {FAST_MODEL} (fast, same price).")]
 
 
 @app.command()
@@ -216,17 +231,18 @@ def generate(
     prompt: Annotated[str, typer.Argument(help="Image prompt: scene → subject → details → constraints.")],
     out: OutOpt,
     size: SizeOpt = "auto",
-    quality: QualityOpt = Quality.medium,
+    quality: QualityOpt = Quality.high,
     background: BackgroundOpt = Background.auto,
     fmt: FormatOpt = Format.png,
     compression: CompressionOpt = None,
     n: Annotated[int, typer.Option("-n", help="Images per request (>4 needs --allow-bulk).")] = 1,
     allow_bulk: Annotated[bool, typer.Option("--allow-bulk", help=f"Confirm -n above {BULK_LIMIT}.")] = False,
-    model: Annotated[str, typer.Option(help="Image model.")] = DEFAULT_MODEL,
+    model: ModelOpt = DEFAULT_MODEL,
     as_json: JsonOpt = False,
 ) -> None:
     """One-shot text -> image via the Image API (cheapest path)."""
     validate_size(size)
+    validate_quality(model, quality)
     validate_output_opts(background, fmt, compression, n, allow_bulk)
     require_key()
     kwargs: dict[str, Any] = dict(
@@ -254,17 +270,18 @@ def edit(
     inputs: Annotated[list[Path], typer.Option("--input", "-i", help="Input image(s); repeat for references.")],
     mask: Annotated[Optional[Path], typer.Option(help="PNG mask: transparent areas get replaced (applies to the first input).")] = None,
     size: SizeOpt = "auto",
-    quality: QualityOpt = Quality.medium,
+    quality: QualityOpt = Quality.high,
     background: BackgroundOpt = Background.auto,
     fmt: FormatOpt = Format.png,
     compression: CompressionOpt = None,
     n: Annotated[int, typer.Option("-n", help="Variants per request (>4 needs --allow-bulk).")] = 1,
     allow_bulk: Annotated[bool, typer.Option("--allow-bulk", help=f"Confirm -n above {BULK_LIMIT}.")] = False,
-    model: Annotated[str, typer.Option(help="Image model.")] = DEFAULT_MODEL,
+    model: ModelOpt = DEFAULT_MODEL,
     as_json: JsonOpt = False,
 ) -> None:
     """Transform existing local image(s) via the Image API edits endpoint."""
     validate_size(size)
+    validate_quality(model, quality)
     validate_output_opts(background, fmt, compression, n, allow_bulk)
     for p in [*inputs, *([mask] if mask else [])]:
         if not p.is_file():
@@ -298,23 +315,29 @@ def iterate(
     out: OutOpt,
     session: Annotated[Path, typer.Option(help="Session sidecar JSON — created if absent, else continued.")],
     size: SizeOpt = "auto",
-    quality: QualityOpt = Quality.medium,
+    quality: QualityOpt = Quality.high,
     background: BackgroundOpt = Background.auto,
     fmt: FormatOpt = Format.png,
     compression: CompressionOpt = None,
     action: Annotated[Action, typer.Option(help="Tool behavior: auto (model decides) · generate · edit.")] = Action.auto,
+    model: Annotated[Optional[str], typer.Option(help=f"Image model pinned on the tool (default {DEFAULT_MODEL}; continuations reuse the session's).")] = None,
     driver_model: Annotated[Optional[str], typer.Option(help=f"Mainline model carrying the tool (default {DEFAULT_DRIVER}; continuations reuse the session's).")] = None,
     as_json: JsonOpt = False,
 ) -> None:
     """Multi-turn refinement via the Responses API (chained by previous_response_id).
 
-    The tool selects its own GPT Image model; costs add driver-model tokens on top
-    of image tokens — use for assets that earn refinement, not for bulk.
+    The image model is pinned on the tool (the API's own default is an older model);
+    costs add driver-model tokens on top of image tokens — use for assets that earn
+    refinement, not for bulk.
     """
     validate_size(size)
     validate_output_opts(background, fmt, compression, n=1, allow_bulk=False)
     previous_id = None
-    sess: dict[str, Any] = {"driver_model": driver_model or DEFAULT_DRIVER, "turns": []}
+    sess: dict[str, Any] = {
+        "driver_model": driver_model or DEFAULT_DRIVER,
+        "image_model": model or DEFAULT_MODEL,
+        "turns": [],
+    }
     if session.exists():
         try:
             sess = json.loads(session.read_text())
@@ -324,10 +347,14 @@ def iterate(
                               "point --session at a fresh path to start over")
         if driver_model:
             sess["driver_model"] = driver_model
+        if model:
+            sess["image_model"] = model
+        sess.setdefault("image_model", DEFAULT_MODEL)  # sidecars from the gpt-image-2 CLI
+    validate_quality(sess["image_model"], quality)
     require_key()
     tool: dict[str, Any] = {
-        "type": "image_generation", "quality": quality.value, "size": size,
-        "background": background.value, "output_format": fmt.value,
+        "type": "image_generation", "model": sess["image_model"], "quality": quality.value,
+        "size": size, "background": background.value, "output_format": fmt.value,
     }
     if compression is not None:
         tool["output_compression"] = compression
@@ -361,8 +388,9 @@ def iterate(
     session.write_text(json.dumps(sess, indent=2) + "\n")
     payload = {
         "op": "iterate", "turn": len(sess["turns"]), "paths": [str(p) for p in paths],
-        "size": size, "quality": quality.value, "driver_model": sess["driver_model"],
-        "response_id": response.id, "revised_prompt": revised,
+        "size": size, "quality": quality.value, "model": sess["image_model"],
+        "driver_model": sess["driver_model"], "response_id": response.id,
+        "revised_prompt": revised,
         "usage": usage_dict(getattr(response, "usage", None)),
     }
     emit(as_json, payload,

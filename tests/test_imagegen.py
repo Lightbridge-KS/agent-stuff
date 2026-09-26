@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["openai>=1.60", "typer>=0.12"]
+# dependencies = ["openai>=3.19", "typer>=0.12"]
 # ///
 """Offline contract tests for the image-gen skill's imagegen.py CLI.
 
@@ -75,6 +75,11 @@ class TestExitCodeContract(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         self.assertIn("png or webp", proc.stderr)
 
+    def test_xhigh_on_older_model_exits_2_without_key(self):
+        proc = run_cli("generate", "x", "-o", "out.png", "--quality", "xhigh", "--model", "gpt-image-2")
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("gpt-image-2.5", proc.stderr)
+
     def test_bulk_guard(self):
         proc = run_cli("generate", "x", "-o", "out.png", "-n", "5")
         self.assertEqual(proc.returncode, 2)
@@ -128,7 +133,10 @@ class TestMockedClient(unittest.TestCase):
             self.assertTrue((Path(tmp) / "logo_1.png").exists())
             self.assertTrue((Path(tmp) / "logo_2.png").exists())
             self.assertEqual(payload["usage"]["output_tokens"], 1056)
-            self.assertEqual(client.images.generate.call_args.kwargs["quality"], "medium")
+            self.assertEqual(client.images.generate.call_args.kwargs["quality"], "high")
+            self.assertEqual(
+                client.images.generate.call_args.kwargs["model"], "gpt-image-2.5-sunburst"
+            )
 
     def test_iterate_creates_then_chains_session(self):
         client = mock.MagicMock()
@@ -154,8 +162,12 @@ class TestMockedClient(unittest.TestCase):
             self.assertNotIn(
                 "previous_response_id", client.responses.create.call_args.kwargs
             )
+            tool = client.responses.create.call_args.kwargs["tools"][0]
+            self.assertEqual(tool["model"], "gpt-image-2.5-sunburst")
+            self.assertEqual(client.responses.create.call_args.kwargs["model"], "gpt-6-sol")
             saved = json.loads(sess.read_text())
             self.assertEqual(saved["turns"][0]["response_id"], "resp_1")
+            self.assertEqual(saved["image_model"], "gpt-image-2.5-sunburst")
 
             r2 = self.invoke("iterate", "warmer", "-o", f"{tmp}/v2.png", "--session", str(sess))
             self.assertEqual(r2.exit_code, 0, r2.output)
@@ -164,7 +176,37 @@ class TestMockedClient(unittest.TestCase):
             )
             saved = json.loads(sess.read_text())
             self.assertEqual([t["response_id"] for t in saved["turns"]], ["resp_1", "resp_2"])
+            self.assertEqual(
+                client.responses.create.call_args.kwargs["tools"][0]["model"],
+                "gpt-image-2.5-sunburst",
+            )
             self.assertTrue((Path(tmp) / "v2.png").exists())
+
+    def test_iterate_continues_old_shape_session(self):
+        """A sidecar written by the gpt-image-2 CLI (no image_model) keeps its driver and gains the default image model."""
+        client = mock.MagicMock()
+        client.responses.create.return_value = SimpleNamespace(
+            id="resp_2",
+            usage=None,
+            output=[SimpleNamespace(type="image_generation_call", result=FAKE_B64, revised_prompt=None)],
+        )
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(
+            self.imagegen, "_client", return_value=client
+        ):
+            sess = Path(tmp) / "old.json"
+            sess.write_text(json.dumps({
+                "driver_model": "gpt-5.6",
+                "turns": [{"prompt": "a fox", "response_id": "resp_1", "output": "v1.png"}],
+            }))
+            result = self.invoke("iterate", "warmer", "-o", f"{tmp}/v2.png", "--session", str(sess))
+            self.assertEqual(result.exit_code, 0, result.output)
+            kwargs = client.responses.create.call_args.kwargs
+            self.assertEqual(kwargs["model"], "gpt-5.6")
+            self.assertEqual(kwargs["previous_response_id"], "resp_1")
+            self.assertEqual(kwargs["tools"][0]["model"], "gpt-image-2.5-sunburst")
+            saved = json.loads(sess.read_text())
+            self.assertEqual(saved["image_model"], "gpt-image-2.5-sunburst")
+            self.assertEqual(len(saved["turns"]), 2)
 
     def test_iterate_no_image_exits_3_with_driver_text(self):
         client = mock.MagicMock()

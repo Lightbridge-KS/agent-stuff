@@ -1,6 +1,6 @@
-# Prompting gpt-image-2
+# Prompting GPT Image 2.5
 
-Distilled from the [GPT Image Models Prompting Guide](https://developers.openai.com/cookbook/examples/multimodal/image-gen-models-prompting-guide) (fetched 2026-08-24).
+Distilled from the [GPT Image Models Prompting Guide](https://developers.openai.com/cookbook/examples/multimodal/image-gen-models-prompting-guide) (fetched 2026-08-24; re-checked 2026-09-26 — the guidance is model-agnostic and applies to Sunburst and Flare unchanged).
 
 ## Fundamentals
 
@@ -23,8 +23,8 @@ Distilled from the [GPT Image Models Prompting Guide](https://developers.openai.
   repeat the preserve-list every turn to stop drift (also: don't alter saturation,
   contrast, layout, camera angle, surrounding objects).
 - **Text in images**: put literal text in **quotes** or ALL CAPS; specify font style,
-  size, color, placement. Spell tricky words letter-by-letter. Use `medium`/`high`
-  quality for small or dense text.
+  size, color, placement. Spell tricky words letter-by-letter. Use `xhigh` quality
+  for small or dense text (`high` is the default; `max` only if `xhigh` misspells).
 - **Transparent backgrounds**: pair `--background transparent` with png/webp; describe
   the subject as *isolated on a fully transparent background* and exclude scenery,
   solid backdrops, checkerboards, and shadows. On edits, repeat "preserve the
@@ -40,7 +40,7 @@ Distilled from the [GPT Image Models Prompting Guide](https://developers.openai.
 ### §logo
 
 Brand personality + use case, then ask for a clean original mark. Generate `-n 4`
-variants at `medium`, pick by eye, refine the winner.
+variants at the default `high`, pick by eye, refine the winner.
 
 > Create an original, non-infringing logo for {company}, a {business}. The logo should
 > feel {personality}. Use clean, vector-like shapes, a strong silhouette, and balanced
@@ -52,7 +52,7 @@ variants at `medium`, pick by eye, refine the winner.
 ### §infographic
 
 For explainers, labeled diagrams, timelines. Dense layouts or heavy in-image text →
-`--quality high`. State audience and intent ("so a student understands X technically
+`--quality xhigh`. State audience and intent ("so a student understands X technically
 and visually"). Verify every label's spelling on read-back.
 
 ### §photoreal

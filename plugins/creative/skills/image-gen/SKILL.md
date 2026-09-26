@@ -1,15 +1,15 @@
 ---
 name: image-gen
 description: >-
-  Generate or edit images with OpenAI gpt-image-2 via the bundled CLI — logos,
+  Generate or edit images with OpenAI GPT Image 2.5 via the bundled CLI — logos,
   website/presentation assets, infographics, test fixtures, photo-real scenes,
   UI mockups, image editing/compositing. Use when asked to generate, create, or
   edit an image, or when a task needs an image asset produced.
 metadata:
-  version: "2026-08-24"
+  version: "2026-09-26"
 ---
 
-# Image generation (gpt-image-2)
+# Image generation (GPT Image 2.5)
 
 Drive the bundled deterministic CLI; you supply the reasoning — use-case triage, prompt
 crafting, and **visual verification** (Read every output image back before deciding the
@@ -34,16 +34,20 @@ need an image
     (mask, references, compositing, style) ──────► edit       (Image API edits)
 ```
 
+Every verb runs `gpt-image-2.5-sunburst` (OpenAI's "most capable" model, tuned for
+editing precision). `gpt-image-2.5-flare` is the same price per token and tuned for
+speed — pass `--model gpt-image-2.5-flare` when latency matters more than fidelity.
+
 ## Presets by use case
 
 | Use case | Call | Recipe |
 |---|---|---|
 | Logo | `--size 1024x1024 --background transparent` png, `-n 4` variants | [prompting.md §logo](references/prompting.md) |
 | Website hero / banner | `--size 1536x1024` (or wider, ≤3:1) | §photoreal or §marketing |
-| Presentation slide art | `--size 1536x1024 --format jpeg` (fastest) | §slides |
-| Infographic / diagram | `--size 1024x1536 --quality high` (small text needs it) | §infographic |
+| Presentation slide art | `--size 1536x1024 --format jpeg --model gpt-image-2.5-flare` (fastest) | §slides |
+| Infographic / diagram | `--size 1024x1536 --quality xhigh` (small text needs it) | §infographic |
 | UI mockup | `--size 1024x1536` portrait | §ui-mockup |
-| Test fixture / bulk | `--quality low --size 1024x1024` — never more | §none needed |
+| Test fixture / bulk | `--quality low --size 1024x1024 --model gpt-image-2.5-flare` — never more | §none needed |
 | Photo-real scene | defaults; say "photorealistic" in the prompt | §photoreal |
 | Product cutout / composite | `edit -i ...` (+`--background transparent`) | §product, §multi-image |
 
@@ -51,9 +55,10 @@ need an image
 
 1. Draft the prompt in order: **scene → subject → key details → constraints** (state the
    intended use: "logo", "pitch-deck slide" — it sets the model's polish mode).
-2. Run the verb from the router. Quality defaults to `medium` (~$0.04); pass
-   `--quality low` (~$0.005) for drafts/fixtures/bulk, `high` (~$0.17) only for finals
-   with small text or fine detail.
+2. Run the verb from the router. Quality defaults to `high` (~$0.05 at 1024²); pass
+   `--quality medium` (~$0.01) for drafts, `low` (~$0.006) for fixtures/bulk, `xhigh`
+   (~$0.09) for finals with small text or fine detail, and `max` (~$0.21) only when
+   `xhigh` failed on read-back.
 3. **Read the output image** (multimodal). Check: matches request? text spelled right?
    layout sane? If not →
 4. Refine — one change per turn (`iterate` continues the session; `edit` for local
@@ -62,10 +67,13 @@ need an image
    images are scratch artifacts — playground/temp, never committed.
 
 ```bash
-# one-shot
+# one-shot (sunburst, high)
 lb key run openai-image-gen -- uv run <skill_dir>/scripts/imagegen.py \
   generate "A minimal flat-design fox logo..." -o logo.png \
   --size 1024x1024 --background transparent -n 4
+
+# fast draft
+... imagegen.py generate "..." -o draft.jpg -f jpeg --quality medium --model gpt-image-2.5-flare
 
 # iterative session (sidecar JSON chains the turns; created on first use)
 ... imagegen.py iterate "Thicker strokes, warmer orange" -o v2.png --session fox.json
@@ -74,8 +82,8 @@ lb key run openai-image-gen -- uv run <skill_dir>/scripts/imagegen.py \
 ... imagegen.py edit "Remove the background" -i photo.png -o cutout.png --background transparent
 ```
 
-`--json` on any verb returns paths, usage tokens, `revised_prompt`, and (iterate) the
-`response_id`. Exit codes teach: 0 ok · 2 fix params (validated before spending) ·
+`--json` on any verb returns paths, the model, usage tokens, `revised_prompt`, and
+(iterate) the `response_id`. Exit codes teach: 0 ok · 2 fix params (validated before spending) ·
 3 moderation/user-error — **rewrite, don't retry** · 4 auth/quota/network.
 
 Depth: [references/prompting.md](references/prompting.md) (fundamentals + per-use-case
