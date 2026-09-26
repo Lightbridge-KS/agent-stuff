@@ -491,7 +491,9 @@ input[type="number"].control { max-width: 200px; }
 
 /* review */
 
-.review { display: grid; gap: 10px; }
+/* minmax(0, …): an item's Detail may hold a <pre> that never wraps; an auto track would grow to its
+   longest line and push the item past the card instead of letting the code block scroll. */
+.review { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .review-item {
   padding: 12px 16px;
   border-radius: var(--radius-control);
