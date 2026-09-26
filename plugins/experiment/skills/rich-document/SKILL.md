@@ -1,18 +1,34 @@
 ---
 name: rich-document
 description: >-
-  Present a rich browser document when a coding explanation needs Mermaid diagrams,
-  tabs, collapsible detail, or side-by-side comparisons. Write constrained Quarto
-  Markdown; the bundled CLI renders, saves, and opens it with light/dark themes.
+  Explain a coding topic visually. Pick the smallest text shape for chat
+  (pseudocode, call tree, file tree, diff of a shape), or present a rich browser
+  document when the explanation needs Mermaid diagrams, tabs, collapsible detail,
+  or side-by-side comparison. Constrained Quarto Markdown in; the bundled CLI
+  renders, saves, and opens it with light/dark themes.
 metadata:
-  version: "2026-09-22"
+  version: "2026-09-26"
 ---
 
 # Rich document
 
 A Contract skill: the agent writes content; the deterministic CLI owns rendering,
-themes, persistence, and the local viewer. Use for explanations that benefit from
-navigation and diagrams. Plain answers stay in chat; questions belong to ask-form.
+themes, persistence, and the local viewer. Questions belong to ask-form.
+
+## Choose the rung
+
+1. **Prose** in chat.
+2. **One text shape** in chat: pseudocode, call tree, surface tree, file tree, or a
+   `diff` of one of those, from [shapes](references/shapes.md). Most explanations
+   end here. Never Mermaid in chat: the terminal cannot render it.
+3. **A rich document** when a Mermaid diagram earns its place, or when two of these
+   hold: a comparison that wants tabs or columns; detail worth collapsing; longer
+   than a terminal screen; something the reader will return to.
+
+Pick the smallest view that makes the point, place it beside the sentence it
+supports, and write in the repo's domain language (`CONTEXT.md` when present).
+
+## Author and present
 
 `<skill_dir>` is the directory containing this file. Requires `uv`, Quarto 1.9.38,
 and the Lightbridge CLI (`lb` or `lightbridge`) for persistent artifacts. No extra
