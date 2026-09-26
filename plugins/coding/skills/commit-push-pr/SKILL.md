@@ -2,7 +2,7 @@
 name: commit-push-pr
 description: "Git workflow: commit, push, and create/update a draft PR. If a PR exists for the current branch, update its body. Trigger: 'commit push pr' or /commit-push-pr."
 metadata:
-  version: "2026-09-19"
+  version: "2026-09-26"
 ---
 
 # Commit → Push → PR
@@ -20,7 +20,7 @@ Ship the working tree as a draft PR. You already know git and `gh` — this skil
 
 - Always `--draft`.
 - **One PR per branch:** if a PR already exists for the branch, update its body to cover all commits since base and keep the title unless outdated. Never open a second.
-- Title < 70 chars. Scale the body to the size of the change.
+- Title < 70 chars. Scale the body to the size of the change — see *Filling the sections*.
 
 ### Structure — ask GitHub
 
@@ -39,6 +39,20 @@ gh api graphql -f owner='<owner>' -f name='<repo>' -f query='
 - **`[]`** → built-in: `## Summary` (bullets) + `## Test plan` (checklist).
 
 Keep the template's headings and order; extra detail goes under them, not beside them. An unused section: do what the template says, else keep the heading with `N/A`.
+
+### Filling the sections
+
+Headings come from the template; match them by meaning. Write in the repo's domain language (`CONTEXT.md` when present).
+
+| Section, by meaning | Fill with |
+|---|---|
+| **Intent** | One sentence: what is true after merge that is not true now. Delete it when the title already says it. |
+| **Summary** | Prose bullets, each one change and why. **At most one visual**, and only when the change has a shape prose cannot carry — pick the smallest from `references/body-shapes.md`. A `Deferred:` bullet for what was left out on purpose, pointing at `#N` or the tracker. |
+| **Verification** / test plan | Before/after pairs. Name the exact test that failed before and passes now, or the command and its result. Fenced execution output is the working tier; a screenshot only when the repo already commits the image — `gh` cannot attach one. What was not run goes under *Not verified*, never omitted. |
+| **Merge risk** | `**Door:** one-way / two-way · **Blast radius:** <one phrase>`. One-way: hard to roll back — migrations, deletions, published contracts. Blast radius: who or what breaks if it is wrong — consumers, layout, one skill. Under a matching heading when the template has one; otherwise the last line of the summary section. |
+| **Open questions** | Decisions the reviewers own: one neutral question each, with its options. |
+
+A visual or a pasted output is body text: the *Voice* floor below applies to it exactly as to prose.
 
 ### Voice
 
