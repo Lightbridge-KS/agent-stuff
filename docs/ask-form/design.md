@@ -111,6 +111,14 @@ agent never declares (KS, 2026-09-03): every answerable question carries an opti
 with an optional **Comments** card returned as `meta.comments`. Both live in `meta` so answer
 shapes stay stable; blank notes are dropped.
 
+**Clearing a choice** (KS, 2026-09-27). Clicking the chosen control again — or Space on it — clears
+it: a `single_select` option (Other included), a `matrix` row's cell, a `review` item's decision. The
+question returns to unanswered: the answered mark and the footer count drop, a required question
+blocks Send again, an optional one comes back in `meta.skipped`. A review item keeps any typed
+comment for a later decision. The chosen control's tooltip says "Click again to clear". Answer shapes
+are unchanged. `multi_select` checkboxes already toggle and text or number fields clear by emptying;
+`scale` and `ranking` stay as they are. A separate "Discuss" state was rejected: the note carries that.
+
 **Recommendations** (KS, 2026-09-03) are a spec flag, not label text, so they render consistently,
 validate (one per `single_select`, value within range, decision within `decisions`, none on
 `ranking`), and can be checked against the answer: `options[].recommended: true`,
