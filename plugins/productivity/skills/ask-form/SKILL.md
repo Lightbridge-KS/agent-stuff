@@ -7,7 +7,7 @@ description: >-
   form on 127.0.0.1, opens the browser, and returns the answers as JSON. Also on request
   ("use the form", "ask me with a form"). Needs a machine with a browser.
 metadata:
-  version: "2026-09-26"
+  version: "2026-09-27"
 ---
 
 # ask-form

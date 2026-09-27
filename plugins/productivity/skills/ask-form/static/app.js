@@ -54,10 +54,39 @@
 
   const recBadge = (text = "Recommended") => el("span", { class: "rec", text });
 
+  // The chosen control says how to undo it; a recommended one keeps saying so too.
+  const clearHint = (node, chosen) => {
+    node.title = [node.dataset.rec === "true" && "Recommended", chosen && "Click again to clear"].filter(Boolean).join(" · ");
+  };
+
+  // Radios cannot be unchecked natively. A click (mouse or label) or Space on the radio that was
+  // already chosen unchecks it and calls onClear. `change` fires after `click`, so a click that picks
+  // a new radio still finds the previous one here. Keyed by name: each matrix row is its own group.
+  const clearableRadios = (root, onClear) => {
+    const chosen = new Map();
+    const mark = (radio, on) => clearHint(radio.closest("label"), on);
+    const isChosen = (r) => r.type === "radio" && chosen.get(r.name) === r;
+    const clear = (r) => { r.checked = false; chosen.delete(r.name); mark(r, false); onClear(r); };
+    root.addEventListener("change", (e) => {
+      const r = e.target;
+      if (r.type !== "radio") return;
+      const prev = chosen.get(r.name);
+      if (prev) mark(prev, false);
+      chosen.set(r.name, r);
+      mark(r, true);
+    });
+    root.addEventListener("click", (e) => { if (isChosen(e.target)) clear(e.target); });
+    // Chromium sends no click for Space on a checked radio, so Space clears here. Cancelling both
+    // edges stops a browser that does activate on keyup from checking it again.
+    root.addEventListener("keydown", (e) => { if (e.key === " " && isChosen(e.target)) e.preventDefault(); });
+    root.addEventListener("keyup", (e) => { if (e.key === " " && isChosen(e.target)) { e.preventDefault(); clear(e.target); } });
+  };
+
   const otherRow = (q, type, onChange) => {
     const input = el("input", { type, name: q.id, value: "__other__", onchange: onChange });
     const text = el("input", { class: "control other-input", type: "text", placeholder: "Type your own answer", hidden: true, oninput: onChange });
-    text.addEventListener("focus", () => { if (!input.checked) { input.checked = true; onChange(); } });
+    // A real change event, so clearableRadios learns that Other is now the chosen radio.
+    text.addEventListener("focus", () => { if (!input.checked) { input.checked = true; input.dispatchEvent(new Event("change", { bubbles: true })); } });
     const row = el("label", { class: "option" }, input, el("div", {}, el("div", { class: "opt-label", text: "Other" })), text);
     row._text = text; row._input = input;
     return row;
@@ -96,6 +125,7 @@
     };
     for (const opt of q.options) group.append(optionRow(q, opt, "radio", update));
     if (q.allow_other !== false) { otherEl = otherRow(q, "radio", update); group.append(otherEl); }
+    clearableRadios(group, update);
     return withCompare(q, group, group);
   };
 
@@ -228,6 +258,7 @@
       body.append(tr);
     }
     table.append(body);
+    clearableRadios(table, (r) => { delete picks[r.name.slice(q.id.length + 1)]; update(); });
     return el("div", {}, el("div", { class: "matrix-wrap" }, table), hint);
   };
 
@@ -250,7 +281,14 @@
       for (const d of decisions) {
         const b = el("button", { type: "button", text: d, "aria-pressed": "false", "data-tone": d, "data-rec": item.recommended === d ? "true" : undefined, title: item.recommended === d ? "Recommended" : undefined });
         b.addEventListener("click", () => {
-          for (const x of seg.children) x.setAttribute("aria-pressed", String(x === b));
+          if (b.getAttribute("aria-pressed") === "true") {  // a second press clears; a typed comment stays for later
+            b.setAttribute("aria-pressed", "false");
+            clearHint(b, false);
+            delete state[item.id];
+            if (!comment.value.trim()) comment.hidden = true;
+            return update();
+          }
+          for (const x of seg.children) { x.setAttribute("aria-pressed", String(x === b)); clearHint(x, x === b); }
           state[item.id] = { decision: d, comment: comment.value.trim() };
           if (withComment) { comment.hidden = false; if (d !== decisions[0]) comment.focus(); }
           update();
