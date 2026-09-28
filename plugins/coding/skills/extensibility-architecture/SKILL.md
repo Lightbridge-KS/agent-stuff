@@ -2,10 +2,7 @@
 name: extensibility-architecture
 description: >-
   Explain how an existing system changes after it ships — runtime config, declarative
-  composition, hooks, plugins, in-process extensions — or design that surface from
-  requirements, picking the lowest rung that fits before building a plugin system. One
-  Markdown doc with Mermaid diagrams. Use on name or near-match (plugin / extension /
-  extensibility / "should this be a plugin system or config?").
+  composition, hooks, plugins, in-process extensions.
 metadata:
   version: "2026-09-24"
 ---
