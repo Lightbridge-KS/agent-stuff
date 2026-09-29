@@ -170,7 +170,7 @@ feature owns a subtree **or file** registered here.
     silent.
 - The `ask-form-qmd` CLI owns its submitted bundles and transcripts, resolves state with
   `lb path --json`, and reopens them read-only; format/lifecycle in
-  [its source contract](../../../../experiment/skills/ask-form-qmd/references/source.md).
+  [its source contract](../../../../../_archive/ask-form-qmd/references/source.md).
   Neither producer's archive is injected at session start.
 - **Trade-off (accepted):** nothing in the repo means nothing travels with a clone —
   config does not follow the repo to another machine. A moved/renamed repo is repaired
