@@ -1,8 +1,7 @@
 ---
-name: explain-simple
+name: toy-example
 description: >-
-  Explain how an idea, design pattern, algorithm, or piece of logic works by
-  distilling it into the smallest possible code example.
+  Explain an idea, pattern, or algorithm through the smallest code example that still shows the mechanism — a toy implementation.
 metadata:
   version: "2026-09-28"
 ---
