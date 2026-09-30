@@ -466,10 +466,10 @@ class FleetCliTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         data = json.loads(result.stdout)
         self.assertTrue(data["created"])
-        self.assertEqual(data["nodes"], ["beelink-ubuntu"])
+        self.assertEqual(data["nodes"], ["example-node"])
         fleet, error = lb_resolve.load_fleet(fresh)
         self.assertIsNone(error)
-        self.assertEqual(fleet["nodes"]["beelink-ubuntu"]["repos"], ["agent-instruction", "agent-stuff", "agent-stuff-private"])
+        self.assertEqual(fleet["nodes"]["example-node"]["repos"], ["agent-instruction", "agent-stuff", "agent-stuff-private"])
         again = subprocess.run(
             script_argv(SCRIPT, "fleet", "init", "--fleet", str(fresh)),
             capture_output=True, text=True, encoding="utf-8", env=self.env,

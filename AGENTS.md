@@ -166,6 +166,8 @@ Python, executed via [`uv`](https://docs.astral.sh/uv/) (self-contained scripts 
   - `uv run tests/test_hooks.py` — hook opt-in gating tests.
   - `uv run tests/test_package.py` — packager layout + reproducibility tests.
   - `uv run tests/test_lightbridge.py` — the canonical config resolver.
+  - `uv run tests/test_lb_fleet.py` — `lb fleet`: inventory/receipt readers, the node program against real git worlds, the verbs through an `ssh` shim.
+  - `uv run tests/test_fleet_hook.py` — the `fleet-inject` hook (network-free lag nudge).
   - `uv run tests/test_plan_store.py` — `plan-store` plus both plan hooks.
   - `uv run tests/test_repo_links.py` — the `repo-links` resolver CLI and its hook.
   - `uv run tests/test_island_path.py` — the island registry resolver.

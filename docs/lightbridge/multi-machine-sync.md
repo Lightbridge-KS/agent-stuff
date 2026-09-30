@@ -16,6 +16,13 @@ when a second machine arrives. Context: the local-scope migration
 per-project config into `~/.lightbridge/projects/<key>/config.toml`, which means config no
 longer travels with a repo clone — this design is the recovery for that accepted trade-off.*
 
+*Scope note (2026-09-30): a second machine did arrive, but the first thing that needed
+syncing was the **agent repos**, not this tree — that is `lb fleet`
+([`lightbridge-fleet.md`](./lightbridge-fleet.md), ADR 0004): hub-and-spoke, GitHub as
+the truth, receipts under `~/.lightbridge/fleet/`. This design keeps its own scope —
+`~/.lightbridge` config across machines — and stays deferred; `fleet.toml` and `fleet/`
+join `repos.toml` in the "machine-specific, never synced" class below.*
+
 ## Design
 
 `git init ~/.lightbridge` itself, private GitHub remote (suggested: `lightbridge-state`,

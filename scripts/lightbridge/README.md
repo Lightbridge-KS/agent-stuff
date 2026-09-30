@@ -82,6 +82,9 @@ lightbridge key add NAME --provider P --env VAR --scope TEXT   # value via hidde
 lightbridge key run NAME -- CMD...  # inject the value into CMD's env and exec (127: exec failed)
 lightbridge key rm NAME             # remove catalog entry + stored value (rm+add = rotate)
 lightbridge key doctor              # audit catalog/values pair; exit 1 on problems
+lightbridge fleet init              # seed ~/.lightbridge/fleet.toml — this machine becomes the hub
+lightbridge fleet status [NODE]     # ask node(s) what they have; distance vs origin/main; exit 1 if lagging
+lightbridge fleet sync NODE         # node pulls --ff-only + reinstalls itself; diverged repos refused
 lightbridge mv OLD NEW              # move/rename a repo (or parent dir) + repair all bookkeeping
 lightbridge doctor                  # audit the whole tree; exit 1 on problems
 ```
@@ -90,9 +93,12 @@ Every verb takes `--json` (except `key run` — on success the process is replac
 project-scoped verbs (`status` / `init` / `add` / `show` / `enable` / `disable` / `path`)
 take `--start DIR`; `status`, `repos`, `graph`, `mv`, and `doctor` take `--registry FILE`;
 `status` and every `graph` verb take `--graph FILE`; `status` and every `key` verb take
-`--keys FILE` (the `key` verbs also `--secrets FILE`).
+`--keys FILE` (the `key` verbs also `--secrets FILE`); `status` and every `fleet` verb take
+`--fleet FILE` (receipts live in its sibling `fleet/` dir).
 Graph design: [`docs/lightbridge/lightbridge-graph.md`](../../docs/lightbridge/lightbridge-graph.md);
-agent-facing usage: the `repo-graph` skill.
+agent-facing usage: the `repo-graph` skill. Fleet design:
+[`docs/lightbridge/lightbridge-fleet.md`](../../docs/lightbridge/lightbridge-fleet.md);
+agent-facing usage: the `fleet-sync` skill.
 
 **Status** is the read path — one bounded dashboard instead of a `path → cat → parse → ls`
 chain: root, key, config, each present section with its `enabled` state (unknown tables

@@ -110,7 +110,7 @@ from lb_resolve import (
     use_utf8_console,
 )
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 DESCRIPTION = (
     "Create, inspect, and audit user-level .lightbridge project config "
@@ -123,7 +123,8 @@ EPILOG = (
     "Siblings (own their state, not wrapped here): plan_store.py (plans/), "
     "handoff.py (handoffs/), repo_links.py (graph.toml ego-view projection; "
     "spec: the repo-graph skill), docs-index ([docs-index] rendering), "
-    "LLM keys (the llm-keys skill). Spec: the lightbridge-config skill."
+    "LLM keys (the llm-keys skill), node sync (`fleet`; the fleet-sync skill). "
+    "Spec: the lightbridge-config skill."
 )
 START_HELP = "Directory whose project root is resolved (default: CWD)."
 

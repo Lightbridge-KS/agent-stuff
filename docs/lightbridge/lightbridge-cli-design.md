@@ -200,6 +200,9 @@ All five settled with the recommended option:
   `repo_links.py` remains the standalone projection engine this non-goal protects.
 - Injecting per-key defaults into `show` (defaults stay with readers + catalog).
 - `lb sync` / `lb relocate` — owned by the deferred [multi-machine design](./multi-machine-sync.md).
+  *Amended (fleet, ADR 0004):* syncing the **agent repos to node devices** is `lb fleet`
+  (hub-and-spoke, receipts under `~/.lightbridge/fleet/`); syncing `~/.lightbridge`
+  *itself* across machines stays with that deferred design.
 - Colors, tables, interactive prompts — two-audience rule: nothing that needs a TTY.
   (v0.3's Typer port keeps this: `rich_markup_mode=None` forces plain click help — the
   default rich panels emit box-drawing padded to 80 columns even when piped, a per-read

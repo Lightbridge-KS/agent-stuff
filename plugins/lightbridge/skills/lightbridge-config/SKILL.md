@@ -2,13 +2,15 @@
 name: lightbridge-config
 description: >-
   Bootstrap and manage the personal .lightbridge namespace — per-project config sections
-  plus user-level state (handoffs, plans, asks, repos.toml, graph.toml, keys.toml). Use when
+  plus user-level state (handoffs, plans, asks, repos.toml, graph.toml, keys.toml,
+  fleet.toml). Use when
   setting up or extending lightbridge config for a repo, enabling or adding a section,
   asking what .lightbridge supports, or locating user-level lightbridge state. For
   linking repos in the cross-repo graph, use the repo-graph skill; for running
-  inference with personal LLM API keys, use the llm-keys skill.
+  inference with personal LLM API keys, use the llm-keys skill; for syncing the agent
+  repos to node devices, use the fleet-sync skill.
 metadata:
-  version: "2026-09-25"
+  version: "2026-09-30"
 ---
 
 # .lightbridge config
@@ -32,9 +34,11 @@ The same tree holds durable, harness-neutral **state**: `projects/<key>/handoffs
 collected, always-on; Quarto companion bundles live in `asks/_bundles/`), `projects/<key>/artifacts/` (rich-document source, manifest,
 assets, and rendered HTML; saved by default), `~/.lightbridge/repos.toml` (the personal name→path repo
 registry), `~/.lightbridge/graph.toml` (the cross-repo graph — typed edges between
-registered repos; spec: the **repo-graph** skill), and `~/.lightbridge/keys.toml` +
+registered repos; spec: the **repo-graph** skill), `~/.lightbridge/keys.toml` +
 `secrets.toml` (personal LLM API keys: agent-readable catalog + injected-only values;
-spec: the **llm-keys** skill).
+spec: the **llm-keys** skill), and `~/.lightbridge/fleet.toml` + `fleet/<node>.json` (the
+hub's node inventory and sync receipts — present only on the hub; spec: the **fleet-sync**
+skill).
 
 Full spec (conventions, sections, keys, who reads them): [`references/catalog.md`](references/catalog.md).
 
@@ -56,6 +60,7 @@ lb path                  # where this project's config lives (+ exists?)
 lb repos list|add|rm     # manage ~/.lightbridge/repos.toml (add never clobbers a name)
 lb graph …               # the cross-repo graph — see the repo-graph skill
 lb key …                 # personal LLM API keys — see the llm-keys skill
+lb fleet …               # sync the agent repos to node devices — see the fleet-sync skill
 lb mv OLD NEW            # move/rename a repo (or parent dir) + repair all bookkeeping
 lb doctor                # audit the whole tree (stale roots, legacy files)
 ```

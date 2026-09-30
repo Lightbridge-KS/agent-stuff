@@ -54,11 +54,11 @@ verify   = "uv run bin/validate.py"
 [repos.agent-stuff-private]
 apply    = "uv run ../agent-stuff/bin/install.py --root . --all --force"
 
-# One [nodes.<name>] per node. `ssh` is the alias in ~/.ssh/config; `repos` is the
-# apply ORDER (agent-stuff before agent-stuff-private — the private install runs
-# agent-stuff's installer).
-[nodes.beelink-ubuntu]
-ssh   = "beelink-ubuntu"
+# One [nodes.<name>] per node — rename this example to your device. `ssh` is the alias
+# in ~/.ssh/config; `repos` is the apply ORDER (agent-stuff before agent-stuff-private —
+# the private install runs agent-stuff's installer).
+[nodes.example-node]
+ssh   = "example-node"
 root  = "~/my_config"         # expanded on the node; defaults to [hub] root
 repos = ["agent-instruction", "agent-stuff", "agent-stuff-private"]
 """
