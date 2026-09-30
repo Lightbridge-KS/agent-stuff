@@ -41,7 +41,7 @@ node-side edits are forced through branch → push → PR instead of stranding.
 - [x] M5 — docs & skill: ADR 0004 (+ cli-design non-goal amendment), design doc,
       `fleet-sync` skill, lightbridge-config amendments, READMEs, `__version__` → 0.8.0,
       `~/my_config/AGENTS.md` line, agent-instruction replica bullet
-      (Lightbridge-KS/agent-instruction#23)
+      (Lightbridge-KS/agent-instruction#23) — 86a182b
 - [x] Gates: `bin/validate.py` (50 skills) + full `just test` (23 suites) green
 
 ## Confirmed contracts
