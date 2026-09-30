@@ -81,7 +81,9 @@ Standalone CLIs an agent runs inside the project it's working in. Each is a self
   Python+`uv` port of Peter Steinberger's `docs-list.ts`.
 - **[`scripts/lightbridge`](scripts/lightbridge)** — the canonical resolver and CLI for
   user-level `.lightbridge` project config (`~/.lightbridge/projects/<key>/config.toml`).
-  Every other script and hook here reads its opt-in state through this one.
+  Every other script and hook here reads its opt-in state through this one. Also home to
+  `lb graph` (cross-repo graph), `lb key` (personal LLM API keys) and `lb fleet`
+  (hub-and-spoke sync of the agent repos to node devices).
 - **[`scripts/handoff`](scripts/handoff)** — handoff storage for a repo: a pulled journal
   and a pushed inbox, so one session (or a sibling repo) can leave the next one a note.
 - **[`scripts/plan-store`](scripts/plan-store)** — durable, project-keyed, status-bearing
@@ -122,11 +124,15 @@ uv run bin/install.py --hooks
   `~/.claude/plans/`. Pairs with `plan-store`.
 - **[`hooks/plan-gate`](hooks/plan-gate)** — `PreToolUse(ExitPlanMode)`; **opt-in**
   auto-approve for the plan dialog. Silent unless `[plans].auto_approve = true`.
+- **[`hooks/fleet-inject`](hooks/fleet-inject)** — a `SessionStart` hook that names the
+  fleet nodes lagging this repo's `origin/main` (receipts vs local refs — no network), so
+  the agent can offer `lb fleet sync`. Hub only; opt-in per repo via `[fleet]`.
 
-All five are registered once in user settings and fail open and quiet when they have
+All six are registered once in user settings and fail open and quiet when they have
 nothing to contribute. Four gate on a lightbridge config section (`[docs-index]`,
-`[repo-links]`, `[plans]`); `handoff-inject` needs no section — it stays silent until a
-handoff is actually pushed at the repo.
+`[plans]`, `[fleet]`); `repo-links-inject` gates on the presence of `~/.lightbridge/graph.toml`
+and `handoff-inject` needs no section — it stays silent until a handoff is actually pushed
+at the repo.
 
 ## Develop
 

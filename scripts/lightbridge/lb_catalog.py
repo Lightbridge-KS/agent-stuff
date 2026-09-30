@@ -63,6 +63,16 @@ auto_approve = false               # true = skip Claude Code's plan-approval dia
                                    # Read hooks/plan-gate/README.md before enabling.
 """,
     },
+    "fleet": {
+        "purpose": "at SessionStart, name the fleet nodes lagging this repo's origin/main (hub only, no network)",
+        "reader": "hooks/fleet-inject (via lb_resolve's fleet readers)",
+        "block": """\
+[fleet]
+enabled = true                     # optional; default true
+# repo = "agent-stuff"             # optional; the [repos.<name>] in ~/.lightbridge/fleet.toml
+                                   # this checkout is. Default: the repo folder's name.
+""",
+    },
 }
 # Retired sections: `repo-links` (2026-08-16) — cross-repo links moved to the central
 # ~/.lightbridge/graph.toml (`lb graph`, spec: the repo-graph skill). A leftover
@@ -75,6 +85,7 @@ auto_approve = false               # true = skip Claude Code's plan-approval dia
 # turns any drift into an import-time failure every test run hits.
 class SectionName(str, Enum):
     docs_index = "docs-index"
+    fleet = "fleet"
     plans = "plans"
     research = "research"
 

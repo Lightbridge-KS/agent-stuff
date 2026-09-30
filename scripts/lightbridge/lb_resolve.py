@@ -37,6 +37,7 @@ staleness. Readers ignore `root`.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -48,6 +49,7 @@ STATE_DIR_ENV = "LIGHTBRIDGE_STATE_DIR"  # override; exists so readers are testa
 CONFIG_NAME = "config.toml"
 DEFAULT_REGISTRY = "~/.lightbridge/repos.toml"
 DEFAULT_GRAPH = "~/.lightbridge/graph.toml"
+DEFAULT_FLEET = "~/.lightbridge/fleet.toml"  # the hub's node inventory (ADR 0004)
 LEGACY_CONFIG_REL = Path(".lightbridge") / CONFIG_NAME  # pre-2026-07 per-repo location
 
 
@@ -278,6 +280,104 @@ def project_node(graph: dict, name: str) -> dict:
             }
             (backlinks if mode == "full" else mentions).append(entry)
     return {"out": out, "backlinks": backlinks, "mentions": mentions}
+
+
+def fleet_receipts_dir(fleet: Path) -> Path:
+    """Where `sync` receipts live — always beside the inventory, so one path pins both.
+
+    `~/.lightbridge/fleet.toml` → `~/.lightbridge/fleet/<node>.json`.
+    """
+    return fleet.parent / "fleet"
+
+
+def load_fleet(fleet: Path) -> tuple[dict | None, str | None]:
+    """Read the hub's fleet inventory, `~/.lightbridge/fleet.toml` (ADR 0004).
+
+    The one implementation: the `fleet-inject` SessionStart hook path-loads this
+    module, and the `lb fleet` verbs import it, so the inventory is read one way
+    everywhere (the `load_registry` / `load_graph` precedent).
+
+    Returns (fleet, error):
+
+    * `(None, None)` — the file is absent. This machine is not a hub; readers stay
+      silent. A node never carries this file — that absence is what makes a node
+      unable to address any other machine.
+    * `(None, reason)` — the file exists but is unusable: bad TOML, a missing
+      `[hub] root`, a `[repos.<name>]` without `apply`, or a node whose `repos` list
+      names a repo the `[repos]` table does not declare.
+    * `({"hub": {"root": str}, "repos": {...}, "nodes": {...}}, None)` — usable. Each
+      repo is normalized to `{apply, verify, requires}` (verify None when absent,
+      requires `[]`); each node to `{ssh, root, repos}` with `root` defaulting to the
+      hub's root spelling. Order of `repos` is preserved: it is the apply order.
+    """
+    if not fleet.is_file():
+        return None, None
+    try:
+        data = tomllib.loads(fleet.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError) as exc:
+        return None, f"unreadable ({exc})"
+
+    hub = data.get("hub")
+    hub_root = hub.get("root") if isinstance(hub, dict) else None
+    if not isinstance(hub_root, str) or not hub_root.strip():
+        return None, "missing `[hub] root = \"~/my_config\"` — where the hub's own clones live"
+
+    def _str(entry: dict, key: str) -> str | None:
+        value = entry.get(key)
+        return value.strip() if isinstance(value, str) and value.strip() else None
+
+    raw_repos = data.get("repos", {})
+    if not isinstance(raw_repos, dict) or not all(isinstance(v, dict) for v in raw_repos.values()):
+        return None, "the [repos] table is malformed (each repo must be a [repos.<name>] table)"
+    repos: dict[str, dict] = {}
+    for name, entry in raw_repos.items():
+        apply = _str(entry, "apply")
+        if apply is None:
+            return None, f"[repos.{name}] is missing `apply` — the node-side install command"
+        requires = entry.get("requires", [])
+        if not isinstance(requires, list) or not all(isinstance(r, str) for r in requires):
+            return None, f"[repos.{name}] `requires` must be a list of file names"
+        repos[name] = {"apply": apply, "verify": _str(entry, "verify"), "requires": list(requires)}
+
+    raw_nodes = data.get("nodes", {})
+    if not isinstance(raw_nodes, dict) or not all(isinstance(v, dict) for v in raw_nodes.values()):
+        return None, "the [nodes] table is malformed (each node must be a [nodes.<name>] table)"
+    nodes: dict[str, dict] = {}
+    for name, entry in raw_nodes.items():
+        ssh = _str(entry, "ssh")
+        if ssh is None:
+            return None, f"[nodes.{name}] is missing `ssh` — the alias from ~/.ssh/config"
+        wanted = entry.get("repos", [])
+        if not isinstance(wanted, list) or not all(isinstance(r, str) for r in wanted):
+            return None, f"[nodes.{name}] `repos` must be a list of repo names"
+        unknown = [r for r in wanted if r not in repos]
+        if unknown:
+            return None, (
+                f"[nodes.{name}] lists undeclared repo(s): {', '.join(unknown)} — "
+                f"add a [repos.<name>] table for each"
+            )
+        nodes[name] = {"ssh": ssh, "root": _str(entry, "root") or hub_root.strip(), "repos": list(wanted)}
+
+    return {"hub": {"root": hub_root.strip()}, "repos": repos, "nodes": nodes}, None
+
+
+def load_receipt(path: Path) -> tuple[dict | None, str | None]:
+    """Read one `sync` receipt, `~/.lightbridge/fleet/<node>.json`.
+
+    `(None, None)` absent — the node was never synced from this hub; `(None, reason)`
+    unreadable; `(dict, None)` usable. Receipts are the hub's *memory* of the last sync
+    (the hook compares `repos.<name>.after` against local `origin/main`); `lb fleet
+    status` re-verifies live, so a stale receipt is a nudge, never a decision.
+    """
+    if not path.is_file():
+        return None, None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return None, f"unreadable ({exc})"
+    if not isinstance(data, dict) or not isinstance(data.get("repos"), dict):
+        return None, "malformed receipt (expected an object with a `repos` table)"
+    return data, None
 
 
 def toml_str(value: str) -> str:

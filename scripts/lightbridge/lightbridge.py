@@ -15,6 +15,7 @@ loads this one. See `docs/lightbridge/adr/0001-modular-lightbridge.md`.
     lb_registry.py  ~/.lightbridge/repos.toml
     lb_graph.py     ~/.lightbridge/graph.toml — the cross-repo graph document
     lb_keys.py      ~/.lightbridge/keys.toml + secrets.toml — personal LLM API keys
+    lb_fleet.py     ~/.lightbridge/fleet.toml + fleet/<node>.json — hub-and-spoke node sync
     lb_doctor.py    tree audit
     lb_mv.py        plan_mv + apply_mv
     lb_commands.py  the cmd_* verb handlers
@@ -47,6 +48,9 @@ directory on `sys.path[0]` — so they work through the `~/.local/bin/lb` shim t
     lightbridge key run NAME -- CMD  # inject the value into CMD's env and exec (127: exec failed)
     lightbridge key rm NAME          # remove entry + value (rm+add = rotate; no `key get` exists)
     lightbridge key doctor           # audit the catalog/values pair; exit 1 on problems
+    lightbridge fleet init           # seed ~/.lightbridge/fleet.toml — this machine becomes the hub
+    lightbridge fleet status [NODE]  # ask node(s) what they have; distance vs origin/main; exit 1 if lagging
+    lightbridge fleet sync NODE      # node pulls --ff-only + reinstalls itself; diverged repos refused
     lightbridge mv OLD NEW           # move/rename a repo (or parent dir) + repair all bookkeeping
     lightbridge doctor               # audit the whole tree; exit 1 on problems
     lightbridge doctor --json
@@ -67,6 +71,9 @@ from lb_catalog import SECTIONS, SectionName
 from lb_commands import (
     cmd_add,
     cmd_doctor,
+    cmd_fleet_init,
+    cmd_fleet_status,
+    cmd_fleet_sync,
     cmd_graph_doctor,
     cmd_graph_html,
     cmd_graph_init,
@@ -95,6 +102,7 @@ from lb_commands import (
 from lb_graph import BacklinkMode, BacklinkSetting
 from lb_keys import DEFAULT_KEYS, DEFAULT_SECRETS
 from lb_resolve import (
+    DEFAULT_FLEET,
     DEFAULT_GRAPH,
     DEFAULT_REGISTRY,
     DEFAULT_STATE_DIR,
@@ -102,7 +110,7 @@ from lb_resolve import (
     use_utf8_console,
 )
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 DESCRIPTION = (
     "Create, inspect, and audit user-level .lightbridge project config "
@@ -115,7 +123,8 @@ EPILOG = (
     "Siblings (own their state, not wrapped here): plan_store.py (plans/), "
     "handoff.py (handoffs/), repo_links.py (graph.toml ego-view projection; "
     "spec: the repo-graph skill), docs-index ([docs-index] rendering), "
-    "LLM keys (the llm-keys skill). Spec: the lightbridge-config skill."
+    "LLM keys (the llm-keys skill), node sync (`fleet`; the fleet-sync skill). "
+    "Spec: the lightbridge-config skill."
 )
 START_HELP = "Directory whose project root is resolved (default: CWD)."
 
@@ -169,7 +178,7 @@ def main() -> None:
     )
 
     @app.command(
-        help="One-shot dashboard: config, sections, sibling state, registry, graph, keys."
+        help="One-shot dashboard: config, sections, sibling state, registry, graph, keys, fleet."
     )
     def status(
         start: str = start_opt,
@@ -186,9 +195,15 @@ def main() -> None:
             metavar="FILE",
             help=f"LLM key catalog (default: {DEFAULT_KEYS}).",
         ),
+        fleet: str = typer.Option(
+            DEFAULT_FLEET,
+            "--fleet",
+            metavar="FILE",
+            help=f"Fleet inventory (default: {DEFAULT_FLEET}).",
+        ),
         json_out: bool = json_opt,
     ) -> None:
-        raise typer.Exit(cmd_status(start, registry, json_out, graph, keys))
+        raise typer.Exit(cmd_status(start, registry, json_out, graph, keys, fleet))
 
     @app.command(help="Create this project's config (never clobbers).")
     def init(
@@ -550,6 +565,64 @@ def main() -> None:
         json_out: bool = json_opt,
     ) -> None:
         raise typer.Exit(cmd_key_doctor(keys, secrets, json_out))
+
+    fleet_app = typer.Typer(rich_markup_mode=None)
+    app.add_typer(
+        fleet_app,
+        name="fleet",
+        help="Hub-and-spoke sync of the agent repos to node devices: this machine is the "
+        "hub, GitHub is the truth, nodes pull --ff-only and reinstall themselves over one "
+        "ssh session. Diverged nodes are refused and named, never stashed.",
+    )
+    fleet_opt = typer.Option(
+        DEFAULT_FLEET,
+        "--fleet",
+        metavar="FILE",
+        help=f"Fleet inventory; receipts live in its sibling fleet/ dir (default: {DEFAULT_FLEET}).",
+    )
+
+    @fleet_app.command(name="init", help="Seed the inventory with the standard repos + one node (never clobbers).")
+    def fleet_init(
+        dry_run: bool = typer.Option(False, "--dry-run", help="Print the seed; write nothing."),
+        fleet: str = fleet_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_fleet_init(fleet, dry_run, json_out))
+
+    @fleet_app.command(
+        name="status",
+        help="Ask node(s) over ssh what they have (no fetch on the node) and compute each "
+        "repo's distance from origin/main here; exit 1 when anything lags, diverged, or is offline.",
+    )
+    def fleet_status(
+        node: str = typer.Argument(None, metavar="NODE", help="One node; omitted = every node."),
+        no_fetch: bool = typer.Option(
+            False, "--no-fetch", help="Skip `git fetch origin main` in the hub clones first."
+        ),
+        fleet: str = fleet_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_fleet_status(node, fleet, no_fetch, json_out))
+
+    @fleet_app.command(
+        name="sync",
+        help="Reconcile NODE to origin/main: gate (main, clean, not ahead, per-box files present) "
+        "→ git merge --ff-only → each repo's apply → verify → receipt. Refused repos are named "
+        "with the fix; nothing is ever stashed. Exit 1 if any repo was refused or failed.",
+    )
+    def fleet_sync(
+        node: str = typer.Argument(..., metavar="NODE", help="A [nodes.<name>] from the inventory."),
+        repo: list[str] = typer.Option(
+            None, "--repo", metavar="NAME", help="Only these repo(s); repeatable."
+        ),
+        dry_run: bool = typer.Option(False, "--dry-run", help="Show the plan; contact nothing."),
+        reinstall: bool = typer.Option(
+            False, "--reinstall", help="Run apply even for repos already at origin/main."
+        ),
+        fleet: str = fleet_opt,
+        json_out: bool = json_opt,
+    ) -> None:
+        raise typer.Exit(cmd_fleet_sync(node, repo or [], dry_run, reinstall, fleet, json_out))
 
     @app.command(
         help="Move/rename a repo (or parent dir) and repair all lightbridge bookkeeping. "
