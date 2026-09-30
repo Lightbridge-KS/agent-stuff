@@ -35,7 +35,9 @@ node-side edits are forced through branch → push → PR instead of stranding.
       behind 18/71/7, clean, 2 dangling links) — 44f7879
 - [ ] M3 — `lb fleet sync`: gate, ff-only pull, apply, verify, receipt, `--dry-run` /
       `--repo` / `--reinstall`; tests with local bare-origin repos and an `ssh` shim;
-      (code 44f7879); first live sync of the Beelink (after go-ahead) — pending
+      (code 44f7879); first live sync of the Beelink ran 2026-09-30 after go-ahead: three
+      repos applied (+20 / +77 / +7), two dangling links pruned, 0 broken, ~20 s; a
+      follow-up `status` read all in-sync and the hub hook went silent
 - [x] M4 — `hooks/fleet-inject` + `[fleet]` section + catalog + hook tests; the three
       repos opted in on the Mac; hook registered (Claude + Codex) — 9feb8e7
 - [x] M5 — docs & skill: ADR 0004 (+ cli-design non-goal amendment), design doc,
