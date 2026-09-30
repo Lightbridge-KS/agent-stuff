@@ -77,7 +77,17 @@ NODE_SCRIPT = r'''
 import json, os, signal, socket, subprocess, sys
 
 CONFIG = json.loads(__CONFIG_JSON__)
-ENV = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+
+
+def _path_with_user_bins():
+    """A non-interactive ssh shell skips the login PATH, so ~/.local/bin (uv on Ubuntu)
+    and /usr/local/bin can be missing; prepend them once, without duplicating."""
+    extra = [os.path.expanduser("~/.local/bin"), "/usr/local/bin", "/opt/homebrew/bin"]
+    current = os.environ.get("PATH", "").split(os.pathsep)
+    return os.pathsep.join([p for p in extra if p not in current and os.path.isdir(p)] + current)
+
+
+ENV = dict(os.environ, GIT_TERMINAL_PROMPT="0", PATH=_path_with_user_bins())
 
 
 def run(argv, cwd=None, timeout=120):

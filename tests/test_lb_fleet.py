@@ -370,6 +370,27 @@ class NodeScriptTest(unittest.TestCase):
         self.assertEqual({e["status"] for e in report["repos"].values()}, {"applied"})
         self.assertEqual(log.read_text().split(), ["alpha", "beta"])
 
+    def test_apply_finds_tools_in_the_login_only_user_bin(self):
+        """Non-interactive ssh lands without ~/.local/bin on PATH — where uv lives on
+        Ubuntu. The node program must prepend it, or every `uv run …` apply is a 127."""
+        home = self.base / "home"
+        (home / ".local" / "bin").mkdir(parents=True)
+        tool = home / ".local" / "bin" / "fleet-tool"
+        tool.write_text("#!/bin/sh\ntouch \"$1\"\n", encoding="utf-8")
+        tool.chmod(0o755)
+        self.w.advance_origin()
+        marker = self.base / "tool-ran"
+        script = lb_fleet.render_node_script("sync", str(self.w.node_root), [self.w.spec(apply=f"fleet-tool {marker}")])
+        proc = subprocess.run(
+            [sys.executable, "-"], input=script, capture_output=True, text=True,
+            env={**GIT_ENV, "HOME": str(home), "PATH": "/usr/bin:/bin"},
+        )
+        report = lb_fleet.parse_report(proc.stdout)
+        self.assertIsNotNone(report, proc.stderr)
+        e = report["repos"][self.w.name]
+        self.assertEqual(e["status"], "applied", e)
+        self.assertTrue(marker.exists())
+
     def test_status_reports_dangling_links_and_sync_prunes_them(self):
         registry = self.base / "skills"
         registry.mkdir()
