@@ -370,13 +370,20 @@ class NodeScriptTest(unittest.TestCase):
         self.assertEqual({e["status"] for e in report["repos"].values()}, {"applied"})
         self.assertEqual(log.read_text().split(), ["alpha", "beta"])
 
-    def test_broken_symlink_check(self):
+    def test_status_reports_dangling_links_and_sync_prunes_them(self):
         registry = self.base / "skills"
         registry.mkdir()
         os.symlink(self.base / "gone", registry / "dangling")
         os.symlink(self.w.node, registry / "fine")
         report = self.run_mode("status", registries=(str(registry), str(self.base / "absent")))
         self.assertEqual(report["checks"]["broken_symlinks"], [str(registry / "dangling")])
+        self.assertEqual(report["checks"]["pruned_symlinks"], [])
+        self.assertTrue(os.path.lexists(registry / "dangling"))  # status never writes
+        report = self.run_mode("sync", registries=(str(registry),))
+        self.assertEqual(report["checks"]["pruned_symlinks"], [str(registry / "dangling")])
+        self.assertEqual(report["checks"]["broken_symlinks"], [])
+        self.assertFalse(os.path.lexists(registry / "dangling"))
+        self.assertTrue(os.path.lexists(registry / "fine"))  # a live link is untouched
 
 
 # ── hub-side distance ───────────────────────────────────────────────────────

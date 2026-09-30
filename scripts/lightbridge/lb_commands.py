@@ -1700,6 +1700,9 @@ def cmd_fleet_sync(
             step = entry.get(entry.get("reason") or "")
             if isinstance(step, dict) and step.get("tail"):
                 print(_tail(step["tail"], 8), file=sys.stderr)
+    pruned = (report.get("checks") or {}).get("pruned_symlinks") or []
+    if pruned:
+        print(row("pruned", f"{len(pruned)} dangling registry link(s): " + ", ".join(os.path.basename(p) for p in pruned[:5])))
     print(row("checks", f"broken symlinks {len(broken)}" + (f" — {', '.join(broken[:3])}" if broken else "")))
     print(row("receipt", str(path)))
     return 0 if ok else 1

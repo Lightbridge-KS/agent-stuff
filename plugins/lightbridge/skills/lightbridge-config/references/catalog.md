@@ -102,6 +102,24 @@ conventions. Adding a section? See [`extending.md`](extending.md).
   Claude Code's transcripts (`--dry-run` first; idempotent; opt-in honored, so it reports
   the projects it skipped rather than creating configs for them).
 
+### `[fleet]`
+
+- **Purpose:** at `SessionStart`, name the fleet nodes whose last sync of *this* repo sits
+  behind the local `origin/main`, so the agent can **offer** `lb fleet sync <node>`. Hub
+  only: on a machine without `~/.lightbridge/fleet.toml` the hook is silent.
+- **Reader:** `agent-stuff` → `hooks/fleet-inject` (reads the inventory and the
+  `~/.lightbridge/fleet/<node>.json` receipts through `lb_resolve`). Internals:
+  `hooks/fleet-inject/README.md`; design: `docs/lightbridge/lightbridge-fleet.md`, ADR 0004.
+- **Opt-in:** presence of `[fleet]`; `enabled = false` to disable.
+- **Keys:**
+  - `enabled` — bool, default `true`.
+  - `repo` — string, default the repo folder's name. The `[repos.<name>]` in `fleet.toml`
+    this checkout corresponds to; set it when the clone is named differently.
+- **Notes:** network-free by contract — receipts vs local refs only, no fetch, no ssh; the
+  injected line is a nudge, and the sync it suggests changes a node, so the agent asks
+  first. Meant for the three fleet repos (`agent-instruction`, `agent-stuff`,
+  `agent-stuff-private`), not for every project.
+
 <!-- New sections are appended here via the extending.md recipe. -->
 
 ### Retired sections
@@ -152,11 +170,17 @@ feature owns a subtree **or file** registered here.
     only by `lb key run NAME -- CMD`, which injects into a child process env and
     execs — no verb prints a value and there is no `key get`. Managed by
     `lb key ls|add|rm|run|doctor`; spec: the **llm-keys** skill, ADR 0003.
+  - `~/.lightbridge/fleet.toml` + `~/.lightbridge/fleet/<node>.json` — the **fleet
+    inventory and its receipts**, present only on the hub (this Mac): `[hub] root`, one
+    `[repos.<name>]` per mirrored repo (`apply`, `verify`, `requires`), one
+    `[nodes.<name>]` per device (`ssh`, `root`, `repos` in apply order). `lb fleet sync
+    NODE` writes a receipt per node; `hooks/fleet-inject` reads them. Managed by
+    `lb fleet init|status|sync`; spec: the **fleet-sync** skill, ADR 0004.
 - **Consumers:**
   - `lightbridge` resolver (agent-stuff `scripts/lightbridge`) — the canonical
     root/key/config resolution every reader imports, plus the CLI that writes, inspects,
     and audits configs (`status` · `init` · `add` · `show` · `enable`/`disable` ·
-    `sections` · `path` · `repos` · `graph` · `key` · `mv` · `doctor`; linked onto PATH as `lb`).
+    `sections` · `path` · `repos` · `graph` · `key` · `fleet` · `mv` · `doctor`; linked onto PATH as `lb`).
   - `handoff` skill (agent-stuff `plugins/productivity`) — writes
     `projects/<key>/handoffs/<YYYY-MM-DD_HHMM>_<slug>.md`. The filename/frontmatter contract
     lives in that skill, not re-documented here.

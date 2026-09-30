@@ -28,6 +28,7 @@ test:
     uv run tests/test_lb_graph.py
     uv run tests/test_lb_keys.py
     uv run tests/test_lb_fleet.py
+    uv run tests/test_fleet_hook.py
     uv run tests/test_hooks.py
     uv run tests/test_repo_links.py
     uv run tests/test_island_path.py

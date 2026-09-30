@@ -215,8 +215,10 @@ def main():
         if rc != 0:
             entry["status"], entry["reason"] = "failed", "verify"
 
-    # -- built-in check: dangling symlinks in the harness registries --
-    broken = []
+    # -- registries: dangling symlinks. A skill archived upstream leaves its link
+    #    pointing nowhere after the pull, so `sync` prunes them (a link with no target
+    #    carries nothing); `status` only reports. Only symlinks, only in these dirs. --
+    broken, pruned = [], []
     for registry in CONFIG.get("registries", []):
         registry = os.path.expanduser(registry)
         if not os.path.isdir(registry):
@@ -224,8 +226,16 @@ def main():
         for child in sorted(os.listdir(registry)):
             path = os.path.join(registry, child)
             if os.path.islink(path) and not os.path.exists(path):
+                if mode == "sync":
+                    try:
+                        os.unlink(path)
+                        pruned.append(path)
+                        continue
+                    except OSError:
+                        pass
                 broken.append(path)
     report["checks"]["broken_symlinks"] = broken
+    report["checks"]["pruned_symlinks"] = pruned
 
     sys.stdout.write("__REPORT_MARK__ " + json.dumps(report) + "\n")
     sys.stdout.flush()
