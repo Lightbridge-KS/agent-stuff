@@ -525,17 +525,18 @@ class ToggleCliTest(CliHarness):
 class StatusCliTest(CliHarness):
     JSON_KEYS = {
         "root", "key", "config", "exists", "error", "sections",
-        "unknown_sections", "state", "registry", "graph", "keys", "legacy",
+        "unknown_sections", "state", "registry", "graph", "keys", "fleet", "legacy",
     }
 
     def status(self, state: Path, proj: Path, *extra: str) -> subprocess.CompletedProcess:
-        # --registry, --graph, and --keys pinned to missing files so the runner's real
-        # ~/.lightbridge never leaks into assertions.
+        # --registry, --graph, --keys, and --fleet pinned to missing files so the
+        # runner's real ~/.lightbridge never leaks into assertions.
         return self.run_cli(
             state, "status", "--start", str(proj),
             "--registry", str(state / "no-registry.toml"),
             "--graph", str(state / "no-graph.toml"),
-            "--keys", str(state / "no-keys.toml"), *extra,
+            "--keys", str(state / "no-keys.toml"),
+            "--fleet", str(state / "no-fleet.toml"), *extra,
         )
 
     def test_absent_config_exits_0_and_teaches_init(self):
@@ -1159,6 +1160,10 @@ class ResolveModuleContractTest(unittest.TestCase):
         "DEFAULT_GRAPH",  # the graph trio joined for repo-graph (ADR 0002) —
         "load_graph",  # repo_links.py and the SessionStart hook path-load the graph
         "project_node",  # read + projection; rendering stays with each consumer
+        "DEFAULT_FLEET",  # the fleet trio joined for lb fleet (ADR 0004) —
+        "load_fleet",  # hooks/fleet-inject path-loads the inventory + receipts
+        "load_receipt",
+        "fleet_receipts_dir",
         "toml_str",
         "use_utf8_console",
     )

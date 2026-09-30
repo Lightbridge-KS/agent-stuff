@@ -767,6 +767,7 @@ class StatusKeysLineTest(KeyCliBase):
                 "--registry", str(base / "no-registry.toml"),
                 "--graph", str(base / "no-graph.toml"),
                 "--keys", str(base / "keys.toml"),
+                "--fleet", str(base / "no-fleet.toml"),
                 *extra,
             ),
             capture_output=True,
