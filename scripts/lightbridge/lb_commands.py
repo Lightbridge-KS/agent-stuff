@@ -63,6 +63,7 @@ from lb_fleet import (
     FLEET_HEADER,
     SEED_BLOCK,
     SSH_OFFLINE,
+    classify_unreachable,
     distance,
     hub_fetch,
     hub_repo_dir,
@@ -1414,10 +1415,15 @@ REFUSALS = {
 }
 
 
+# The receipt step holding a failure's output. The node files fetch and rev-list
+# failures under `pull` (one git phase), so a reason is not always its own key.
+STEP_OF = {"fetch": "pull", "rev-list": "pull", "pull": "pull", "apply": "apply", "verify": "verify"}
+
+
 def _explain(entry: dict, root: str, name: str) -> str:
     reason = entry.get("reason") or "?"
     template = REFUSALS.get(reason, reason)
-    step = entry.get(reason) if reason in ("apply", "verify", "pull", "fetch") else None
+    step = entry.get(STEP_OF[reason]) if reason in STEP_OF else None
     return template.format(
         root=root,
         name=name,
@@ -1533,6 +1539,7 @@ def cmd_fleet_status(
             "online": None,
             "host": None,
             "error": None,
+            "unreachable": None,
             "last_sync": receipt.get("timestamp") if receipt else None,
             "repos": {},
             "checks": None,
@@ -1543,7 +1550,8 @@ def cmd_fleet_status(
             spec["ssh"], render_node_script("status", spec["root"], repo_specs(fleet, nname)), runner
         )
         if rc == SSH_OFFLINE:
-            out.update(online=False, error="offline (ssh exit 255 — no shell reached)")
+            kind, why = classify_unreachable(stderr)
+            out.update(online=False, unreachable=kind, error=why)
             all_clean = False
             continue
         if rc == 127:
@@ -1582,7 +1590,9 @@ def cmd_fleet_status(
 
     for nname, out in nodes_out.items():
         if out["online"] is False or out["error"]:
-            print(row("node", f"{nname}  {paint(out['error'], 'bad')}", "bad"))
+            # A failed name lookup is this machine's fault — the node may be fine.
+            tone = "warn" if out["unreachable"] == "dns" else "bad"
+            print(row("node", f"{nname}  {paint(out['error'], tone)}", tone))
             continue
         last = out["last_sync"] or "never"
         print(row("node", f"{nname}  {paint('online', 'ok')} · {out['host']} · last sync {last}"))
@@ -1660,7 +1670,8 @@ def cmd_fleet_sync(
     print(f"{node}: reconciling via {spec['ssh']} …", file=sys.stderr)
     rc, stdout, stderr = run_node(spec["ssh"], script, runner)
     if rc == SSH_OFFLINE:
-        print(f"{node} is offline (ssh exit 255 via {spec['ssh']}) — nothing changed.", file=sys.stderr)
+        _, why = classify_unreachable(stderr)
+        print(f"{node} not reached via {spec['ssh']}: {why} — nothing changed.", file=sys.stderr)
         return 1
     if rc == 127:
         print(stderr.strip(), file=sys.stderr)
@@ -1708,7 +1719,7 @@ def cmd_fleet_sync(
             print(row("REFUSED", f"{rname:<22} {_explain(entry, root, rname)}", "bad"))
         else:
             print(row("FAILED", f"{rname:<22} {_explain(entry, root, rname)}", "bad"))
-            step = entry.get(entry.get("reason") or "")
+            step = entry.get(STEP_OF.get(entry.get("reason") or "", ""))
             if isinstance(step, dict) and step.get("tail"):
                 print(_tail(step["tail"], 8), file=sys.stderr)
     pruned = (report.get("checks") or {}).get("pruned_symlinks") or []

@@ -128,7 +128,11 @@ lb fleet sync NODE [--repo R]… [--dry-run] [--reinstall] [--json]
                                                      0 all applied/in-sync + clean registries · 1 any refused/failed/offline
                                                      2 --repo names a repo the node does not carry
 ```
-All take `--fleet FILE`. Offline = ssh exit 255 → stderr line, exit 1, **no receipt**.
+All take `--fleet FILE`. Unreachable = ssh exit 255 (no shell reached) → stderr line, exit 1,
+**no receipt**. The line names the cause read from ssh's own stderr — `dns` (the *hub*
+could not resolve the name; the node may be up), `auth`, `host-key`, `refused`, `timeout`,
+`no-route`, else `unknown` — and `status --json` carries it as the node's `unreachable`
+kind beside `online: false`.
 `--dry-run` prints the plan and contacts nothing. Progress (`asking …`, `reconciling …`)
 goes to stderr; the report to stdout. Human rows use the CLI's `row()` labels: `node`,
 `repo`, `checks`, `next` (status); `applied`, `in-sync`, `REFUSED`, `FAILED`, `pruned`,

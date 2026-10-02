@@ -218,6 +218,42 @@ class LoadReceiptTest(unittest.TestCase):
 # ── rendering + report parsing ──────────────────────────────────────────────
 
 
+class ClassifyUnreachableTest(unittest.TestCase):
+    """ssh exit 255 means "no shell reached" — its stderr says whether the node is down."""
+
+    def test_each_kind_from_real_ssh_stderr(self):
+        cases = {
+            "ssh: Could not resolve hostname box.example.ts.net: nodename nor servname provided, or not known": "dns",
+            "kittipos@box: Permission denied (publickey).": "auth",
+            "Host key verification failed.": "host-key",
+            "ssh: connect to host box port 22: Connection refused": "refused",
+            "ssh: connect to host box port 22: Operation timed out": "timeout",
+            "ssh: connect to host box port 22: Connection timed out": "timeout",
+            "ssh: connect to host box port 22: No route to host": "no-route",
+        }
+        for stderr, kind in cases.items():
+            with self.subTest(kind=kind):
+                got, why = lb_fleet.classify_unreachable("Warning: noise\n" + stderr + "\n")
+                self.assertEqual(got, kind)
+                self.assertTrue(why.endswith(f"(ssh exit 255: {stderr})"), why)
+
+    def test_dns_never_claims_the_node_is_offline(self):
+        _, why = lb_fleet.classify_unreachable("ssh: Could not resolve hostname box: x")
+        self.assertIn("may well be up", why)
+        self.assertNotIn("offline", why)
+
+    def test_unknown_keeps_the_last_line_and_empty_stderr_still_reads(self):
+        self.assertEqual(
+            lb_fleet.classify_unreachable("kex_exchange_identification: read: reset\n"),
+            ("unknown", "offline or unreachable — no shell reached "
+                        "(ssh exit 255: kex_exchange_identification: read: reset)"),
+        )
+        self.assertEqual(
+            lb_fleet.classify_unreachable(""),
+            ("unknown", "offline or unreachable — no shell reached (ssh exit 255)"),
+        )
+
+
 class RenderTest(unittest.TestCase):
     def test_config_round_trips_through_the_literal(self):
         script = lb_fleet.render_node_script("sync", "~/cfg", [{"name": "a", "apply": "x", "verify": None, "requires": []}], reinstall=True)
@@ -438,6 +474,7 @@ class DistanceTest(unittest.TestCase):
 SHIM = """#!/bin/sh
 # ssh stand-in: record argv, optionally play offline, else run the streamed program here.
 printf '%s\\n' "$*" >> "$LB_TEST_SSH_LOG"
+if [ -n "$LB_TEST_SSH_STDERR" ]; then printf '%s\\n' "$LB_TEST_SSH_STDERR" >&2; fi
 if [ -n "$LB_TEST_SSH_EXIT" ]; then exit "$LB_TEST_SSH_EXIT"; fi
 exec "$LB_TEST_PYTHON" -
 """
@@ -580,6 +617,34 @@ class FleetCliTest(unittest.TestCase):
         status = self.lb("fleet", "status", "--json", LB_TEST_SSH_EXIT="255")
         self.assertEqual(status.returncode, 1)
         self.assertFalse(json.loads(status.stdout)["nodes"]["box"]["online"])
+
+    def test_unreachable_names_its_cause(self):
+        dns = "ssh: Could not resolve hostname box-alias: nodename nor servname provided"
+        status = self.lb("fleet", "status", "--json", LB_TEST_SSH_EXIT="255", LB_TEST_SSH_STDERR=dns)
+        self.assertEqual(status.returncode, 1)
+        node = json.loads(status.stdout)["nodes"]["box"]
+        self.assertFalse(node["online"])  # no shell reached — still the contract
+        self.assertEqual(node["unreachable"], "dns")
+        self.assertIn("name lookup failed on this machine", node["error"])
+        self.assertIn(dns, node["error"])
+        sync = self.lb("fleet", "sync", "box", LB_TEST_SSH_EXIT="255", LB_TEST_SSH_STDERR=dns)
+        self.assertEqual(sync.returncode, 1)
+        self.assertIn("name lookup failed", sync.stderr)
+        self.assertFalse((self.fleet.parent / "fleet" / "box.json").exists())
+
+    def test_fetch_failure_prints_its_tail(self):
+        """A fetch failure is filed under the receipt's `pull` step; the CLI must still
+        find and print git's own words (the credential prompt, the missing remote)."""
+        git(self.w.node, "remote", "set-url", "origin", str(self.base / "gone.git"))
+        result = self.lb("fleet", "sync", "box")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("FAILED", result.stdout)
+        self.assertIn("git fetch failed on the node", result.stdout)
+        self.assertIn("gone.git", result.stderr)  # git's error, not just our summary
+        receipt = json.loads((self.fleet.parent / "fleet" / "box.json").read_text())
+        entry = receipt["repos"]["alpha"]
+        self.assertEqual(entry["reason"], "fetch")
+        self.assertIn("gone.git", entry["pull"]["tail"])
 
     def test_unknown_node_and_unknown_repo(self):
         self.assertEqual(self.lb("fleet", "sync", "ghost").returncode, 1)
