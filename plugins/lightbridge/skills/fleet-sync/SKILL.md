@@ -8,7 +8,7 @@ description: >-
   working ON a node and about to change one of these repos. Inventory and per-project
   opt-in belong to lightbridge-config; skill↔binary drift is skill-vendor.
 metadata:
-  version: "2026-09-30"
+  version: "2026-10-02"
 ---
 
 # Fleet sync
@@ -45,11 +45,13 @@ lb fleet sync NODE --reinstall             # re-run apply even where nothing mov
 ```
 
 Read the rows: `applied` (sha → sha, +N), `in-sync`, `REFUSED` (with the fix, worded for
-the node), `FAILED` (apply/verify exit code; tail on stderr and in the receipt),
+the node), `FAILED` (fetch/pull/apply/verify; git's or the command's tail on stderr and in the receipt),
 `pruned` (dangling registry links removed), `checks`, `receipt`. Exit 0 only when every
-repo is applied or in-sync and the registries are clean. An offline node exits 1 with no
-receipt — check `tailscale status`, then retry later; nothing queues (the truth waits on
-GitHub).
+repo is applied or in-sync and the registries are clean. An unreachable node exits 1 with
+no receipt, and the line names why (`unreachable` kind in `status --json`). `dns` means
+*this* machine could not resolve the name — the node may be up: check `tailscale status`
+here, and rerun outside an agent sandbox, which blocks Tailscale. `timeout` / `no-route`
+mean the node is off — retry later; nothing queues (the truth waits on GitHub).
 
 ## What a refusal means, and where the fix is
 
