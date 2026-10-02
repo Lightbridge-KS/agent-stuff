@@ -37,6 +37,9 @@ sys.path.insert(0, str(LIGHTBRIDGE_DIR))
 import lb_fleet  # noqa: E402
 import lb_resolve  # noqa: E402
 
+# The CLI tests assert on plain text; an inherited FORCE_COLOR would style it (ADR 0005).
+os.environ.pop("FORCE_COLOR", None)
+
 GIT_ENV = {
     **os.environ,
     "GIT_AUTHOR_NAME": "t",

@@ -25,6 +25,8 @@ Each module is loaded the way its real consumer loads it (ADR 0001):
 from __future__ import annotations
 
 import ast
+import contextlib
+import io
 import json
 import os
 import re
@@ -34,6 +36,7 @@ import tempfile
 import tomllib
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LIGHTBRIDGE_DIR = REPO_ROOT / "scripts" / "lightbridge"
@@ -48,7 +51,14 @@ import lb_catalog  # noqa: E402
 import lb_commands  # noqa: E402
 import lb_registry  # noqa: E402
 import lb_resolve as lb  # noqa: E402  — the read path; `lb` keeps the historic name
+import lb_style  # noqa: E402
 import lb_tomledit  # noqa: E402
+
+# Every subprocess below inherits this env and asserts on plain text. A developer's
+# exported FORCE_COLOR would style that output (ADR 0005), so the suite starts plain and
+# the styling tests opt in explicitly.
+os.environ.pop("FORCE_COLOR", None)
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def script_argv(script: Path, *args: str) -> list[str]:
@@ -545,6 +555,24 @@ class StatusCliTest(CliHarness):
             result = self.status(state, proj)
             self.assertEqual(result.returncode, 0, result.stderr)  # absence is a state
             self.assertIn("init", result.stdout)
+
+    def test_colour_is_purely_additive(self):
+        """Styled output minus its escapes == the plain output, byte for byte — colour
+        never changes a word or a column an agent (or a regex) would read (ADR 0005)."""
+        with tempfile.TemporaryDirectory() as d:
+            state, proj = Path(d) / "state", self.repo(d, docs=True)
+            self.run_cli(state, "init", "--start", str(proj))
+            self.run_cli(state, "add", "plans", "--start", str(proj))
+            self.run_cli(state, "disable", "plans", "--start", str(proj))
+            plain = self.status(state, proj)
+            os.environ["FORCE_COLOR"] = "1"
+            try:
+                styled = self.status(state, proj)
+            finally:
+                del os.environ["FORCE_COLOR"]
+            self.assertIn("\x1b[", styled.stdout)
+            self.assertNotIn("\x1b[", plain.stdout)
+            self.assertEqual(ANSI.sub("", styled.stdout), plain.stdout)
 
     def test_json_dashboard_sections_state_and_unknown(self):
         with tempfile.TemporaryDirectory() as d:
@@ -1263,6 +1291,37 @@ class ResolveModuleContractTest(unittest.TestCase):
         )
 
 
+class StyleTest(unittest.TestCase):
+    """lb_style.styled(): the one predicate behind colour and rich help (ADR 0005)."""
+
+    class Tty(io.StringIO):
+        def isatty(self) -> bool:
+            return True
+
+    def styled(self, stream: io.StringIO, **env: str) -> bool:
+        clean = {k: v for k, v in os.environ.items()
+                 if k not in ("NO_COLOR", "FORCE_COLOR", "TERM")}
+        with mock.patch.dict(os.environ, {**clean, **env}, clear=True), \
+                contextlib.redirect_stdout(stream):
+            return lb_style.styled()
+
+    def test_precedence(self):
+        tty, pipe = self.Tty(), io.StringIO()
+        self.assertTrue(self.styled(tty, TERM="xterm-256color"))
+        self.assertFalse(self.styled(pipe, TERM="xterm-256color"))   # agents, CI, pipes
+        self.assertFalse(self.styled(tty, TERM="dumb"))
+        self.assertTrue(self.styled(pipe, FORCE_COLOR="1"))
+        self.assertFalse(self.styled(pipe, FORCE_COLOR="0"))         # "0" does not force
+        self.assertFalse(self.styled(tty, NO_COLOR="1", FORCE_COLOR="1"))  # opt-out wins
+
+    def test_paint_is_identity_when_plain(self):
+        with mock.patch.dict(os.environ, {"FORCE_COLOR": ""}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(lb_style.paint("in-sync", "ok"), "in-sync")
+        with mock.patch.dict(os.environ, {"FORCE_COLOR": "1"}):
+            self.assertEqual(lb_style.paint("in-sync", "ok"), "\x1b[32min-sync\x1b[0m")
+
+
 class CliContractTest(unittest.TestCase):
     """The parser-layer contracts the Typer migration must not drift on."""
 
@@ -1279,9 +1338,49 @@ class CliContractTest(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("╭", result.stdout)
+        self.assertNotIn("\x1b[", result.stdout)
         # Whitespace-normalized: click reflows the epilog, so the sentence may wrap.
         self.assertIn(
             "Spec: the lightbridge-config skill.", " ".join(result.stdout.split())
+        )
+
+    def help_text(self, *args: str, **env: str) -> str:
+        result = subprocess.run(
+            script_argv(SCRIPT, *args, "--help"),
+            capture_output=True, text=True, encoding="utf-8",
+            env={**os.environ, **env},
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result.stdout
+
+    def test_help_is_rich_on_a_forced_terminal_and_loses_no_text(self):
+        """The TTY branch (forced here — a pipe is never a TTY) renders rich panels, and
+        rich markup must not swallow a word: `[lowercase…]` is a markup tag to rich."""
+        out = self.help_text("fleet", "sync", FORCE_COLOR="1")
+        self.assertIn("╭", out)
+        words = " ".join(re.sub(r"[│╭╮╰╯─]", " ", ANSI.sub("", out)).split())
+        self.assertIn("A node from the inventory (its nodes.NAME table).", words)
+        root = " ".join(re.sub(r"[│╭╮╰╯─]", " ", ANSI.sub("", self.help_text(FORCE_COLOR="1"))).split())
+        self.assertIn("docs-index (renders the docs-index section)", root)
+
+    def test_no_color_beats_force_color(self):
+        out = self.help_text(FORCE_COLOR="1", NO_COLOR="1")
+        self.assertNotIn("╭", out)
+        self.assertNotIn("\x1b[", out)
+
+    def test_help_strings_are_rich_markup_safe(self):
+        """Rich markup eats `[tag]` (a lowercase/#/@// first char) and replaces `:emoji:`
+        codes — on a terminal that silently drops help text the plain branch shows."""
+        tree = ast.parse(SCRIPT.read_text(encoding="utf-8"))
+        offenders = [
+            node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and re.search(r"\[[a-z#/@][^\[\]]*\]|:[a-z0-9_+-]+:", node.value)
+        ]
+        self.assertEqual(
+            offenders, [], "reword these strings — rich mode would eat part of them"
         )
 
 

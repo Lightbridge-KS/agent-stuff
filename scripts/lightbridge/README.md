@@ -95,6 +95,13 @@ take `--start DIR`; `status`, `repos`, `graph`, `mv`, and `doctor` take `--regis
 `status` and every `graph` verb take `--graph FILE`; `status` and every `key` verb take
 `--keys FILE` (the `key` verbs also `--secrets FILE`); `status` and every `fleet` verb take
 `--fleet FILE` (receipts live in its sibling `fleet/` dir).
+
+**Output is styled only on a terminal.** At a TTY, `--help` renders as rich panels and the
+text output is coloured (green ok · yellow attention · red broken). A pipe, a file, CI, or
+an agent's shell gets plain text, byte-identical to the uncoloured output. `NO_COLOR=1`
+forces plain; `FORCE_COLOR=1` forces colour (e.g. `FORCE_COLOR=1 lb status | less -R`).
+`--json` is unaffected either way. Rationale: [ADR 0005](../../docs/lightbridge/adr/0005-tty-gated-styling.md).
+
 Graph design: [`docs/lightbridge/lightbridge-graph.md`](../../docs/lightbridge/lightbridge-graph.md);
 agent-facing usage: the `repo-graph` skill. Fleet design:
 [`docs/lightbridge/lightbridge-fleet.md`](../../docs/lightbridge/lightbridge-fleet.md);
@@ -174,6 +181,7 @@ when `lb_keys.py` joined). The boundary is
 | `lb_keys.py` | `~/.lightbridge/keys.toml` + `secrets.toml` — LLM key catalog, 0600 write, audit |
 | `lb_doctor.py` | the tree audit |
 | `lb_mv.py` | `plan_mv` + `apply_mv` |
+| `lb_style.py` | `styled()` + `paint()` — TTY-gated colour and the rich-help switch |
 | `lb_commands.py` | the `cmd_*` verb handlers |
 | `lightbridge.py` | Typer wiring + `main()` — **the entrypoint, not importable** |
 

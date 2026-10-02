@@ -206,7 +206,11 @@ All five settled with the recommended option:
 - Colors, tables, interactive prompts — two-audience rule: nothing that needs a TTY.
   (v0.3's Typer port keeps this: `rich_markup_mode=None` forces plain click help — the
   default rich panels emit box-drawing padded to 80 columns even when piped, a per-read
-  token tax on the agent. Locked by a test.) **One exception since v0.4:** `lb mv`, the
+  token tax on the agent. Locked by a test.) *Amended (v0.9,
+  [ADR 0005](./adr/0005-tty-gated-styling.md)):* colour and rich help panels are now
+  **added** when stdout is a TTY — nothing *needs* one. Off a TTY (every agent shell,
+  pipe, and CI run) output stays the plain text above, byte-identical; `NO_COLOR` /
+  `FORCE_COLOR` override. Tables and prompts stay out. **One exception since v0.4:** `lb mv`, the
   CLI's first destructive verb, confirms on a TTY — its non-TTY path stays fully
   functional via `--yes`, so the agent's experience is unchanged
   (see [`lb mv` design](./lightbridge-mv.md), Decision 2).
