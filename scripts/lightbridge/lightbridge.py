@@ -17,6 +17,7 @@ loads this one. See `docs/lightbridge/adr/0001-modular-lightbridge.md`.
     lb_keys.py      ~/.lightbridge/keys.toml + secrets.toml — personal LLM API keys
     lb_fleet.py     ~/.lightbridge/fleet.toml + fleet/<node>.json — hub-and-spoke node sync
     lb_doctor.py    tree audit
+    lb_style.py     TTY-gated colour + the rich-help switch (ADR 0005)
     lb_mv.py        plan_mv + apply_mv
     lb_commands.py  the cmd_* verb handlers
     lightbridge.py  this file
@@ -101,6 +102,7 @@ from lb_commands import (
 )
 from lb_graph import BacklinkMode, BacklinkSetting
 from lb_keys import DEFAULT_KEYS, DEFAULT_SECRETS
+from lb_style import styled
 from lb_resolve import (
     DEFAULT_FLEET,
     DEFAULT_GRAPH,
@@ -110,7 +112,7 @@ from lb_resolve import (
     use_utf8_console,
 )
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 
 DESCRIPTION = (
     "Create, inspect, and audit user-level .lightbridge project config "
@@ -122,8 +124,10 @@ EPILOG = (
     "exec failed). "
     "Siblings (own their state, not wrapped here): plan_store.py (plans/), "
     "handoff.py (handoffs/), repo_links.py (graph.toml ego-view projection; "
-    "spec: the repo-graph skill), docs-index ([docs-index] rendering), "
+    "spec: the repo-graph skill), docs-index (renders the docs-index section), "
     "LLM keys (the llm-keys skill), node sync (`fleet`; the fleet-sync skill). "
+    "Colour and boxed help only on a terminal: NO_COLOR=1 forces plain, "
+    "FORCE_COLOR=1 forces colour. "
     "Spec: the lightbridge-config skill."
 )
 START_HELP = "Directory whose project root is resolved (default: CWD)."
@@ -142,12 +146,16 @@ def main() -> None:
     prog = Path(sys.argv[0]).stem  # `lb` when invoked through the short PATH shim
     section_list = ", ".join(sorted(SECTIONS))
 
-    # rich_markup_mode=None keeps `--help` plain click text: no box-drawing or
-    # padding for a piped (agent) reader — the two-audience rule from the design doc.
+    # Rich help panels for a person at a terminal; plain click text (None) for a piped
+    # reader — an agent pays no box-drawing tokens. lb_style.styled() decides, the same
+    # predicate that gates colour, so help and output never disagree (ADR 0005).
+    # Rich markup eats `[lowercase…]` and `:emoji:` — help strings must avoid both
+    # (a test AST-scans this file for them).
+    markup = "rich" if styled() else None
     app = typer.Typer(
         help=DESCRIPTION,
         epilog=EPILOG,
-        rich_markup_mode=None,
+        rich_markup_mode=markup,
         no_args_is_help=False,
     )
 
@@ -265,7 +273,7 @@ def main() -> None:
     _toggle_command("enable", "true", True)
     _toggle_command("disable", "false", False)
 
-    repos_app = typer.Typer(rich_markup_mode=None)
+    repos_app = typer.Typer(rich_markup_mode=markup)
     app.add_typer(
         repos_app, name="repos", help="Manage the personal repo registry (never clobbers a name)."
     )
@@ -302,7 +310,7 @@ def main() -> None:
     ) -> None:
         raise typer.Exit(cmd_repos_rm(name, registry, json_out))
 
-    graph_app = typer.Typer(rich_markup_mode=None)
+    graph_app = typer.Typer(rich_markup_mode=markup)
     app.add_typer(
         graph_app,
         name="graph",
@@ -463,7 +471,7 @@ def main() -> None:
     ) -> None:
         raise typer.Exit(cmd_graph_html(graph, registry, out, json_out))
 
-    key_app = typer.Typer(rich_markup_mode=None)
+    key_app = typer.Typer(rich_markup_mode=markup)
     app.add_typer(
         key_app,
         name="key",
@@ -566,7 +574,7 @@ def main() -> None:
     ) -> None:
         raise typer.Exit(cmd_key_doctor(keys, secrets, json_out))
 
-    fleet_app = typer.Typer(rich_markup_mode=None)
+    fleet_app = typer.Typer(rich_markup_mode=markup)
     app.add_typer(
         fleet_app,
         name="fleet",
@@ -611,7 +619,7 @@ def main() -> None:
         "with the fix; nothing is ever stashed. Exit 1 if any repo was refused or failed.",
     )
     def fleet_sync(
-        node: str = typer.Argument(..., metavar="NODE", help="A [nodes.<name>] from the inventory."),
+        node: str = typer.Argument(..., metavar="NODE", help="A node from the inventory (its nodes.NAME table)."),
         repo: list[str] = typer.Option(
             None, "--repo", metavar="NAME", help="Only these repo(s); repeatable."
         ),

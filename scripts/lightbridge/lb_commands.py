@@ -77,6 +77,7 @@ from lb_fleet import (
 )
 from lb_mv import apply_mv, plan_mv
 from lb_registry import REGISTRY_HEADER, REPO_NAME, append_repo, remove_repo
+from lb_style import Tone, paint
 from lb_resolve import (
     DEFAULT_FLEET,
     DEFAULT_GRAPH,
@@ -99,9 +100,13 @@ from lb_resolve import (
 # ── rendering helpers ───────────────────────────────────────────────────────
 
 
-def row(label: str, value: str) -> str:
-    """One `label   value` line — every bootstrap label fits the same column."""
-    return f"{label:<9} {value}"
+def row(label: str, value: str, tone: Tone = "label") -> str:
+    """One `label   value` line — every bootstrap label fits the same column.
+
+    The label is painted (padded first, so escapes never shift the column); `tone`
+    flags a line whose label alone carries the verdict (REFUSED, FAILED, applied).
+    """
+    return f"{paint(f'{label:<9}', tone)} {value}"
 
 
 def project_fields(root: Path, path: Path) -> dict:
@@ -416,18 +421,19 @@ def cmd_status(
     print(row("root", str(root)))
     print(row("key", project_key(root)))
     if error is not None:
-        print(row("config", f"{path}  (UNREADABLE: {error})"))
+        print(row("config", f"{path}  {paint(f'(UNREADABLE: {error})', 'bad')}", "bad"))
     elif config is None:
-        print(row("config", f"{path}  (absent — create it with `init`)"))
+        print(row("config", f"{path}  {paint('(absent — create it with `init`)', 'warn')}"))
     else:
         print(row("config", str(path)))
         if sections:
             for name, enabled in sections.items():
-                print(row("sections", f"{name}  {'enabled' if enabled else 'DISABLED'}"))
+                verdict = paint("enabled", "ok") if enabled else paint("DISABLED", "warn")
+                print(row("sections", f"{name}  {verdict}"))
         else:
             print(row("sections", "(none — nothing is enabled yet)"))
         for name in unknown:
-            print(row("sections", f"[{name}]  (unknown — not in the catalog)"))
+            print(row("sections", f"[{name}]  {paint('(unknown — not in the catalog)', 'warn')}"))
     print(row("state", f"handoffs {state['handoffs']} + {state['inbox']} inbox — handoff.py"))
     print(row("state", f"plans {state['plans']} — plan_store.py"))
     print(row("state", f"asks {state['asks']} — ask-form / ask-form-qmd"))
@@ -438,9 +444,9 @@ def cmd_status(
         )
     )
     if graph_error is not None:
-        print(row("graph", f"{graph_path}  (UNREADABLE: {graph_error})"))
+        print(row("graph", f"{graph_path}  {paint(f'(UNREADABLE: {graph_error})', 'bad')}", "bad"))
     elif graph is None:
-        print(row("graph", f"{graph_path}  (absent — seed it with `graph init`)"))
+        print(row("graph", f"{graph_path}  {paint('(absent — seed it with `graph init`)', 'dim')}"))
     else:
         print(
             row(
@@ -450,15 +456,15 @@ def cmd_status(
             )
         )
     if keys_error is not None:
-        print(row("keys", f"{keys_path}  (UNREADABLE: {keys_error})"))
+        print(row("keys", f"{keys_path}  {paint(f'(UNREADABLE: {keys_error})', 'bad')}", "bad"))
     elif key_catalog is None:
-        print(row("keys", f"{keys_path}  (absent — add one with `key add`)"))
+        print(row("keys", f"{keys_path}  {paint('(absent — add one with `key add`)', 'dim')}"))
     else:
         print(row("keys", f"{keys_path}  ({len(key_catalog)} key(s) — lb key)"))
     if fleet_error is not None:
-        print(row("fleet", f"{fleet_path}  (UNREADABLE: {fleet_error})"))
+        print(row("fleet", f"{fleet_path}  {paint(f'(UNREADABLE: {fleet_error})', 'bad')}", "bad"))
     elif fleet is None:
-        print(row("fleet", f"{fleet_path}  (absent — not a hub; seed one with `fleet init`)"))
+        print(row("fleet", f"{fleet_path}  {paint('(absent — not a hub; seed one with `fleet init`)', 'dim')}"))
     else:
         print(
             row(
@@ -530,7 +536,10 @@ def cmd_repos_list(registry_file: str, json_out: bool) -> int:
         return 0
     width = max(len(name) for name in repos)
     for name, raw in sorted(repos.items()):
-        missing = "" if Path(raw).expanduser().is_dir() else "   ← MISSING on this machine"
+        missing = (
+            "" if Path(raw).expanduser().is_dir()
+            else "   " + paint("← MISSING on this machine", "bad")
+        )
         print(f"{name:<{width}}  {raw}{missing}")
     return 0
 
@@ -1004,11 +1013,12 @@ def cmd_graph_doctor(graph_file: str, registry_file: str, json_out: bool) -> int
     if json_out:
         print(json.dumps({"graph": str(graph_path), "problems": problems}, indent=2))
     elif not problems:
-        print(f"graph doctor: {graph_path} — no problems.")
+        print(f"graph doctor: {graph_path} — {paint('no problems.', 'ok')}")
     else:
-        print(f"graph doctor: {len(problems)} problem(s) in {graph_path}:")
+        print(f"graph doctor: {paint(f'{len(problems)} problem(s)', 'bad')} in {graph_path}:")
         for problem in problems:
-            print(f"- [{problem['kind']}] {problem['subject']}: {problem['detail']}")
+            kind = paint(f"[{problem['kind']}]", "warn")
+            print(f"- {kind} {problem['subject']}: {problem['detail']}")
     return 1 if problems else 0
 
 
@@ -1340,11 +1350,12 @@ def cmd_key_doctor(keys_file: str, secrets_file: str, json_out: bool) -> int:
             )
         )
     elif not problems:
-        print(f"key doctor: {keys_path} — no problems.")
+        print(f"key doctor: {keys_path} — {paint('no problems.', 'ok')}")
     else:
-        print(f"key doctor: {len(problems)} problem(s) in {keys_path}:")
+        print(f"key doctor: {paint(f'{len(problems)} problem(s)', 'bad')} in {keys_path}:")
         for problem in problems:
-            print(f"- [{problem['kind']}] {problem['subject']}: {problem['detail']}")
+            kind = paint(f"[{problem['kind']}]", "warn")
+            print(f"- {kind} {problem['subject']}: {problem['detail']}")
     return 1 if problems else 0
 
 
@@ -1571,29 +1582,29 @@ def cmd_fleet_status(
 
     for nname, out in nodes_out.items():
         if out["online"] is False or out["error"]:
-            print(row("node", f"{nname}  {out['error']}"))
+            print(row("node", f"{nname}  {paint(out['error'], 'bad')}", "bad"))
             continue
         last = out["last_sync"] or "never"
-        print(row("node", f"{nname}  online · {out['host']} · last sync {last}"))
+        print(row("node", f"{nname}  {paint('online', 'ok')} · {out['host']} · last sync {last}"))
         for rname, repo in out["repos"].items():
             if repo["state"] == "not-cloned":
-                head = f"not cloned"
+                head = paint("not cloned", "bad")
             elif repo["behind"] is None and repo["ahead"]:
-                head = "unknown to hub"
+                head = paint("unknown to hub", "bad")
             elif repo["behind"]:
-                head = f"behind {repo['behind']}"
+                head = paint(f"behind {repo['behind']}", "warn")
             else:
-                head = "in-sync"
-            parts = [head, *_flags(
+                head = paint("in-sync", "ok")
+            parts = [head, *(paint(flag, "bad") for flag in _flags(
                 {"branch": repo["branch"], "dirty": repo["dirty"], "missing_requires": repo["missing_requires"]},
                 {"ahead": repo["ahead"], "behind": repo["behind"]},
-            )]
+            ))]
             if repo["distance_error"]:
-                parts.append(f"({repo['distance_error']})")
+                parts.append(paint(f"({repo['distance_error']})", "warn"))
             print(row("repo", f"{rname:<22} {' · '.join(parts)}"))
         broken = (out["checks"] or {}).get("broken_symlinks")
         if broken is not None:
-            print(row("checks", f"broken symlinks {len(broken)}"))
+            print(row("checks", paint(f"broken symlinks {len(broken)}", "bad" if broken else "ok")))
     if not all_clean:
         print(row("next", "fleet sync NODE  — pulls `behind` repos; `diverged` ones are refused until fixed on the node"))
     return 0 if all_clean else 1
@@ -1688,22 +1699,22 @@ def cmd_fleet_sync(
         if status == "applied":
             moved = entry.get("before") != entry.get("after")
             if moved:
-                print(row("applied", f"{rname:<22} {short(entry['before'])} → {short(entry['after'])}  (+{entry.get('behind') or '?'})"))
+                print(row("applied", f"{rname:<22} {short(entry['before'])} → {short(entry['after'])}  (+{entry.get('behind') or '?'})", "ok"))
             else:
-                print(row("applied", f"{rname:<22} {short(entry['after'])}  (reinstalled, no new commits)"))
+                print(row("applied", f"{rname:<22} {short(entry['after'])}  (reinstalled, no new commits)", "ok"))
         elif status == "in-sync":
-            print(row("in-sync", f"{rname:<22} {short(entry.get('after'))}"))
+            print(row("in-sync", f"{rname:<22} {short(entry.get('after'))}", "ok"))
         elif status == "refused":
-            print(row("REFUSED", f"{rname:<22} {_explain(entry, root, rname)}"))
+            print(row("REFUSED", f"{rname:<22} {_explain(entry, root, rname)}", "bad"))
         else:
-            print(row("FAILED", f"{rname:<22} {_explain(entry, root, rname)}"))
+            print(row("FAILED", f"{rname:<22} {_explain(entry, root, rname)}", "bad"))
             step = entry.get(entry.get("reason") or "")
             if isinstance(step, dict) and step.get("tail"):
                 print(_tail(step["tail"], 8), file=sys.stderr)
     pruned = (report.get("checks") or {}).get("pruned_symlinks") or []
     if pruned:
         print(row("pruned", f"{len(pruned)} dangling registry link(s): " + ", ".join(os.path.basename(p) for p in pruned[:5])))
-    print(row("checks", f"broken symlinks {len(broken)}" + (f" — {', '.join(broken[:3])}" if broken else "")))
+    print(row("checks", paint(f"broken symlinks {len(broken)}", "bad" if broken else "ok") + (f" — {', '.join(broken[:3])}" if broken else "")))
     print(row("receipt", str(path)))
     return 0 if ok else 1
 
@@ -1718,11 +1729,12 @@ def cmd_doctor(state_dir: Path | None, registry_file: str, json_out: bool) -> in
     if json_out:
         print(json.dumps({"state_dir": str(state), "problems": problems}, indent=2))
     elif not problems:
-        print(f"lightbridge doctor: {state} — no problems.")
+        print(f"lightbridge doctor: {state} — {paint('no problems.', 'ok')}")
     else:
-        print(f"lightbridge doctor: {len(problems)} problem(s) in {state}:")
+        print(f"lightbridge doctor: {paint(f'{len(problems)} problem(s)', 'bad')} in {state}:")
         for problem in problems:
-            print(f"- [{problem['kind']}] {problem['path']}: {problem['detail']}")
+            kind = paint(f"[{problem['kind']}]", "warn")
+            print(f"- {kind} {problem['path']}: {problem['detail']}")
     return 1 if problems else 0
 
 
