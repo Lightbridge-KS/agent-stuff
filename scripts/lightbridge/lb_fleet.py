@@ -48,11 +48,11 @@ apply    = "make install"
 verify   = "make check"
 
 [repos.agent-stuff]
-apply    = "uv run bin/install.py --all --force"
-verify   = "uv run bin/validate.py"
+apply    = "uv run bin/install.py --all --force --prune"     # reconcile registries to profiles.toml
+verify   = "uv run bin/validate.py && uv run bin/install.py --check"
 
 [repos.agent-stuff-private]
-apply    = "uv run ../agent-stuff/bin/install.py --root . --all --force"
+apply    = "uv run ../agent-stuff/bin/install.py --root . --all --force --prune"
 
 # One [nodes.<name>] per node — rename this example to your device. `ssh` is the alias
 # in ~/.ssh/config; `repos` is the apply ORDER (agent-stuff before agent-stuff-private —

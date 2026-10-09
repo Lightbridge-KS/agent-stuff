@@ -1,0 +1,29 @@
+# profiles.toml — which skills each harness receives from this content tree.
+#
+# Keys are target names from bin/targets.toml. Patterns are `<domain>/<name>`
+# globs (fnmatch). No file, or no block for a target, means everything.
+# `include` defaults to ["*"], `exclude` to []; exclude beats include.
+# `like = "<target>"` copies that target's block and cannot be mixed with
+# include/exclude. Every pattern must match at least one skill (validated), so
+# this file cannot rot silently. Subagents are not profiled — they follow the
+# `agents` key in targets.toml.
+#
+# Reconcile a registry to this file: `bin/install.py --all --force --prune`;
+# audit without writing: `bin/install.py --check`; see who gets what:
+# `bin/install.py --list`.
+
+[claude]
+# include = ["*"] is the default; nothing to write.
+
+[codex]
+like = "claude"
+
+[pi]
+like = "claude"
+
+[agents]
+# ~/.agents/skills serves agents that are not coding-specific: drop the
+# coding-specific domains and the coding-flavoured experiments.
+exclude = [
+  "coding/*"
+]

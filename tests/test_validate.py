@@ -126,6 +126,40 @@ class ValidateCase(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("must match folder name 'renamed'", proc.stderr)
 
+    # ── profiles.toml at the content root ───────────────────────────────────
+
+    def profile_case(self, text: str) -> subprocess.CompletedProcess:
+        root = make_tree(self.base)
+        (root / "profiles.toml").write_text(text, encoding="utf-8")
+        proc = run_validate("--root", str(root))
+        self.assert_no_traceback(proc)
+        return proc
+
+    def test_profile_green(self) -> None:
+        proc = self.profile_case('[claude]\n[codex]\nlike = "claude"\n[agents]\nexclude = ["demo/*"]\n')
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("profiles.toml", proc.stdout)
+
+    def test_profile_unknown_target(self) -> None:
+        proc = self.profile_case('[cursor]\ninclude = ["*"]\n')
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("unknown target 'cursor'", proc.stderr)
+
+    def test_profile_dead_pattern(self) -> None:
+        proc = self.profile_case('[claude]\nexclude = ["coding/*"]\n')
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("pattern 'coding/*' matches no skill", proc.stderr)
+
+    def test_profile_like_mixed(self) -> None:
+        proc = self.profile_case('[codex]\nlike = "claude"\ninclude = ["*"]\n')
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("cannot be combined", proc.stderr)
+
+    def test_profile_like_cycle(self) -> None:
+        proc = self.profile_case('[claude]\nlike = "codex"\n[codex]\nlike = "claude"\n')
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("'like' cycle", proc.stderr)
+
     def test_empty_root_names_the_root(self) -> None:
         empty = self.base / "empty"
         empty.mkdir()

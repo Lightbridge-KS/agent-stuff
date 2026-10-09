@@ -23,6 +23,7 @@ plugins/<domain>/skills/<name>/SKILL.md   # SKILLS — canonical, one folder per
 plugins/<domain>/agents/<name>.md         # SUBAGENTS — one file per agent (Claude-only)
 plugins/<domain>/.claude-plugin/plugin.json
 .claude-plugin/marketplace.json           # lists every domain plugin
+profiles.toml                             # which skills each agent receives (per-target globs)
 scripts/<tool>/                           # standalone agent CLIs (Python + uv)
 hooks/<hook>/                             # Claude Code event hooks
 bin/                                      # MACHINERY (not content): installer, validator,
@@ -155,8 +156,13 @@ Python, executed via [`uv`](https://docs.astral.sh/uv/) (self-contained scripts 
   the `--target` dirs that `install.py --root ../skills-island --domain <island>` installs
   into; `harnesses` there index `bin/targets.toml`, so a new `~/`-rooted target works with
   no code change. Resolution only — it never writes.
-- `uv run bin/install.py --list` — list skills and detected agents.
-- `uv run bin/install.py --all` — install all skills into every agent present on the machine.
+- `uv run bin/install.py --list` — list skills, detected agents, and the profile matrix.
+- `uv run bin/install.py --all` — install each present agent's profile (`profiles.toml`;
+  no block = everything). `--all --force --prune` reconciles: relink + remove entries this
+  tree owns that the profile dropped. Ownership = symlink into `<root>/plugins/`; foreign
+  links (vendored, other trees, adopted copies) are never touched.
+- `uv run bin/install.py --check` — read-only audit of every present agent against the
+  profile; exit 1 names each `missing` / `stray` / `broken` / `foreign` entry.
 - `uv run bin/install.py --claude --codex --pi` — install into specific agents.
 - `uv run bin/package.py --list` — list packageable skills.
 - `uv run bin/package.py` — package every skill into `dist/` (one archive per skill).

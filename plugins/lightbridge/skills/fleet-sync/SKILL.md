@@ -8,13 +8,13 @@ description: >-
   working ON a node and about to change one of these repos. Inventory and per-project
   opt-in belong to lightbridge-config; skill↔binary drift is skill-vendor.
 metadata:
-  version: "2026-10-02"
+  version: "2026-10-10"
 ---
 
 # Fleet sync
 
 Every device mirrors the three agent repos at `~/my_config/<repo>` and installs them
-with the repo's own command (`make install`, `bin/install.py --all`). **GitHub's
+with the repo's own command (`make install`, `bin/install.py --all --force --prune`). **GitHub's
 `origin/main` is the truth; this Mac is the hub — the only machine that initiates;
 every other device is a pull-only replica.** The hub never ships files: it sends one
 command over ssh ("reconcile yourself to origin/main"), the node pulls `--ff-only`,
