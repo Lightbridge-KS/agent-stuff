@@ -102,6 +102,7 @@ def build_checks(root: Path | None = None) -> list[Check]:
     on another machine has neither the private castle nor the island."""
     root = root or repo_root()
     validate = str(root / "bin" / "validate.py")
+    install = str(root / "bin" / "install.py")
     checks = [
         Check(
             name="skill-vendor",
@@ -119,6 +120,12 @@ def build_checks(root: Path | None = None) -> list[Check]:
             argv=(validate,),
             cwd=root,
         ),
+        Check(
+            name="install-profiles",
+            what="registries match profiles.toml",
+            argv=(install, "--check"),
+            cwd=root,
+        ),
     ]
     for sibling in ("agent-stuff-private", "skills-island"):
         tree = root.parent / sibling
@@ -131,6 +138,16 @@ def build_checks(root: Path | None = None) -> list[Check]:
                 requires=tree,
             )
         )
+    private = root.parent / "agent-stuff-private"
+    checks.append(
+        Check(
+            name="install-profiles-private",
+            what="registries match the private tree's profile",
+            argv=(install, "--root", str(private), "--check"),
+            cwd=root,
+            requires=private,
+        )
+    )
     return checks
 
 

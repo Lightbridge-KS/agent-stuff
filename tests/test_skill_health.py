@@ -143,12 +143,13 @@ class BuildChecks(unittest.TestCase):
             names = [c.name for c in checks]
             self.assertEqual(
                 names,
-                ["skill-vendor", "lightbridge", "agent-stuff",
-                 "agent-stuff-private", "skills-island"],
+                ["skill-vendor", "lightbridge", "agent-stuff", "install-profiles",
+                 "agent-stuff-private", "skills-island", "install-profiles-private"],
             )
             optional = [c for c in checks if c.requires is not None]
             self.assertEqual({c.name for c in optional},
-                             {"agent-stuff-private", "skills-island"})
+                             {"agent-stuff-private", "skills-island", "install-profiles-private"})
+            self.assertIn(str(root / "bin" / "install.py"), checks[3].argv)
             self.assertIn(str(root / "bin" / "validate.py"), checks[2].argv)
 
 

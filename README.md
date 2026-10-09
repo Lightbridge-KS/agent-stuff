@@ -32,9 +32,10 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 git clone https://github.com/Lightbridge-KS/agent-stuff.git
 cd agent-stuff
 
-uv run bin/install.py --list            # skills + which agents are detected
+uv run bin/install.py --list            # skills, detected agents, and who gets what
 uv run bin/install.py --all --dry-run   # preview, no writes
-uv run bin/install.py --all             # install all skills into every agent present
+uv run bin/install.py --all             # install each present agent's profile
+uv run bin/install.py --check           # read-only audit; exit 1 when a registry diverges
 ```
 
 Target specific agents (combine freely), or any directory:
@@ -50,6 +51,12 @@ uv run bin/install.py --target ~/some/dir      # a custom directory
 uv run bin/install.py --claude coding/c4-architect   # one skill
 uv run bin/install.py --claude --domain radiology    # a whole domain
 ```
+
+**Which skills each agent gets** is `profiles.toml` at the repo root: one block per agent
+with `include` / `exclude` globs over `<domain>/<name>`, or `like = "<agent>"`. No block
+means everything. `--all --force --prune` reconciles a registry to the profile — prune
+only ever removes entries this tree owns (symlinks into its `plugins/`), so vendored or
+hand-placed skills are left alone. Explicit skill names bypass the profile.
 
 `--mode` defaults to `auto`: **symlink** on macOS/Linux (edits in this checkout are live),
 **copy** on Windows. Override with `--mode symlink|copy`. `--force` replaces an installed

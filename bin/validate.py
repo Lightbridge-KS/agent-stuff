@@ -48,6 +48,11 @@ from pathlib import Path
 
 import yaml
 
+# The profile loader is shared with the installer (one loader, one error set); it
+# lives in bin/install.py, which has no dependencies, so the import is safe here.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from install import PROFILES_FILE, load_profiles, load_targets  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -535,6 +540,19 @@ def validate_domain_manifests(repo: Repo) -> list[str]:
     return errors
 
 
+def validate_profiles(skill_files: list[Path], repo: Repo) -> list[str]:
+    """`<root>/profiles.toml`, if present: known targets, well-formed blocks, live patterns.
+
+    Targets come from this repo's bin/targets.toml (machinery), the profile from the
+    content root under validation — the same pairing the installer uses.
+    """
+    if not (repo.root / PROFILES_FILE).is_file():
+        return []
+    skill_keys = {f"{p.parent.parent.parent.name}/{p.parent.name}" for p in skill_files}
+    _, errors = load_profiles(repo.root, list(load_targets()), skill_keys)
+    return errors
+
+
 def validate_hook_toml(hook_dir: Path, repo: Repo) -> list[str]:
     """Validate one hook's `hook.toml` descriptor (the agent-neutral registration source)."""
     rel = repo.rel(hook_dir / "hook.toml")
@@ -598,6 +616,7 @@ def main(argv: list[str] | None = None) -> int:
     errors = [err for path in skill_files for err in validate_skill(path, repo)]
     errors += [err for path in agent_files for err in validate_subagent(path, repo)]
     errors += validate_subagent_names(agent_files, skill_files, repo)
+    errors += validate_profiles(skill_files, repo)
     if content_mode:
         errors += validate_domain_manifests(repo)
     else:
@@ -615,9 +634,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     mode = "domain manifests (content mode)" if content_mode else "plugin manifests"
+    profile_note = f", {PROFILES_FILE}" if (repo.root / PROFILES_FILE).is_file() else ""
     print(
         f"validated {len(skill_files)} skills, {len(agent_files)} subagents, "
-        f"{mode}, and scripts/hooks contracts"
+        f"{mode}{profile_note}, and scripts/hooks contracts"
     )
     return 0
 

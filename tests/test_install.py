@@ -292,5 +292,234 @@ class InstallTest(unittest.TestCase):
             self.assertIn(str(base / "empty"), result.stderr)
 
 
+def two_targets_toml(base: Path) -> tuple[str, Path, Path]:
+    """A registry with two present targets: alpha and beta (parents created)."""
+    alpha = base / "alpha" / "skills"
+    beta = base / "beta" / "skills"
+    (base / "alpha").mkdir(parents=True)
+    (base / "beta").mkdir(parents=True)
+    toml = f"[alpha]\nskills = {str(alpha)!r}\n[beta]\nskills = {str(beta)!r}\n"
+    return toml, alpha, beta
+
+
+def add_skill(repo: Path, domain: str, name: str) -> Path:
+    skill_dir = repo / "plugins" / domain / "skills" / name
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(f"---\nname: {name}\ndescription: x\n---\n")
+    return skill_dir
+
+
+class ProfileTest(unittest.TestCase):
+    """profiles.toml: per-target selection, ownership-bounded prune, read-only check."""
+
+    def test_no_profile_installs_everything_everywhere(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            toml, alpha, beta = two_targets_toml(base)
+            repo = make_repo(base, targets_toml=toml)
+
+            result = run_install(repo, "--all", "--mode", "copy")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((alpha / "sample" / "SKILL.md").exists())
+            self.assertTrue((beta / "sample" / "SKILL.md").exists())
+
+    def test_exclude_and_like(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            toml, alpha, beta = two_targets_toml(base)
+            toml += f"[gamma]\nskills = {str(base / 'gamma' / 'skills')!r}\n"
+            (base / "gamma").mkdir()
+            repo = make_repo(base, targets_toml=toml)
+            add_skill(repo, "other", "extra")
+            (repo / "profiles.toml").write_text(
+                '[beta]\nexclude = ["demo/*"]\n[gamma]\nlike = "beta"\n'
+            )
+
+            result = run_install(repo, "--all", "--mode", "copy")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((alpha / "sample").exists())  # no block → everything
+            self.assertTrue((alpha / "extra").exists())
+            self.assertFalse((beta / "sample").exists())
+            self.assertTrue((beta / "extra").exists())
+            gamma = base / "gamma" / "skills"
+            self.assertFalse((gamma / "sample").exists())  # copied from beta
+            self.assertTrue((gamma / "extra").exists())
+
+    def test_explicit_name_bypasses_profile_with_notice(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            toml, alpha, beta = two_targets_toml(base)
+            repo = make_repo(base, targets_toml=toml)
+            (repo / "profiles.toml").write_text('[beta]\nexclude = ["demo/sample"]\n')
+
+            result = run_install(repo, "--beta", "--mode", "copy", "sample")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((beta / "sample").exists())
+            self.assertIn("outside the beta profile", result.stderr)
+
+    def test_domain_stays_within_profile(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            toml, alpha, beta = two_targets_toml(base)
+            repo = make_repo(base, targets_toml=toml)
+            (repo / "profiles.toml").write_text('[beta]\nexclude = ["demo/sample"]\n')
+
+            result = run_install(repo, "--beta", "--mode", "copy", "--domain", "demo")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((beta / "sample").exists())
+            self.assertIn("excluded by the beta profile", result.stderr)
+
+    def test_bad_profile_fails_before_installing(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            toml, alpha, beta = two_targets_toml(base)
+            repo = make_repo(base, targets_toml=toml)
+            (repo / "profiles.toml").write_text('[nope]\ninclude = ["*"]\n')
+
+            result = run_install(repo, "--all", "--mode", "copy")
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("unknown target 'nope'", result.stderr)
+            self.assertFalse(alpha.exists())
+
+    def test_prune_removes_owned_only(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            toml, alpha, beta = two_targets_toml(base)
+            repo = make_repo(base, targets_toml=toml)
+            add_skill(repo, "other", "extra")
+            alpha.mkdir(parents=True)
+            # Owned but unwanted after the profile lands: a link into this tree.
+            os.symlink(repo / "plugins" / "demo" / "skills" / "sample", alpha / "sample")
+            # Owned and dangling: a link into a skill this tree renamed away.
+            os.symlink(repo / "plugins" / "demo" / "skills" / "gone", alpha / "gone")
+            # Foreign: a link elsewhere, and a real adopted dir.
+            elsewhere = base / "elsewhere" / "vendored"
+            elsewhere.mkdir(parents=True)
+            os.symlink(elsewhere, alpha / "vendored")
+            (alpha / "adopted").mkdir()
+            (alpha / "adopted" / "SKILL.md").write_text("---\nname: adopted\n---\n")
+            (repo / "profiles.toml").write_text('[alpha]\nexclude = ["demo/*"]\n')
+
+            dry = run_install(repo, "--alpha", "--mode", "symlink", "--prune", "--dry-run")
+            self.assertEqual(dry.returncode, 0, dry.stderr)
+            self.assertIn("would prune", dry.stdout)
+            self.assertTrue((alpha / "sample").is_symlink())  # dry-run touched nothing
+
+            result = run_install(repo, "--alpha", "--mode", "symlink", "--prune")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((alpha / "sample").is_symlink())
+            self.assertFalse((alpha / "gone").is_symlink())
+            self.assertTrue((alpha / "extra").is_symlink())
+            self.assertTrue((alpha / "vendored").is_symlink())
+            self.assertTrue((alpha / "adopted" / "SKILL.md").is_file())
+
+    def test_prune_copy_mode_matches_catalog_and_frontmatter(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            toml, alpha, beta = two_targets_toml(base)
+            repo = make_repo(base, targets_toml=toml)
+            add_skill(repo, "other", "extra")
+            alpha.mkdir(parents=True)
+            # A stale copy of a catalog skill → owned; a same-named dir with a
+            # different frontmatter name, and an unknown name → foreign.
+            (alpha / "sample").mkdir()
+            (alpha / "sample" / "SKILL.md").write_text("---\nname: sample\n---\n")
+            (alpha / "extra").mkdir()
+            (alpha / "extra" / "SKILL.md").write_text("---\nname: theirs\n---\n")
+            (alpha / "unknown").mkdir()
+            (alpha / "unknown" / "SKILL.md").write_text("---\nname: unknown\n---\n")
+            (repo / "profiles.toml").write_text('[alpha]\nexclude = ["*"]\n')
+
+            result = run_install(repo, "--alpha", "--mode", "copy", "--prune")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((alpha / "sample").exists())
+            self.assertTrue((alpha / "extra" / "SKILL.md").is_file())
+            self.assertTrue((alpha / "unknown" / "SKILL.md").is_file())
+
+    def test_check_reports_and_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            toml, alpha, beta = two_targets_toml(base)
+            repo = make_repo(base, targets_toml=toml)
+            add_skill(repo, "other", "extra")
+            (repo / "profiles.toml").write_text('[beta]\nexclude = ["other/*"]\n')
+            alpha.mkdir(parents=True)
+            beta.mkdir(parents=True)
+            os.symlink(repo / "plugins" / "demo" / "skills" / "sample", alpha / "sample")
+            os.symlink(repo / "plugins" / "demo" / "skills" / "gone", alpha / "gone")
+            (alpha / "extra").mkdir()  # foreign dir squatting on a wanted name
+            os.symlink(repo / "plugins" / "other" / "skills" / "extra", beta / "extra")
+
+            result = run_install(repo, "--check")
+
+            self.assertEqual(result.returncode, 1)
+            lines = {" ".join(line.split()) for line in result.stdout.splitlines()}
+            self.assertIn("alpha stray gone", lines)
+            self.assertIn("alpha foreign other/extra", lines)
+            self.assertIn("beta missing demo/sample", lines)
+            self.assertIn("beta stray extra", lines)
+            self.assertNotIn("alpha missing demo/sample", lines)
+            self.assertTrue((alpha / "gone").is_symlink())  # read-only
+            self.assertTrue((beta / "extra").is_symlink())
+
+            # --force replaces the squatter (as it always did); --prune drops the strays.
+            converge = run_install(repo, "--all", "--mode", "symlink", "--force", "--prune")
+            self.assertEqual(converge.returncode, 0, converge.stderr)
+            again = run_install(repo, "--check")
+            self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
+
+    def test_check_rejects_write_flags(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            toml, alpha, beta = two_targets_toml(base)
+            repo = make_repo(base, targets_toml=toml)
+
+            result = run_install(repo, "--check", "--prune")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("read-only", result.stderr)
+
+    def test_list_prints_matrix(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            toml, alpha, beta = two_targets_toml(base)
+            repo = make_repo(base, targets_toml=toml)
+            (repo / "profiles.toml").write_text('[beta]\nexclude = ["demo/*"]\n')
+
+            result = run_install(repo, "--list")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            matrix = result.stdout.split("Profile matrix", 1)[1]
+            row = next(l for l in matrix.splitlines() if "demo/sample" in l)
+            self.assertEqual(row.split()[1:], ["x", "."])
+
+    def test_root_reads_its_own_profile(self):
+        with tempfile.TemporaryDirectory() as dir_:
+            base = Path(dir_)
+            toml, alpha, beta = two_targets_toml(base)
+            repo = make_repo(base, targets_toml=toml)
+            (repo / "profiles.toml").write_text('[alpha]\nexclude = ["*"]\n')  # not used
+            private = base / "private"
+            skill_dir = private / "plugins" / "secret" / "skills" / "hidden"
+            skill_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text("---\nname: hidden\ndescription: h\n---\n")
+            (private / "profiles.toml").write_text('[beta]\nexclude = ["secret/*"]\n')
+
+            result = run_install(
+                repo, "--root", str(private), "--all", "--mode", "copy"
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((alpha / "hidden").exists())
+            self.assertFalse((beta / "hidden").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

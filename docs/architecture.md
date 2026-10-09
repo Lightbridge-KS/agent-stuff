@@ -191,6 +191,42 @@ The `agents` entry is the emerging `~/.agents/skills` convention several tools r
 install there can serve more than one agent. A skill is a plain `SKILL.md`, so placement is
 format-agnostic: as each agent's skill support matures, the files are already where it looks.
 
+### Profiles and reconcile (`profiles.toml`)
+
+*Which skills* each target receives is data too: an optional `profiles.toml` at the
+**content-tree root** (beside `plugins/`, so a `--root` tree carries its own and private
+skill names never land in the public repo). One block per target name from
+`targets.toml`; patterns are `<domain>/<name>` globs.
+
+```toml
+[claude]                      # no block, or no file → everything (the old behavior)
+[codex]   like = "claude"     # copies a block; cannot mix with include/exclude
+[agents]  exclude = ["coding/*", "lightbridge/*"]   # exclude beats include (default ["*"])
+```
+
+The installer and the validator share one loader (`load_profiles` in `install.py`):
+unknown targets, mixed `like`, cycles, and **dead patterns** (matching no skill) are
+errors in both, so the file cannot rot. Explicit skill names on the command line bypass
+the profile with a notice; `--domain` stays within it. Subagents are not profiled.
+
+With a profile the installer becomes a **reconciler**, bounded by *ownership*: an entry
+is this tree's iff it is a symlink whose real path is under `<root>/plugins/` (dangling
+links included — a renamed skill still resolves lexically), or, in copy mode, a real
+entry named in this tree's catalog whose frontmatter `name` matches (the one spot that
+rests on the no-collision convention rather than a path). Everything else — vendored
+links, other trees, adopted copies, harness dirs like `.system` — is foreign and never
+touched or reported.
+
+| verb | does | writes |
+|---|---|---|
+| `--all` / `--<agent>` | link `wanted − present` (`--force` relinks) | yes |
+| `--prune` | remove `owned − wanted` | yes, explicit only |
+| `--check` | per target: `missing` · `stray` (owned, unwanted) · `broken` (owned, dangling) · `foreign` (wanted name taken by a non-owned entry); exit 0 clean / 1 diverged | no |
+| `--list` | catalog plus a skill × target matrix | no |
+
+Two trees reconcile the same registry safely because each prunes only under its own
+`plugins/`. Fleet nodes run `install.py --all --force --prune` and verify with `--check`.
+
 ### Packaging for upload (`bin/package.py`)
 
 The claude.ai web app is a fourth consumer, but it takes a skill as an **uploaded file**,
