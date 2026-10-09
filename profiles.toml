@@ -25,11 +25,5 @@ like = "claude"
 # ~/.agents/skills serves agents that are not coding-specific: drop the
 # coding-specific domains and the coding-flavoured experiments.
 exclude = [
-  "coding/*",
-  "lightbridge/*",
-  "notebook-tools/*",
-  "experiment/notebook-literate-python",
-  "experiment/reproducible-data-analysis",
-  "experiment/rich-document",
-  "experiment/toy-example",
+  "coding/*"
 ]
