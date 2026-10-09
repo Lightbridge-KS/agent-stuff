@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import gzip
 import hashlib
 import importlib.util
 import io
@@ -425,6 +426,12 @@ class ServerCase(unittest.TestCase):
             self.assertLess(head.index("/static/prefs.js"), head.index("/static/styles.css"))
             for path in ("/static/prefs.js", "/static/rich.js", "/static/vendor/mermaid.min.js", "/static/vendor/highlight.min.js"):
                 self.assertEqual(s.get(path, token=False)[0], 200, path)
+            with urllib.request.urlopen(s.base + "/static/vendor/mermaid.min.js", timeout=10) as response:
+                self.assertEqual(response.headers["Content-Encoding"], "gzip")
+                self.assertIn("javascript", response.headers.get_content_type())
+                compressed = response.read()
+                self.assertLess(len(compressed), 1024 * 1024)
+                self.assertGreater(len(gzip.decompress(compressed)), 1024 * 1024)
             s.post("/cancel", {})
             s.finish()
         static = SCRIPT.parent.parent / "static"
