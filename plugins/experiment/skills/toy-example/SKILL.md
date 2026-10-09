@@ -13,4 +13,4 @@ Explain how the concept works, or design one from a rough idea, using the simple
 
 The goal is understanding, not production readiness.
 
-By default, write the output as a `/rich-document`. If the user specifies a different format or location, follow their instructions instead.
+Write the output to the user specifies format or location.
