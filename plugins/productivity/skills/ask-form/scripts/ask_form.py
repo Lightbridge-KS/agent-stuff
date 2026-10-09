@@ -644,10 +644,16 @@ class Handler(BaseHTTPRequestHandler):
         if url.path.startswith("/static/"):
             rel = url.path[len("/static/"):]
             target = (STATIC_DIR / rel).resolve()
+            # an asset too large for a skill bundle ships as <name>.gz and is served pre-compressed
+            gz = (STATIC_DIR / (rel + ".gz")).resolve()
+            compressed = not target.is_file() and gz.is_file()
+            if compressed:
+                target = gz
             if not target.is_file() or STATIC_DIR not in target.parents:
                 return self._send(HTTPStatus.NOT_FOUND, b"not found")
-            ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
-            return self._send(HTTPStatus.OK, target.read_bytes(), ctype)
+            ctype = mimetypes.guess_type(rel)[0] or "application/octet-stream"
+            extra = {"Content-Encoding": "gzip"} if compressed else None
+            return self._send(HTTPStatus.OK, target.read_bytes(), ctype, extra)
         if url.path.startswith("/asset/"):
             if not self._authorized(url.query):
                 return self._send(HTTPStatus.FORBIDDEN, b"forbidden")
