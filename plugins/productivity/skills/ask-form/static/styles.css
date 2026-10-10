@@ -196,23 +196,14 @@ h1 {
 .diagram-error summary { cursor: pointer; color: var(--amber); }
 .diagram-error pre { white-space: pre-wrap; }
 
-.diagram-dialog {
-  width: min(96vw, 1400px); height: min(92vh, 1000px); padding: 0;
-  border: 1px solid var(--line-strong); border-radius: var(--radius-card);
-  background: var(--base); color: var(--ink);
-  display: flex; flex-direction: column;
+/* The Enlarge viewer is the vendored diagram-zoom core (vendor/diagram-zoom.css): its colours
+   come from these tokens; the pill buttons keep ask-form's look. */
+:root {
+  --dz-bg: var(--base); --dz-fg: var(--ink); --dz-border: var(--line-strong);
+  --dz-accent: var(--focus); --dz-surface: var(--control);
 }
-.diagram-dialog:not([open]) { display: none; }
-.diagram-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
-.diagram-toolbar { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
-.diagram-toolbar button {
-  font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; min-width: 34px;
-  background: var(--control); border: 1px solid var(--line-strong); border-radius: 999px; padding: 4px 12px;
-}
-.diagram-toolbar output { font-size: 13px; color: var(--muted); min-width: 44px; text-align: right; }
-.diagram-toolbar .grow { flex: 1; }
-.diagram-viewport { flex: 1; overflow: auto; padding: 12px; cursor: grab; }
-.diagram-viewport:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.dz-dialog { border-radius: var(--radius-card); }
+.dz-toolbar button { border-radius: 999px; font-size: 13px; }
 
 pre.diff { padding: 8px 0; }
 pre.diff .dl { display: block; padding: 0 14px; }

@@ -6,7 +6,8 @@
      AskRich.tabs(panels, {columns})  [{label, node, badge?}] → tablist node with `_select(i)`;
                             columns: side by side on wide screens, tabs on narrow ones
    Libraries are vendored under /static/vendor and loaded only when a page needs them.
-   Diagram behaviour is copied from rich-document's viewer.js (enlarge dialog, serial render queue). */
+   The serial render queue follows rich-document's viewer.js; the Enlarge viewer is the vendored
+   diagram-zoom core (/static/vendor/diagram-zoom.js, from Lightbridge-KS/quarto-diagram-zoom). */
 (() => {
   "use strict";
 
@@ -201,64 +202,13 @@
   };
   document.addEventListener("askprefs:change", (e) => { if (e.detail.theme) rerenderAll(); });  // reader or OS
 
+  // The viewer moves the SVG away while open; a theme change then waits for the close (rerenderAll).
   function enlarge(svg, opener) {
     dialogOpen = true;
-    const dialog = el("dialog", { class: "diagram-dialog", "aria-label": "Enlarged diagram" });
-    const viewport = el("div", { class: "diagram-viewport", tabindex: "0", "aria-label": "Diagram canvas. Arrow keys scroll; plus and minus zoom; zero resets." });
-    const previous = Object.fromEntries(["style", "width", "height"].map((n) => [n, svg.getAttribute(n)]));
-    const box = svg.viewBox.baseVal;
-    const naturalWidth = box.width || 900, naturalHeight = box.height || 500;
-    const status = el("output", { "aria-live": "polite" });
-    let zoom = 1;
-    const resize = (v) => {
-      zoom = Math.min(4, Math.max(0.25, v));
-      svg.style.maxWidth = "none";
-      svg.style.width = `${naturalWidth * zoom}px`;
-      svg.style.height = `${naturalHeight * zoom}px`;
-      status.textContent = `${Math.round(zoom * 100)}%`;
-    };
-    const reset = () => { resize(Math.min(1, (viewport.clientWidth - 24) / naturalWidth)); viewport.scrollTo(0, 0); };
-    const toolbar = el("div", { class: "diagram-toolbar" },
-      button("−", () => resize(zoom / 1.25), { "aria-label": "Zoom out" }),
-      button("+", () => resize(zoom * 1.25), { "aria-label": "Zoom in" }),
-      button("Reset", reset), status, el("span", { class: "grow" }),
-      button("Close", () => dialog.close(), { class: "btn quiet" }));
-    // Move the SVG rather than cloning it, so Mermaid's scoped styles and marker ids stay unique.
-    viewport.append(svg);
-    dialog.append(toolbar, viewport);
-    document.body.append(dialog);
-    dialog.addEventListener("close", () => {
-      opener.before(svg);
-      for (const [n, v] of Object.entries(previous)) { if (v === null) svg.removeAttribute(n); else svg.setAttribute(n, v); }
-      dialog.remove();
-      opener.focus();
+    window.DiagramZoom.enlarge(svg, { opener, onClose: () => {
       dialogOpen = false;
       if (staleTheme) { staleTheme = false; rerenderAll(); }
-    }, { once: true });
-    viewport.addEventListener("keydown", (e) => {
-      if (!["+", "=", "-", "0"].includes(e.key)) return;
-      e.preventDefault();
-      if (e.key === "0") reset(); else resize(e.key === "-" ? zoom / 1.25 : zoom * 1.25);
-    });
-    let drag = null;
-    viewport.addEventListener("pointerdown", (e) => {
-      if (e.pointerType !== "mouse" || e.button !== 0) return;
-      drag = { x: e.clientX, y: e.clientY, left: viewport.scrollLeft, top: viewport.scrollTop };
-      viewport.setPointerCapture(e.pointerId);
-    });
-    viewport.addEventListener("pointermove", (e) => { if (drag) viewport.scrollTo(drag.left + drag.x - e.clientX, drag.top + drag.y - e.clientY); });
-    viewport.addEventListener("pointerup", () => { drag = null; });
-    viewport.addEventListener("pointercancel", () => { drag = null; });
-    dialog.addEventListener("keydown", (e) => {
-      if (e.key !== "Tab") return;
-      const controls = [...dialog.querySelectorAll("button, [tabindex='0']")];
-      const first = controls[0], last = controls[controls.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    });
-    dialog.showModal();
-    reset();
-    viewport.focus();
+    } });
   }
 
   // ── tabs ───────────────────────────────────────────────────────────────────

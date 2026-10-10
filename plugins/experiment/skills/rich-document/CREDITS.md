@@ -8,3 +8,8 @@ lower rungs are kept as chat text shapes. Adapted: examples in Python; Mermaid
 restricted to the document, since a terminal cannot render it; the HTML-file rung,
 product-colour matching, and user-only invocation are dropped. The content is
 copied rather than referenced so the skill installs standalone.
+
+`assets/vendor/diagram-zoom.js` and `diagram-zoom.css` are copied unchanged from
+[`quarto-diagram-zoom`](https://github.com/Lightbridge-KS/quarto-diagram-zoom) v0.1.0 (MIT,
+same author) — the viewer that began as this skill's Enlarge dialog, now one source for every
+host. Update by copying both files from a tagged release.

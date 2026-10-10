@@ -24,7 +24,7 @@ import yaml
 SKILL = Path(__file__).resolve().parent.parent
 ASSETS = SKILL / "assets"
 ENGINE_VERSION = "1.9.38"
-VIEWER_VERSION = "2026-09-24"
+VIEWER_VERSION = "2026-10-10"
 MAX_SOURCE = 1_000_000
 MAX_ASSET = 10_000_000
 MAX_ASSETS = 20_000_000
@@ -412,6 +412,9 @@ def build(source: Path, saved: bool = True) -> tuple[Path, dict]:
             asset_hashes[relative] = hashlib.sha256((work / relative).read_bytes()).hexdigest()
         for filename in ("theme.css", "theme-dark.scss", "viewer.js", "viewer.css", "restore-code.lua"):
             shutil.copyfile(ASSETS / filename, work / filename)
+        # The Enlarge viewer: vendored diagram-zoom core (assets/vendor, see CREDITS.md).
+        for filename in ("diagram-zoom.js", "diagram-zoom.css"):
+            shutil.copyfile(ASSETS / "vendor" / filename, work / filename)
         diagram_script = ""
         if doc["diagrams"]:
             bundle = mermaid_bundle(work, quarto)
@@ -423,8 +426,8 @@ def build(source: Path, saved: bool = True) -> tuple[Path, dict]:
             "theme": {"light": "cosmo", "dark": ["cosmo", "theme-dark.scss"]},
             "respect-user-color-scheme": True, "toc": True, "toc-title": "On this page",
             "embed-resources": True, "code-copy": True, "anchor-sections": True,
-            "css": ["theme.css", "viewer.css"], "include-after-body": {"text":
-                f'<footer class="rd-footer">Artifact {artifact_id} · Quarto {ENGINE_VERSION}</footer>{diagram_script}<script src="viewer.js"></script>'}}},
+            "css": ["theme.css", "diagram-zoom.css", "viewer.css"], "include-after-body": {"text":
+                f'<footer class="rd-footer">Artifact {artifact_id} · Quarto {ENGINE_VERSION}</footer>{diagram_script}<script src="diagram-zoom.js"></script><script src="viewer.js"></script>'}}},
             "execute": {"enabled": False}, "filters": ["restore-code.lua"]}
         if "subtitle" in doc["meta"]:
             owned["subtitle"] = doc["meta"]["subtitle"]
