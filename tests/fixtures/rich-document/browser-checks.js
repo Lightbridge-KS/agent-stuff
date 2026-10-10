@@ -62,7 +62,7 @@
       check("unvisited sequence tab already rendered", document.querySelector('#tabset-1-3 svg'));
 
       const colors = () => {
-        const svg = document.querySelector("#shapes svg, .rd-dialog svg");
+        const svg = document.querySelector("#shapes svg, .dz-dialog svg");
         const node = label => [...svg.querySelectorAll(".node")].find(n => n.querySelector(".nodeLabel")?.textContent === label);
         const rectangle = getComputedStyle(node("Rectangle").querySelector("rect"));
         const cylinder = getComputedStyle(node("Cylinder").querySelector("path"));
@@ -81,7 +81,7 @@
         colors();
         document.querySelector("#shapes .rd-diagram > button").click();
         colors();
-        [...document.querySelectorAll(".rd-dialog button")].find(b => b.textContent === "Close").click();
+        [...document.querySelectorAll(".dz-dialog button")].find(b => b.textContent === "Close").click();
         await frame();
         toggle.click();
         await frame();
@@ -96,14 +96,14 @@
       const opener = document.querySelector('#tabset-1-2 .rd-diagram > button');
       const svg = document.querySelector('#tabset-1-2 svg');
       opener.click();
-      check("enlargement moves completed SVG", document.querySelector(".rd-dialog svg") === svg);
-      const viewport = document.querySelector(".rd-viewport");
+      check("enlargement moves completed SVG", document.querySelector(".dz-dialog svg") === svg);
+      const viewport = document.querySelector(".dz-viewport");
       const width = svg.getBoundingClientRect().width;
       viewport.dispatchEvent(new KeyboardEvent("keydown", {key:"+", bubbles:true}));
       check("keyboard zoom", svg.getBoundingClientRect().width > width);
       viewport.dispatchEvent(new KeyboardEvent("keydown", {key:"0", bubbles:true}));
       check("keyboard reset", Math.abs(svg.getBoundingClientRect().width - width) < 1);
-      [...document.querySelectorAll(".rd-dialog button")].find(b => b.textContent === "Close").click();
+      [...document.querySelectorAll(".dz-dialog button")].find(b => b.textContent === "Close").click();
       await frame();
       check("close restores SVG and focus", opener.previousElementSibling === svg && document.activeElement === opener);
       check("tab selection retained", tab.getAttribute("aria-selected") === "true");
