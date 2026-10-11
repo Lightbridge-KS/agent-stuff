@@ -18,10 +18,12 @@ read_when:
 
 **Order**:
 {A one or two sentence description of the term}
+_Example_: {Optional — one sentence showing a concrete case or contrast the definition alone leaves open}
 _Avoid_: Purchase, transaction
 
 **Invoice**:
 A request for payment sent to a customer after delivery.
+_Example_: An order shipped in two boxes still produces one invoice, not two.
 _Avoid_: Bill, payment request
 
 **Customer**:
@@ -33,6 +35,7 @@ _Avoid_: Client, buyer, account
 
 - **Be opinionated.** When multiple words exist for the same concept, pick the best one and list the others under `_Avoid_`.
 - **Keep definitions tight.** One or two sentences max. Define what it IS, not what it does.
+- **Add an `_Example_` only where the definition alone leaves a plausible misreading** — the term's boundary with a neighbour is subtle, the term is compositional or abstract, or the definition carries a counter-intuitive rule. Self-evident terms get none; an example on every term illustrates nothing. One sentence, drawn from this project's domain, no code or field names. Prefer a contrast when the point is a distinction ("one invoice, not two"). A bare list of instances stays inline in the definition ("such as X or Y"); the line is for a scenario or a contrast.
 - **Only include terms specific to this project's context.** General programming concepts (timeouts, error types, utility patterns) don't belong even if the project uses them extensively. Before adding a term, ask: is this a concept unique to this context, or a general programming concept? Only the former belongs.
 - **Group terms under subheadings** when natural clusters emerge. If all terms belong to a single cohesive area, a flat list is fine.
 - **Keep the YAML frontmatter.** The `summary` / `read_when` header is index metadata, not glossary content — it lets the `docs-index` hook surface this file in the "read before coding" map. It doesn't violate the "glossary and nothing else" rule; the body still holds only terms.
