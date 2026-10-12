@@ -234,12 +234,21 @@ the call rich-document made for its theme. A ⚙ button at the footer's left ope
 *Layout* (One column, default · Split: each run of context panes and the questions after it become
 one segment; from 1100 px the two columns sit side by side, both sticky so the shorter stays in
 view, and the footer widens to match; *Explanation on* Right (default: questions left) or Left —
-a visual flip only, the DOM keeps explanation first for Tab order, screen readers and Quote) and *Theme* (System · Light · Dark). `static/prefs.js` loads
+a visual flip only, the DOM keeps explanation first for Tab order, screen readers and Quote),
+*Form width* (live slider, pixel readout, Reset to default), and *Theme* (System · Light · Dark).
+One column defaults to 1040 px, adjustable from 720–1600 px; Split defaults to 1280 px,
+adjustable from 960–1800 px. Both sliders step by 40 px and remember independently. Width caps
+the page and footer together; narrower viewports still fit and the 1100 px Split breakpoint
+is unchanged. Below that breakpoint, the page uses the remembered One column width.
+`static/prefs.js` loads
 in `<head>` and sets `data-theme` / `data-layout` on `<html>` before first paint. Choices persist in
-host-only cookies on `127.0.0.1` (`askform_layout`, `askform_side`, `askform_theme`; SameSite=Strict, one year):
+host-only cookies on `127.0.0.1` (`askform_layout`, `askform_side`, `askform_theme`,
+`askform_width_stack`, `askform_width_split`; SameSite=Strict, one year):
 every run binds a new random port and `localStorage` is per port, while cookies ignore the port.
-They carry only those enum values, never answers. Precedence: the reader's stored choice, else one
+They carry enum choices and bounded, step-aligned width integers, never answers. Invalid or malformed
+cookies fall back to defaults before first paint. Precedence: the reader's stored choice, else one
 column and the system theme; the spec's `layout` hint never applies anything.
+Width was added by [ADR 0001](adr/0001-reader-width.md).
 
 **Quote into note.** Selecting text in any rendered prose offers *Quote*; it appends `> …` to the
 note of the card holding the selection, else the next question, else Comments. It reuses

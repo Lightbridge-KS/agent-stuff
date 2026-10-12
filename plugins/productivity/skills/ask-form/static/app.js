@@ -430,6 +430,15 @@
     const hasContext = spec.questions.some((q) => q.type === "context");
     const hinted = hasContext && spec.layout === "split";
     const button = $("#settings"), panel = $("#settings-panel");
+    const widthLabel = el("label", { for: "pref-width", text: "Form width" });
+    const widthValue = el("output", { id: "pref-width-value", for: "pref-width" });
+    const widthInput = el("input", { id: "pref-width", type: "range", "aria-describedby": "pref-width-hint",
+      oninput: (event) => window.AskPrefs.set(window.AskPrefs.width().key, event.target.value) });
+    const widthReset = el("button", { type: "button", class: "width-reset", text: "Reset to default",
+      onclick: () => {
+        const current = window.AskPrefs.width();
+        window.AskPrefs.set(current.key, current.default);
+      } });
     const group = (key, legend, choices) => el("fieldset", { class: "settings-group" },
       el("legend", { text: legend }),
       ...choices.map(([value, label, extra]) => el("label", { class: "settings-choice" },
@@ -444,6 +453,11 @@
       ]) : null,
       hasContext ? group("side", "Explanation on", [["right", "Right"], ["left", "Left"]]) : null,
       hasContext ? el("p", { class: "hint", text: "Split applies in windows at least 1100 px wide." }) : null,
+      el("fieldset", { class: "settings-group settings-width" },
+        el("legend", {}, widthLabel),
+        el("div", { class: "width-heading" }, widthValue, widthReset),
+        widthInput,
+        el("p", { id: "pref-width-hint", class: "hint", text: "Maximum width; fits smaller windows automatically." })),
       group("theme", "Theme", [["system", "System"], ["light", "Light"], ["dark", "Dark"]]),
       el("p", { class: "hint", text: "Remembered for your next forms." }),
     );
@@ -452,7 +466,14 @@
     const sync = () => {
       button.classList.toggle("hinted", hinted && window.AskPrefs.get("layout") !== "split");
       if (sideGroup) sideGroup.hidden = window.AskPrefs.get("layout") !== "split";
-      for (const input of panel.querySelectorAll("input")) input.checked = window.AskPrefs.get(input.name.slice(5)) === input.value;
+      for (const input of panel.querySelectorAll('input[type="radio"]')) input.checked = window.AskPrefs.get(input.name.slice(5)) === input.value;
+      const current = window.AskPrefs.width();
+      widthLabel.textContent = `Form width · ${window.AskPrefs.get("layout") === "split" ? "Split" : "One column"}`;
+      for (const attr of ["min", "max", "step"]) widthInput.setAttribute(attr, current[attr]);
+      widthInput.value = current.value;
+      widthInput.setAttribute("aria-valuetext", `${current.value} pixels`);
+      widthValue.textContent = `${current.value} px`;
+      widthReset.disabled = current.value === current.default;
     };
     document.addEventListener("askprefs:change", sync);
     sync();
