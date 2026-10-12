@@ -7,7 +7,7 @@ description: >-
   form on 127.0.0.1, opens the browser, and returns the answers as JSON. Also on request
   ("use the form", "ask me with a form"). Needs a machine with a browser.
 metadata:
-  version: "2026-09-27"
+  version: "2026-10-12"
 ---
 
 # ask-form
@@ -68,7 +68,7 @@ notes go to stderr. Exit 2 errors name the JSON path to fix, e.g. `$.questions[2
    - A code change to approve: a `diff` context, or `review.items[].detail` with a diff fence per hunk.
      Before/after or alternatives to read: `format: "tabs"`. Optional background: `collapsed: true`.
    - A long explanation feeding 3–5 questions: top-level `"layout": "split"` *suggests* the reader's
-     Split view (context pinned beside its questions). It is only a hint: layout and theme belong to
+     Split view (context pinned beside its questions). It is only a hint: layout, width and theme belong to
      the reader (⚙ Settings in the footer, remembered across forms), so never rely on split.
    - Use `review` for a list of 💡 decisions the user must approve, revise, or reject one by one.
    - Option descriptions say what happens if chosen. Labels in sentence case, no filler.
@@ -145,13 +145,20 @@ in `meta.notes`. Any answerable element takes a
 `recommendation` one-liner; options, scale/number values and review items take `recommended`. Fields and constraints: `--schema`.
 Closing the tab ends nothing: the run waits for Cancel or Send.
 
+## Reader settings
+
+The footer's ⚙ Settings menu owns layout, width and theme. Form width updates live, with a pixel
+readout and Reset to default. One column defaults to 1040 px (720–1600); Split defaults to 1280 px
+(960–1800), both in 40 px steps. Each layout remembers its own width across forms. Width is a
+maximum: smaller windows still fit, and the footer follows the page. Width is never a spec field.
+
 ## Security and limits
 
 Loopback only, random port, token in the URL gating the page, assets and the answer routes.
 `context.src` may name a local image; only files declared in the spec are served, nothing else on
 disk. Agent strings render as text or sanitized markdown; no images in markdown. Mermaid and
-highlight.js are vendored and load only when needed; the reader's layout and theme live in two enum
-cookies on `127.0.0.1`, never answers. The page makes no network request beyond
+highlight.js are vendored and load only when needed; reader settings live in host-only cookies
+on `127.0.0.1` (enum choices and bounded width integers), never answers. The page makes no network request beyond
 loopback (except a `context.src` http(s) image you declare). A diagram that fails to parse shows
 its error and source in place. Do not put PHI in a spec
 you cannot justify showing in a browser tab.
