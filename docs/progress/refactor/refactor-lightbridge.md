@@ -36,7 +36,7 @@ command-package refactor; current design documentation records the revised layou
 
 ### Slice 1 — command package
 
-Status: in progress. Scope: candidate #1 only.
+Status: complete. Scope: candidate #1 only. Implementation: `7c91252`.
 
 Approved structure: `lb_commands/{project,repos,graph,keys,fleet,move}.py` plus an
 explicit compatibility facade. Project owns configuration, sections, path, dashboard
@@ -55,7 +55,7 @@ and doctor. Move owns its confirmation and presentation. Feature helpers stay lo
 - [x] Add affected suites and recursive package syntax checking to CI.
 - [x] Update current implementation documentation; retain historical ADRs/trackers.
 - [x] Run validation, full tests, syntax checks and whitespace checks.
-- [ ] Commit locally; no push or PR.
+- [x] Commit locally; no push or PR — `7c91252`.
 
 Proof: behavioral differential runs (outputs, exits, ordered JSON and filesystem
 effects), existing regression suites, export identity/signature checks, architecture
@@ -87,7 +87,8 @@ Fleet fixtures must isolate home directories and skill registries.
   suite, recursive Lightbridge syntax compilation, and `git diff --check` passed.
 - Resolver, graph/fleet/key/move implementations and historical ADRs are unchanged.
   CI configuration includes the affected suites, but hosted CI has not run.
-- Implementation commit: pending local commit.
+- Implementation commit: `7c91252` (`refactor(lightbridge): split command handlers by ownership`).
+  Committed locally; no push or PR.
 
 ## Deferred
 
@@ -98,4 +99,5 @@ Fleet fixtures must isolate home directories and skill registries.
 
 ## Next
 
-Complete slice 1. Future approved lb refactors append slices to this same tracker.
+Slice 1 is complete. Future approved lb refactors append slices to this same tracker;
+the tracker remains active and the deferred candidates remain unapproved.
