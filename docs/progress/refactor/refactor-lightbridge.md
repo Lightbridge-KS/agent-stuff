@@ -92,7 +92,7 @@ Fleet fixtures must isolate home directories and skill registries.
 
 ## Slice 2 — fleet mechanics package
 
-Status: active. Baseline: `88ad30d`. Scope: candidate #2 only.
+Status: complete. Baseline: `88ad30d`. Scope: candidate #2 only. Implementation: `7a72ab8`.
 
 Approved structure: `lb_fleet/{node_program,transport,hub}.py` and an explicit
 same-object compatibility facade. Node program owns the template, rendering and
@@ -112,7 +112,7 @@ exit mappings, last-report-marker precedence and receipt failure cleanup.
 - [x] Extend architecture checks with negative controls and installed invocation.
 - [x] Update current documentation without changing historical ADRs or trackers.
 - [x] Run affected suites, validation, full tests, recursive syntax and Ruff checks.
-- [ ] Commit locally and record evidence/reference; no push or PR.
+- [x] Commit locally and record evidence/reference; no push or PR — `7a72ab8`.
 
 Proof requirements: temporary homes/registries, local Git fixtures and fake SSH;
 old/new stdout, stderr, exits, ordered JSON and filesystem effects; same-object
@@ -153,6 +153,8 @@ remain separate from this refactor.
   key and move code and historical ADRs/trackers are unchanged.
 - The existing CI entries already run the expanded suite and recursively compile
   Lightbridge packages; no duplicate gates were added. Hosted CI has not run.
+- Implementation commit: `7a72ab8` (`refactor(lightbridge): split fleet mechanics by ownership`).
+  Committed locally; no push or PR.
 
 ## Deferred
 
@@ -161,5 +163,6 @@ remain separate from this refactor.
 
 ## Next
 
-Complete and verify Slice 2. Slice 1 remains complete; graph decomposition remains
-unapproved. Future approved lb refactors append slices to this active tracker.
+Slices 1 and 2 are complete. Graph decomposition remains deferred and unapproved.
+Future approved lb refactors append slices to this active tracker; completion of
+these slices does not retire it.
