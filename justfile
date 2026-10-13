@@ -25,6 +25,7 @@ install *args:
 test:
     uv run tests/test_install.py
     uv run tests/test_lightbridge.py
+    uv run tests/test_lb_commands.py
     uv run tests/test_lb_graph.py
     uv run tests/test_lb_keys.py
     uv run tests/test_lb_fleet.py

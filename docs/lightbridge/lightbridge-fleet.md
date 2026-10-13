@@ -137,8 +137,8 @@ kind beside `online: false`.
 goes to stderr; the report to stdout. Human rows use the CLI's `row()` labels: `node`,
 `repo`, `checks`, `next` (status); `applied`, `in-sync`, `REFUSED`, `FAILED`, `pruned`,
 `checks`, `receipt` (sync). Refusal text is worded for the node, where the fix happens
-(`REFUSALS` in `lb_commands.py`). `lb status` shows one bounded row: inventory path,
-node count, receipt count — no ssh.
+(`REFUSALS` in `lb_commands/fleet.py`, re-exported by `lb_commands`). `lb status` shows
+one bounded row: inventory path, node count, receipt count — no ssh.
 
 ## `fleet-inject` (SessionStart, hub only, network-free)
 

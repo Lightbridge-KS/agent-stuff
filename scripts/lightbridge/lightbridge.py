@@ -17,9 +17,9 @@ loads this one. See `docs/lightbridge/adr/0001-modular-lightbridge.md`.
     lb_keys.py      ~/.lightbridge/keys.toml + secrets.toml — personal LLM API keys
     lb_fleet.py     ~/.lightbridge/fleet.toml + fleet/<node>.json — hub-and-spoke node sync
     lb_doctor.py    tree audit
-    lb_style.py     TTY-gated colour + the rich-help switch (ADR 0005)
+    lb_style.py     TTY-gated colour, labelled rows + the rich-help switch (ADR 0005)
     lb_mv.py        plan_mv + apply_mv
-    lb_commands.py  the cmd_* verb handlers
+    lb_commands/    cmd_* handlers by owner; __init__.py preserves command imports
     lightbridge.py  this file
 
 Sibling imports resolve because `uv run --script` puts the **symlink-resolved** script

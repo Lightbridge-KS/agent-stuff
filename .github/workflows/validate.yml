@@ -20,6 +20,16 @@ jobs:
         run: uv run tests/test_hooks.py
       - name: Run lightbridge tests
         run: uv run tests/test_lightbridge.py
+      - name: Run lightbridge command-package tests
+        run: uv run tests/test_lb_commands.py
+      - name: Run lightbridge graph tests
+        run: uv run tests/test_lb_graph.py
+      - name: Run lightbridge key tests
+        run: uv run tests/test_lb_keys.py
+      - name: Run lightbridge fleet tests
+        run: uv run tests/test_lb_fleet.py
+      - name: Run fleet-hook tests
+        run: uv run tests/test_fleet_hook.py
       - name: Run handoff-hook tests
         run: uv run tests/test_handoff_hook.py
       - name: Run repo-links tests
@@ -61,3 +71,4 @@ jobs:
             plugins/creative/skills/image-gen/scripts/imagegen.py \
             plugins/productivity/skills/ask-form/scripts/ask_form.py \
             plugins/experiment/skills/rich-document/scripts/*.py
+          uv run python -m compileall -q scripts/lightbridge
