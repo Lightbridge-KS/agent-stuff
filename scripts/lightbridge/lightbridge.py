@@ -15,7 +15,7 @@ loads this one. See `docs/lightbridge/adr/0001-modular-lightbridge.md`.
     lb_registry.py  ~/.lightbridge/repos.toml
     lb_graph.py     ~/.lightbridge/graph.toml — the cross-repo graph document
     lb_keys.py      ~/.lightbridge/keys.toml + secrets.toml — personal LLM API keys
-    lb_fleet.py     ~/.lightbridge/fleet.toml + fleet/<node>.json — hub-and-spoke node sync
+    lb_fleet/       node program/protocol, SSH transport, hub inventory/Git/receipts
     lb_doctor.py    tree audit
     lb_style.py     TTY-gated colour, labelled rows + the rich-help switch (ADR 0005)
     lb_mv.py        plan_mv + apply_mv

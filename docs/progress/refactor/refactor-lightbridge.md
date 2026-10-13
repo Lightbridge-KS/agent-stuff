@@ -1,5 +1,5 @@
 ---
-summary: Shared Lightbridge refactoring tracker — command ownership, preserved CLI contracts, verification evidence, and deferred fleet/graph decomposition.
+summary: Shared Lightbridge refactoring tracker — command/fleet ownership, preserved contracts, verification evidence, and deferred graph decomposition.
 read_when:
   - Planning or implementing a refactor of the lb scripts
   - Reviewing Lightbridge compatibility or refactoring evidence
@@ -15,8 +15,8 @@ Design: [CLI](../../lightbridge/lightbridge-cli-design.md) ·
 [graph](../../lightbridge/lightbridge-graph.md).
 
 This tracker spans independent refactoring slices. Completing one slice does not
-retire the tracker or authorize a deferred slice. No new ADR is required for the
-command-package refactor; current design documentation records the revised layout.
+retire the tracker or authorize a deferred slice. No new ADR is required for these
+refactors; current design documentation records the revised layouts.
 
 ## Shared preserve-list
 
@@ -90,14 +90,76 @@ Fleet fixtures must isolate home directories and skill registries.
 - Implementation commit: `7c91252` (`refactor(lightbridge): split command handlers by ownership`).
   Committed locally; no push or PR.
 
+## Slice 2 — fleet mechanics package
+
+Status: active. Baseline: `88ad30d`. Scope: candidate #2 only.
+
+Approved structure: `lb_fleet/{node_program,transport,hub}.py` and an explicit
+same-object compatibility facade. Node program owns the template, rendering and
+report parsing; transport owns SSH and unreachable classification; hub owns the
+inventory seed/selection, local Git and atomic receipts. No cross-owner imports,
+facade imports, command dependencies, new dependencies or behavior changes.
+Readers remain in standalone `lb_resolve.py`; command orchestration stays in
+`lb_commands/fleet.py`. The template and rendered programs remain byte-identical.
+
+Preserve the shared contracts above, including all pulls before any apply and all
+applies before verification, inventory order, refusal precedence, runner defaults,
+exit mappings, last-report-marker precedence and receipt failure cleanup.
+
+- [x] Capture isolated baseline and characterize ordering, transport, parsing and receipts.
+- [x] Extract the three owners and preserve public exports/signatures.
+- [x] Prove template/rendered bytes, CLI behavior and filesystem parity.
+- [x] Extend architecture checks with negative controls and installed invocation.
+- [x] Update current documentation without changing historical ADRs or trackers.
+- [x] Run affected suites, validation, full tests, recursive syntax and Ruff checks.
+- [ ] Commit locally and record evidence/reference; no push or PR.
+
+Proof requirements: temporary homes/registries, local Git fixtures and fake SSH;
+old/new stdout, stderr, exits, ordered JSON and filesystem effects; same-object
+exports and baseline signatures; dependency/cycle rejection; copied-tree symlink
+execution outside the checkout without repository PYTHONPATH. Only fixture paths
+and nondeterministic timestamps may be normalized. Discovered behavior defects
+remain separate from this refactor.
+
+### Slice 2 evidence
+
+- Baseline: all 301 tests across the seven affected suites passed with isolated
+  homes. Seven new characterization tests passed against the original module
+  before extraction; the package-contract suite subsequently grew from 11 to 26 tests.
+- All 316 affected tests passed after extraction. Tests cover 26 same-object
+  exports, 15 baseline callable signatures, template/rendered-program SHA-256
+  equality, transport exception mappings, last-marker parsing, phase ordering and
+  atomic-receipt failure cleanup (including interruption).
+- All 14 original function ASTs and all 10 constant-assignment ASTs match exactly.
+  The rendered program also passes a Python 3.8 syntax parse; runtime execution was
+  tested with the local interpreter, not a separate Python 3.8 installation.
+- Differential evidence: 31 fleet CLI cases execute against local Git worlds and
+  fake SSH; 63 broader CLI cases cover all command families. Both runs have zero
+  differences in stdout/stderr, exits, ordered JSON and resulting file bytes/modes.
+  Fleet comparisons also check Git state and the streamed program hash. Only
+  fixture paths and nondeterministic timestamps are normalized. Initial broader
+  comparison included a cold-cache `uv` installation message; rerunning both sides
+  with warm dependency caches removed that harness noise without a code change.
+- Architecture tests recognize both package roots and reject cross-owner, facade,
+  command/entrypoint, transitive and cyclic dependencies using negative fixtures.
+  Copied-tree invocation from an unrelated directory through an `lb` symlink
+  executes status and reinstall through fake SSH and verifies the resulting receipt.
+  The standalone resolver-loading regression remains in the affected suite.
+- Full local `just test`: 24 suites, 634 tests reported, 623 passed and 11 skipped
+  (7 optional de-identification live tests; 4 optional rich-document live tests).
+  Validation, recursive Lightbridge syntax compilation, Ruff checks/formatting for
+  the new package and expanded contract suite, and whitespace checks passed.
+  No unresolved baseline failures remain. Resolver, command implementation, graph,
+  key and move code and historical ADRs/trackers are unchanged.
+- The existing CI entries already run the expanded suite and recursively compile
+  Lightbridge packages; no duplicate gates were added. Hosted CI has not run.
+
 ## Deferred
 
-- Candidate #2: separate fleet node program, transport and hub state. Not approved
-  for implementation.
 - Candidate #3: separate graph document operations from visualization. Not approved
   for implementation.
 
 ## Next
 
-Slice 1 is complete. Future approved lb refactors append slices to this same tracker;
-the tracker remains active and the deferred candidates remain unapproved.
+Complete and verify Slice 2. Slice 1 remains complete; graph decomposition remains
+unapproved. Future approved lb refactors append slices to this active tracker.

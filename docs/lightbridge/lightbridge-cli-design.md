@@ -64,7 +64,12 @@ executing the `lightbridge-config` skill or answering config questions mid-sessi
 The package groups handlers by the responsibility that changes: `project` owns config,
 sections, path, the offline dashboard and project-tree audit; `repos`, `graph`, `keys`
 and `fleet` own their command families; `move` owns move confirmation and presentation.
-Document operations and fleet mechanics remain in their existing sibling modules.
+Document operations remain in their existing sibling modules. Fleet mechanics live
+in the CLI-only `lb_fleet` package: `node_program` owns the streamed program and
+report protocol, `transport` owns SSH execution/diagnostics, and `hub` owns inventory
+selection, local Git and receipts. These owners are independent; the facade directly
+re-exports the existing public objects. Fleet command orchestration stays in
+`lb_commands/fleet.py`.
 
 Shared label styling (`row`) lives in `lb_style`. Project JSON helpers stay in
 `project`. Graph linking uses `repos.open_registry` for the same registry diagnostics
@@ -73,10 +78,11 @@ never import the package facade. `__init__.py` explicitly re-exports the same fu
 and constant objects, retaining handler signatures, default arguments and injection
 seams. Imports remain eager; this change makes ownership local, not startup lazy.
 
-The package is appropriate because handlers are ordinary CLI imports, not path-loaded
-library code. `lb_resolve.py` remains stdlib-only and sibling-free, so hook loading and
-the script/symlink installation protocol need no changes. No Python distribution,
-new dependency or CLI behavior is introduced. Verification and future slices live in
+The packages are appropriate because handlers and fleet mechanics are ordinary CLI
+imports, not path-loaded library code. `lb_resolve.py` remains stdlib-only and
+sibling-free, so hook loading and the script/symlink installation protocol need no
+changes. No Python distribution, new dependency or CLI behavior is introduced.
+Verification and future slices live in
 the [shared refactoring tracker](../progress/refactor/refactor-lightbridge.md).
 
 ## 2. Surface Map

@@ -166,7 +166,7 @@ unreadable) · `2` usage.
 
 ## Module layout
 
-The tool uses sibling modules plus the CLI-only `lb_commands` package. The boundary is
+The tool uses sibling modules plus the CLI-only `lb_commands` and `lb_fleet` packages. The boundary is
 **the library is the read path; the CLI owns the write path** — its original rationale is in
 [`docs/lightbridge/adr/0001-modular-lightbridge.md`](../../docs/lightbridge/adr/0001-modular-lightbridge.md).
 
@@ -178,7 +178,7 @@ The tool uses sibling modules plus the CLI-only `lb_commands` package. The bound
 | `lb_registry.py` | `~/.lightbridge/repos.toml` |
 | `lb_graph.py` | `~/.lightbridge/graph.toml` — document model, edge surgery, audit, viz |
 | `lb_keys.py` | `~/.lightbridge/keys.toml` + `secrets.toml` — LLM key catalog, 0600 write, audit |
-| `lb_fleet.py` | inventory seed, streamed node program, SSH, hub distance and atomic receipts |
+| `lb_fleet/` | node program/protocol, SSH transport, hub inventory/Git/receipts; explicit compatibility exports |
 | `lb_doctor.py` | the tree audit |
 | `lb_mv.py` | `plan_mv` + `apply_mv` |
 | `lb_style.py` | `styled()`, `paint()`, `row()` — TTY-gated colour, labelled rows and the rich-help switch |
@@ -193,7 +193,15 @@ command families. Implementations import their owners directly, never the packag
 facade. `from lb_commands import cmd_mv` still returns the actual implementation
 function, preserving signatures and injected dependencies without forwarding wrappers.
 
-This CLI-only package refines the historical flat layout without changing the
+The fleet package has three independent owners: `node_program` holds the unchanged
+inline program, rendering and report parsing; `transport` owns SSH execution and
+unreachable diagnostics; `hub` owns inventory seed/selection, local Git and atomic
+receipts. `lb_fleet` directly re-exports its existing public functions/constants and
+the intentional resolver exports. Its implementation modules have no cross-owner
+dependencies and never import either facade, command handlers or the entrypoint.
+Fleet command orchestration remains in `lb_commands/fleet.py`.
+
+These CLI-only packages refine the historical flat layout without changing the
 standalone resolver protocol or introducing a separately installed Python distribution.
 Current rationale and evidence: [CLI design](../../docs/lightbridge/lightbridge-cli-design.md)
 and [refactoring tracker](../../docs/progress/refactor/refactor-lightbridge.md).
