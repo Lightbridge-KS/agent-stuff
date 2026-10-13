@@ -1,0 +1,1035 @@
+{
+  "baseline": "d63e945",
+  "signatures": {
+    "edge_spans": "(text: 'str') -> 'list[tuple[int, int]]'",
+    "edge_fields": "(text: 'str', span: 'tuple[int, int]') -> 'dict'",
+    "find_edge_spans": "(text: 'str', frm: 'str', to: 'str', etype: 'str | None' = None) -> 'list[tuple[int, int]]'",
+    "render_edge": "(edge: 'dict') -> 'str'",
+    "append_edge": "(text: 'str', edge: 'dict') -> 'str'",
+    "remove_span": "(text: 'str', span: 'tuple[int, int]') -> 'str'",
+    "set_edge_key": "(text: 'str', span: 'tuple[int, int]', key: 'str', value: 'str | None') -> 'str'",
+    "effective_mode": "(edge: 'dict', types: 'dict') -> 'str'",
+    "audit": "(graph: 'dict', registry: 'dict[str, str] | None') -> 'list[dict]'",
+    "node_group": "(raw_path: 'str | None') -> 'str'",
+    "mermaid_text": "(graph: 'dict', registry: 'dict[str, str] | None') -> 'str'",
+    "html_text": "(graph: 'dict', registry: 'dict[str, str] | None') -> 'str'",
+    "edge_sentence": "(edge: 'dict', types: 'dict') -> 'str'"
+  },
+  "enums": {
+    "BacklinkMode": [
+      [
+        "full",
+        "full"
+      ],
+      [
+        "compact",
+        "compact"
+      ],
+      [
+        "off",
+        "off"
+      ]
+    ],
+    "BacklinkSetting": [
+      [
+        "full",
+        "full"
+      ],
+      [
+        "compact",
+        "compact"
+      ],
+      [
+        "off",
+        "off"
+      ],
+      [
+        "default",
+        "default"
+      ]
+    ]
+  },
+  "constants": {
+    "BACKLINK_MODES": [
+      "full",
+      "compact",
+      "off"
+    ],
+    "GRAPH_HEADER": "# ~/.lightbridge/graph.toml \u2014 personal cross-repo knowledge graph (never committed).\n# One edge is declared ONCE; both repos' injected ego views project from it.\n# Edge A -> B: `type` names what B is to A; [types.<t>].inverse names what A is to B.\n# backlink = how the reverse renders in B's sessions: full | compact | off\n# (per-type default here; an edge may override with its own `backlink` key).\n# Node names resolve via ~/.lightbridge/repos.toml. Spec: the repo-graph skill.\n",
+    "SEED_TYPES_BLOCK": "[types.upstream]              # B is the codebase A derives from (fork/variant lineage)\ninverse = \"downstream\"\nbacklink = \"full\"\n\n[types.component]             # B is a component repo of solution tracker A\ninverse = \"solution-tracker\"\nbacklink = \"full\"\n\n[types.sub-repo]              # B is a sub-repo committed inside workspace A\ninverse = \"parent-workspace\"\nbacklink = \"full\"\n\n[types.spec-source]           # B authors the specs A aggregates or mirrors\ninverse = \"spec-mirror\"\nbacklink = \"full\"\n\n[types.contracts]             # B holds the API contracts A conforms to\ninverse = \"contract-consumer\"\nbacklink = \"compact\"\n\n[types.live-test-service]     # B is the live service A tests against\ninverse = \"consumer\"\nbacklink = \"full\"\n\n[types.service-backend]       # B is a runtime service A calls\ninverse = \"service-client\"\nbacklink = \"full\"\n\n[types.deploy-tooling]        # B deploys or installs A\ninverse = \"deploy-target\"\nbacklink = \"full\"\n\n[types.ops-manual]            # B is the operations manual documenting A\ninverse = \"documented-app\"\nbacklink = \"full\"\n\n[types.tooling]               # B is dev tooling A uses\ninverse = \"tool-user\"\nbacklink = \"full\"\n\n[types.sibling-reference]     # A and B are peer artifacts to keep reconciled (symmetric)\ninverse = \"sibling-reference\"\nbacklink = \"full\"\n\n[types.subject]               # B is the system A studies or documents\ninverse = \"studied-by\"\nbacklink = \"compact\"\n\n[types.oss-reference]         # B is an OSS reference clone A consults\ninverse = \"referenced-by\"\nbacklink = \"off\"\n",
+    "SEED_TYPE_NAMES": [
+      "upstream",
+      "component",
+      "sub-repo",
+      "spec-source",
+      "contracts",
+      "live-test-service",
+      "service-backend",
+      "deploy-tooling",
+      "ops-manual",
+      "tooling",
+      "sibling-reference",
+      "subject",
+      "oss-reference"
+    ]
+  },
+  "html_template_sha256": "c4d1170df1cd672bbfcc636ec486f7efcff02f7f10ed8b5c4b8b26e72f91e555",
+  "documents": [
+    {
+      "text": "",
+      "index": null,
+      "edge": {
+        "from": "x",
+        "to": "y",
+        "type": "full",
+        "from_note": "Unicode \u03b2 and \"quote\" \\ path",
+        "to_note": "",
+        "backlink": "off"
+      },
+      "changes": [
+        [
+          "from_note",
+          "new \u03b2 \"quoted\""
+        ],
+        [
+          "to_note",
+          "inserted"
+        ],
+        [
+          "from_note",
+          null
+        ],
+        [
+          "from_note",
+          ""
+        ],
+        [
+          "missing",
+          null
+        ]
+      ],
+      "expected": {
+        "spans": [],
+        "fields": [],
+        "find_all": [],
+        "find_full": [],
+        "render": "[[edge]]\nfrom = 'x'\nto = 'y'\ntype = 'full'\nfrom_note = 'Unicode \u03b2 and \"quote\" \\ path'\nbacklink = 'off'\n",
+        "append": "[[edge]]\nfrom = 'x'\nto = 'y'\ntype = 'full'\nfrom_note = 'Unicode \u03b2 and \"quote\" \\ path'\nbacklink = 'off'\n"
+      }
+    },
+    {
+      "text": "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\"",
+      "index": 0,
+      "edge": {
+        "from": "x",
+        "to": "y",
+        "type": "full",
+        "from_note": "Unicode \u03b2 and \"quote\" \\ path",
+        "to_note": "",
+        "backlink": "off"
+      },
+      "changes": [
+        [
+          "from_note",
+          "new \u03b2 \"quoted\""
+        ],
+        [
+          "to_note",
+          "inserted"
+        ],
+        [
+          "from_note",
+          null
+        ],
+        [
+          "from_note",
+          ""
+        ],
+        [
+          "missing",
+          null
+        ]
+      ],
+      "expected": {
+        "spans": [
+          [
+            0,
+            4
+          ]
+        ],
+        "fields": [
+          {
+            "from": "a",
+            "to": "b",
+            "type": "full"
+          }
+        ],
+        "find_all": [
+          [
+            0,
+            4
+          ]
+        ],
+        "find_full": [
+          [
+            0,
+            4
+          ]
+        ],
+        "render": "[[edge]]\nfrom = 'x'\nto = 'y'\ntype = 'full'\nfrom_note = 'Unicode \u03b2 and \"quote\" \\ path'\nbacklink = 'off'\n",
+        "append": "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\"\n\n[[edge]]\nfrom = 'x'\nto = 'y'\ntype = 'full'\nfrom_note = 'Unicode \u03b2 and \"quote\" \\ path'\nbacklink = 'off'\n",
+        "set": [
+          "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\"from_note = 'new \u03b2 \"quoted\"'\n",
+          "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\"to_note = 'inserted'\n",
+          "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\"",
+          "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\"",
+          "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\""
+        ],
+        "remove": ""
+      }
+    },
+    {
+      "text": "# untouched header\n[types.full]\ninverse = 'reverse'\nbacklink = 'full'\n\n[[edge]] # first\nfrom = 'a' # keep source\nto = \"b\"\ntype = 'full'\nfrom_note = 'old' # replaced only\n# trailing comment stays\n\n[unrelated]\nanswer = 42 # unchanged\n\n[[edge]]\nfrom = 'a'\nto = 'b'\ntype = 'off'\n\n[[edge]]\nfrom = 'b'\nto = 'c'\ntype = 'full'\n",
+      "index": 0,
+      "edge": {
+        "from": "x",
+        "to": "y",
+        "type": "full",
+        "from_note": "Unicode \u03b2 and \"quote\" \\ path",
+        "to_note": "",
+        "backlink": "off"
+      },
+      "changes": [
+        [
+          "from_note",
+          "new \u03b2 \"quoted\""
+        ],
+        [
+          "to_note",
+          "inserted"
+        ],
+        [
+          "from_note",
+          null
+        ],
+        [
+          "from_note",
+          ""
+        ],
+        [
+          "missing",
+          null
+        ]
+      ],
+      "expected": {
+        "spans": [
+          [
+            5,
+            12
+          ],
+          [
+            15,
+            20
+          ],
+          [
+            20,
+            24
+          ]
+        ],
+        "fields": [
+          {
+            "from": "a",
+            "to": "b",
+            "type": "full",
+            "from_note": "old"
+          },
+          {
+            "from": "a",
+            "to": "b",
+            "type": "off"
+          },
+          {
+            "from": "b",
+            "to": "c",
+            "type": "full"
+          }
+        ],
+        "find_all": [
+          [
+            5,
+            12
+          ],
+          [
+            15,
+            20
+          ]
+        ],
+        "find_full": [
+          [
+            5,
+            12
+          ]
+        ],
+        "render": "[[edge]]\nfrom = 'x'\nto = 'y'\ntype = 'full'\nfrom_note = 'Unicode \u03b2 and \"quote\" \\ path'\nbacklink = 'off'\n",
+        "append": "# untouched header\n[types.full]\ninverse = 'reverse'\nbacklink = 'full'\n\n[[edge]] # first\nfrom = 'a' # keep source\nto = \"b\"\ntype = 'full'\nfrom_note = 'old' # replaced only\n# trailing comment stays\n\n[unrelated]\nanswer = 42 # unchanged\n\n[[edge]]\nfrom = 'a'\nto = 'b'\ntype = 'off'\n\n[[edge]]\nfrom = 'b'\nto = 'c'\ntype = 'full'\n\n[[edge]]\nfrom = 'x'\nto = 'y'\ntype = 'full'\nfrom_note = 'Unicode \u03b2 and \"quote\" \\ path'\nbacklink = 'off'\n",
+        "set": [
+          "# untouched header\n[types.full]\ninverse = 'reverse'\nbacklink = 'full'\n\n[[edge]] # first\nfrom = 'a' # keep source\nto = \"b\"\ntype = 'full'\nfrom_note = 'new \u03b2 \"quoted\"'\n# trailing comment stays\n\n[unrelated]\nanswer = 42 # unchanged\n\n[[edge]]\nfrom = 'a'\nto = 'b'\ntype = 'off'\n\n[[edge]]\nfrom = 'b'\nto = 'c'\ntype = 'full'\n",
+          "# untouched header\n[types.full]\ninverse = 'reverse'\nbacklink = 'full'\n\n[[edge]] # first\nfrom = 'a' # keep source\nto = \"b\"\ntype = 'full'\nfrom_note = 'old' # replaced only\n# trailing comment stays\nto_note = 'inserted'\n\n[unrelated]\nanswer = 42 # unchanged\n\n[[edge]]\nfrom = 'a'\nto = 'b'\ntype = 'off'\n\n[[edge]]\nfrom = 'b'\nto = 'c'\ntype = 'full'\n",
+          "# untouched header\n[types.full]\ninverse = 'reverse'\nbacklink = 'full'\n\n[[edge]] # first\nfrom = 'a' # keep source\nto = \"b\"\ntype = 'full'\n# trailing comment stays\n\n[unrelated]\nanswer = 42 # unchanged\n\n[[edge]]\nfrom = 'a'\nto = 'b'\ntype = 'off'\n\n[[edge]]\nfrom = 'b'\nto = 'c'\ntype = 'full'\n",
+          "# untouched header\n[types.full]\ninverse = 'reverse'\nbacklink = 'full'\n\n[[edge]] # first\nfrom = 'a' # keep source\nto = \"b\"\ntype = 'full'\n# trailing comment stays\n\n[unrelated]\nanswer = 42 # unchanged\n\n[[edge]]\nfrom = 'a'\nto = 'b'\ntype = 'off'\n\n[[edge]]\nfrom = 'b'\nto = 'c'\ntype = 'full'\n",
+          "# untouched header\n[types.full]\ninverse = 'reverse'\nbacklink = 'full'\n\n[[edge]] # first\nfrom = 'a' # keep source\nto = \"b\"\ntype = 'full'\nfrom_note = 'old' # replaced only\n# trailing comment stays\n\n[unrelated]\nanswer = 42 # unchanged\n\n[[edge]]\nfrom = 'a'\nto = 'b'\ntype = 'off'\n\n[[edge]]\nfrom = 'b'\nto = 'c'\ntype = 'full'\n"
+        ],
+        "remove": "# untouched header\n[types.full]\ninverse = 'reverse'\nbacklink = 'full'\n[unrelated]\nanswer = 42 # unchanged\n\n[[edge]]\nfrom = 'a'\nto = 'b'\ntype = 'off'\n\n[[edge]]\nfrom = 'b'\nto = 'c'\ntype = 'full'\n"
+      }
+    },
+    {
+      "text": "# CRLF\r\n[[edge]]\r\nfrom = \"a\"\r\nto = \"b\"\r\ntype = \"full\"\r\n\r\n[tail]\r\nx = 1\r\n",
+      "index": 0,
+      "edge": {
+        "from": "x",
+        "to": "y",
+        "type": "full",
+        "from_note": "Unicode \u03b2 and \"quote\" \\ path",
+        "to_note": "",
+        "backlink": "off"
+      },
+      "changes": [
+        [
+          "from_note",
+          "new \u03b2 \"quoted\""
+        ],
+        [
+          "to_note",
+          "inserted"
+        ],
+        [
+          "from_note",
+          null
+        ],
+        [
+          "from_note",
+          ""
+        ],
+        [
+          "missing",
+          null
+        ]
+      ],
+      "expected": {
+        "spans": [
+          [
+            1,
+            6
+          ]
+        ],
+        "fields": [
+          {
+            "from": "a",
+            "to": "b",
+            "type": "full"
+          }
+        ],
+        "find_all": [
+          [
+            1,
+            6
+          ]
+        ],
+        "find_full": [
+          [
+            1,
+            6
+          ]
+        ],
+        "render": "[[edge]]\nfrom = 'x'\nto = 'y'\ntype = 'full'\nfrom_note = 'Unicode \u03b2 and \"quote\" \\ path'\nbacklink = 'off'\n",
+        "append": "# CRLF\r\n[[edge]]\r\nfrom = \"a\"\r\nto = \"b\"\r\ntype = \"full\"\r\n\r\n[tail]\r\nx = 1\r\n\n[[edge]]\nfrom = 'x'\nto = 'y'\ntype = 'full'\nfrom_note = 'Unicode \u03b2 and \"quote\" \\ path'\nbacklink = 'off'\n",
+        "set": [
+          "# CRLF\r\n[[edge]]\r\nfrom = \"a\"\r\nto = \"b\"\r\ntype = \"full\"\r\nfrom_note = 'new \u03b2 \"quoted\"'\n\r\n[tail]\r\nx = 1\r\n",
+          "# CRLF\r\n[[edge]]\r\nfrom = \"a\"\r\nto = \"b\"\r\ntype = \"full\"\r\nto_note = 'inserted'\n\r\n[tail]\r\nx = 1\r\n",
+          "# CRLF\r\n[[edge]]\r\nfrom = \"a\"\r\nto = \"b\"\r\ntype = \"full\"\r\n\r\n[tail]\r\nx = 1\r\n",
+          "# CRLF\r\n[[edge]]\r\nfrom = \"a\"\r\nto = \"b\"\r\ntype = \"full\"\r\n\r\n[tail]\r\nx = 1\r\n",
+          "# CRLF\r\n[[edge]]\r\nfrom = \"a\"\r\nto = \"b\"\r\ntype = \"full\"\r\n\r\n[tail]\r\nx = 1\r\n"
+        ],
+        "remove": "# CRLF\r\n[tail]\r\nx = 1\r\n"
+      }
+    }
+  ],
+  "semantic_types": {
+    "full": {
+      "inverse": "reverse",
+      "backlink": "full"
+    },
+    "compact": {
+      "inverse": "brief",
+      "backlink": "compact"
+    },
+    "off": {
+      "inverse": "hidden",
+      "backlink": "off"
+    },
+    "invalid": {
+      "inverse": "",
+      "backlink": "invalid"
+    }
+  },
+  "semantics": [
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "full",
+        "backlink": null,
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "full",
+      "sentence": "a -[full]-> b: b is a's full; b sessions will show a as (reverse)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "full",
+        "backlink": "full",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "full",
+      "sentence": "a -[full]-> b: b is a's full; b sessions will show a as (reverse)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "full",
+        "backlink": "compact",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "compact",
+      "sentence": "a -[full]-> b: b is a's full; b sessions will mention a compactly as (reverse)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "full",
+        "backlink": "off",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "off",
+      "sentence": "a -[full]-> b: b is a's full; b sessions will not show this edge (backlink off)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "full",
+        "backlink": "bad",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "full",
+      "sentence": "a -[full]-> b: b is a's full; b sessions will show a as (reverse)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "compact",
+        "backlink": null,
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "compact",
+      "sentence": "a -[compact]-> b: b is a's compact; b sessions will mention a compactly as (brief)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "compact",
+        "backlink": "full",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "full",
+      "sentence": "a -[compact]-> b: b is a's compact; b sessions will show a as (brief)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "compact",
+        "backlink": "compact",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "compact",
+      "sentence": "a -[compact]-> b: b is a's compact; b sessions will mention a compactly as (brief)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "compact",
+        "backlink": "off",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "off",
+      "sentence": "a -[compact]-> b: b is a's compact; b sessions will not show this edge (backlink off)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "compact",
+        "backlink": "bad",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "compact",
+      "sentence": "a -[compact]-> b: b is a's compact; b sessions will show a as (brief)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "off",
+        "backlink": null,
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "off",
+      "sentence": "a -[off]-> b: b is a's off; b sessions will not show this edge (backlink off)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "off",
+        "backlink": "full",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "full",
+      "sentence": "a -[off]-> b: b is a's off; b sessions will show a as (hidden)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "off",
+        "backlink": "compact",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "compact",
+      "sentence": "a -[off]-> b: b is a's off; b sessions will mention a compactly as (hidden)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "off",
+        "backlink": "off",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "off",
+      "sentence": "a -[off]-> b: b is a's off; b sessions will not show this edge (backlink off)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "off",
+        "backlink": "bad",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "off",
+      "sentence": "a -[off]-> b: b is a's off; b sessions will show a as (hidden)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "invalid",
+        "backlink": null,
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "full",
+      "sentence": "a -[invalid]-> b: b is a's invalid; b sessions will show a as (invalid)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "invalid",
+        "backlink": "full",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "full",
+      "sentence": "a -[invalid]-> b: b is a's invalid; b sessions will show a as (invalid)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "invalid",
+        "backlink": "compact",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "compact",
+      "sentence": "a -[invalid]-> b: b is a's invalid; b sessions will mention a compactly as (invalid)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "invalid",
+        "backlink": "off",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "off",
+      "sentence": "a -[invalid]-> b: b is a's invalid; b sessions will not show this edge (backlink off)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "invalid",
+        "backlink": "bad",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "full",
+      "sentence": "a -[invalid]-> b: b is a's invalid; b sessions will show a as (invalid)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "missing",
+        "backlink": null,
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "full",
+      "sentence": "a -[missing]-> b: b is a's missing; b sessions will show a as (missing)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "missing",
+        "backlink": "full",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "full",
+      "sentence": "a -[missing]-> b: b is a's missing; b sessions will show a as (missing)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "missing",
+        "backlink": "compact",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "compact",
+      "sentence": "a -[missing]-> b: b is a's missing; b sessions will mention a compactly as (missing)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "missing",
+        "backlink": "off",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "off",
+      "sentence": "a -[missing]-> b: b is a's missing; b sessions will not show this edge (backlink off)."
+    },
+    {
+      "edge": {
+        "from": "a",
+        "to": "b",
+        "type": "missing",
+        "backlink": "bad",
+        "from_note": null,
+        "to_note": "other side \u03b2"
+      },
+      "mode": "full",
+      "sentence": "a -[missing]-> b: b is a's missing; b sessions will show a as (missing)."
+    }
+  ],
+  "visualizations": [
+    {
+      "graph": {
+        "types": {},
+        "edges": [],
+        "skipped": 0
+      },
+      "registry": null,
+      "mermaid": "flowchart LR\n",
+      "html_sha256": "c2e97166c66b6c939625874a72c9b9a3d769f4bcc7a2af0022de8f65f4f73a09"
+    },
+    {
+      "graph": {
+        "types": {
+          "full": {
+            "inverse": "reverse",
+            "backlink": "full"
+          },
+          "compact": {
+            "inverse": "brief",
+            "backlink": "compact"
+          },
+          "off": {
+            "inverse": "hidden",
+            "backlink": "off"
+          },
+          "invalid": {
+            "inverse": "",
+            "backlink": "invalid"
+          }
+        },
+        "edges": [
+          {
+            "from": "z",
+            "to": "a",
+            "type": "full",
+            "backlink": null,
+            "from_note": "quote \" \\ and </script>",
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "a",
+            "to": "b",
+            "type": "compact",
+            "backlink": null,
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "a",
+            "to": "b",
+            "type": "off",
+            "backlink": null,
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "ghost",
+            "to": "a",
+            "type": "missing",
+            "backlink": null,
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "b",
+            "to": "z",
+            "type": "full",
+            "backlink": "off",
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "a",
+            "to": "z",
+            "type": "off",
+            "backlink": "bad",
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "z",
+            "to": "b",
+            "type": "invalid",
+            "backlink": "compact",
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          }
+        ],
+        "skipped": 0
+      },
+      "registry": {
+        "a": "/fixture/group-a/a",
+        "b": "/fixture/group-b/b",
+        "z": "/fixture/group-a/z",
+        "unused": "/fixture/group-a/unused"
+      },
+      "mermaid": "flowchart LR\n  subgraph g0[\"group-a\"]\n    n0[\"a\"]\n    n3[\"z\"]\n  end\n  subgraph g1[\"group-b\"]\n    n1[\"b\"]\n  end\n  subgraph g2[\"unregistered\"]\n    n2[\"ghost\"]\n  end\n  n3 -->|full| n0\n  n0 -->|compact| n1\n  n0 -.->|off| n1\n  n2 -->|missing| n0\n  n1 -.->|full| n3\n  n0 -.->|off| n3\n  n3 -->|invalid| n1\n",
+      "html_sha256": "b1222ade9f5f2547ba23eed2417ab0fb18cc07821177a31708ab7a1f42737f45"
+    },
+    {
+      "graph": {
+        "types": {
+          "full": {
+            "inverse": "reverse",
+            "backlink": "full"
+          },
+          "compact": {
+            "inverse": "brief",
+            "backlink": "compact"
+          },
+          "off": {
+            "inverse": "hidden",
+            "backlink": "off"
+          },
+          "invalid": {
+            "inverse": "",
+            "backlink": "invalid"
+          }
+        },
+        "edges": [
+          {
+            "from": "z",
+            "to": "a",
+            "type": "full",
+            "backlink": null,
+            "from_note": "quote \" \\ and </script>",
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "a",
+            "to": "b",
+            "type": "compact",
+            "backlink": null,
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "a",
+            "to": "b",
+            "type": "off",
+            "backlink": null,
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "ghost",
+            "to": "a",
+            "type": "missing",
+            "backlink": null,
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "b",
+            "to": "z",
+            "type": "full",
+            "backlink": "off",
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "a",
+            "to": "z",
+            "type": "off",
+            "backlink": "bad",
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "z",
+            "to": "b",
+            "type": "invalid",
+            "backlink": "compact",
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          }
+        ],
+        "skipped": 0
+      },
+      "registry": null,
+      "mermaid": "flowchart LR\n  subgraph g0[\"unregistered\"]\n    n0[\"a\"]\n    n1[\"b\"]\n    n2[\"ghost\"]\n    n3[\"z\"]\n  end\n  n3 -->|full| n0\n  n0 -->|compact| n1\n  n0 -.->|off| n1\n  n2 -->|missing| n0\n  n1 -.->|full| n3\n  n0 -.->|off| n3\n  n3 -->|invalid| n1\n",
+      "html_sha256": "b42a28052ed056ce01464a6493efb4cac62f28a3805608264d2e86817595e5cf"
+    }
+  ],
+  "audits": [
+    {
+      "graph": {
+        "types": {
+          "full": {
+            "inverse": "reverse",
+            "backlink": "full"
+          },
+          "invalid": {
+            "inverse": "",
+            "backlink": "invalid"
+          }
+        },
+        "edges": [
+          {
+            "from": "a",
+            "to": "b",
+            "type": "full",
+            "backlink": null,
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "a",
+            "to": "ghost",
+            "type": "missing",
+            "backlink": "bad",
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "a",
+            "to": "b",
+            "type": "full",
+            "backlink": null,
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          }
+        ],
+        "skipped": 2
+      },
+      "registry": {
+        "a": "<root>/good",
+        "alias": "<root>/good",
+        "b": "<root>/dead"
+      },
+      "expected": [
+        {
+          "kind": "malformed-edge",
+          "subject": "graph",
+          "detail": "2 edge block(s) missing from/to/type \u2014 dropped from every projection"
+        },
+        {
+          "kind": "invalid-type",
+          "subject": "invalid",
+          "detail": "no inverse; backlink must be one of full, compact, off"
+        },
+        {
+          "kind": "undeclared-type",
+          "subject": "a -[missing]-> ghost",
+          "detail": "type 'missing' is not in [types] \u2014 declare it, or fix the edge"
+        },
+        {
+          "kind": "invalid-backlink",
+          "subject": "a -[missing]-> ghost",
+          "detail": "backlink 'bad' must be one of full, compact, off"
+        },
+        {
+          "kind": "duplicate-edge",
+          "subject": "a -[full]-> b",
+          "detail": "declared 2 times \u2014 `graph unlink` the extras"
+        },
+        {
+          "kind": "dead-path",
+          "subject": "b",
+          "detail": "registered path <root>/dead is not a directory on this machine"
+        },
+        {
+          "kind": "unregistered-node",
+          "subject": "ghost",
+          "detail": "not in repos.toml \u2014 `repos add ghost PATH`"
+        },
+        {
+          "kind": "registry-alias",
+          "subject": "a, alias",
+          "detail": "all resolve to <root>/good \u2014 pick one canonical name; the rest split that repo's identity"
+        }
+      ]
+    },
+    {
+      "graph": {
+        "types": {
+          "full": {
+            "inverse": "reverse",
+            "backlink": "full"
+          },
+          "invalid": {
+            "inverse": "",
+            "backlink": "invalid"
+          }
+        },
+        "edges": [
+          {
+            "from": "a",
+            "to": "b",
+            "type": "full",
+            "backlink": null,
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "a",
+            "to": "ghost",
+            "type": "missing",
+            "backlink": "bad",
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          },
+          {
+            "from": "a",
+            "to": "b",
+            "type": "full",
+            "backlink": null,
+            "from_note": null,
+            "to_note": "other side \u03b2"
+          }
+        ],
+        "skipped": 2
+      },
+      "registry": null,
+      "expected": [
+        {
+          "kind": "malformed-edge",
+          "subject": "graph",
+          "detail": "2 edge block(s) missing from/to/type \u2014 dropped from every projection"
+        },
+        {
+          "kind": "invalid-type",
+          "subject": "invalid",
+          "detail": "no inverse; backlink must be one of full, compact, off"
+        },
+        {
+          "kind": "undeclared-type",
+          "subject": "a -[missing]-> ghost",
+          "detail": "type 'missing' is not in [types] \u2014 declare it, or fix the edge"
+        },
+        {
+          "kind": "invalid-backlink",
+          "subject": "a -[missing]-> ghost",
+          "detail": "backlink 'bad' must be one of full, compact, off"
+        },
+        {
+          "kind": "duplicate-edge",
+          "subject": "a -[full]-> b",
+          "detail": "declared 2 times \u2014 `graph unlink` the extras"
+        },
+        {
+          "kind": "no-registry",
+          "subject": "registry",
+          "detail": "the graph has edges but no repos.toml exists \u2014 no name can resolve to a path"
+        }
+      ]
+    },
+    {
+      "graph": {
+        "types": {},
+        "edges": [],
+        "skipped": 0
+      },
+      "registry": null,
+      "expected": []
+    }
+  ]
+}

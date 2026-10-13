@@ -113,12 +113,21 @@ class World:
 
 
 def run_node_locally(script: str) -> dict:
-    proc = subprocess.run(
-        [sys.executable, "-"], input=script, capture_output=True, text=True, env=GIT_ENV
-    )
+    # A sync prunes default registry paths too: never let a fixture inherit the
+    # developer's home, even when its explicit repo root is temporary.
+    with tempfile.TemporaryDirectory() as home:
+        proc = subprocess.run(
+            [sys.executable, "-"],
+            input=script,
+            capture_output=True,
+            text=True,
+            env={**GIT_ENV, "HOME": home, "USERPROFILE": home},
+        )
     report = lb_fleet.parse_report(proc.stdout)
     if report is None:
-        raise AssertionError(f"no report (exit {proc.returncode}):\n{proc.stdout}\n{proc.stderr}")
+        raise AssertionError(
+            f"no report (exit {proc.returncode}):\n{proc.stdout}\n{proc.stderr}"
+        )
     return report
 
 
@@ -493,8 +502,15 @@ class FleetCliTest(unittest.TestCase):
         shim.write_text(SHIM, encoding="utf-8")
         shim.chmod(shim.stat().st_mode | stat.S_IEXEC)
         self.log = self.base / "ssh.log"
+        home = self.base / "home"
+        home.mkdir()
         self.env = {
             **GIT_ENV,
+            "HOME": str(home),
+            "USERPROFILE": str(home),
+            "UV_CACHE_DIR": subprocess.check_output(
+                ["uv", "cache", "dir"], text=True
+            ).strip(),
             "PATH": f"{shim_dir}{os.pathsep}{os.environ.get('PATH', '')}",
             "LB_TEST_SSH_LOG": str(self.log),
             "LB_TEST_PYTHON": sys.executable,
@@ -505,9 +521,9 @@ class FleetCliTest(unittest.TestCase):
         # marker lives outside the clone too, or the next status would see it as dirty.
         self.marker = self.base / "applied"
         self.fleet.write_text(
-            f'[hub]\nroot = {lb_resolve.toml_str(str(self.w.hub_root))}\n'
-            f'[repos.alpha]\napply = {lb_resolve.toml_str(f"touch {self.marker}")}\n'
-            f'verify = {lb_resolve.toml_str(f"test -f {self.marker}")}\n'
+            f"[hub]\nroot = {lb_resolve.toml_str(str(self.w.hub_root))}\n"
+            f"[repos.alpha]\napply = {lb_resolve.toml_str(f'touch {self.marker}')}\n"
+            f"verify = {lb_resolve.toml_str(f'test -f {self.marker}')}\n"
             f'[nodes.box]\nssh = "box-alias"\nroot = {lb_resolve.toml_str(str(self.w.node_root))}\nrepos = ["alpha"]\n',
             encoding="utf-8",
         )
@@ -515,7 +531,10 @@ class FleetCliTest(unittest.TestCase):
     def lb(self, *args: str, **env: str) -> subprocess.CompletedProcess:
         return subprocess.run(
             script_argv(SCRIPT, *args, "--fleet", str(self.fleet)),
-            capture_output=True, text=True, encoding="utf-8", env={**self.env, **env},
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env={**self.env, **env},
         )
 
     def test_init_seeds_once_and_never_clobbers(self):

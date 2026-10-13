@@ -18,6 +18,29 @@ Decision record: [`adr/0004-fleet-hub-and-spoke.md`](adr/0004-fleet-hub-and-spok
 Build tracker: [`progress/fleet.md`](progress/fleet.md). Agent-facing usage: the
 `fleet-sync` skill (canonical how-to; this doc is the why-and-what).
 
+Current refactoring evidence: [shared Lightbridge tracker](../progress/refactor/refactor-lightbridge.md).
+The historical build tracker and ADR remain unchanged.
+
+## Implementation ownership
+
+`lb_commands/fleet.py` owns command orchestration and presentation. The CLI-only
+`lb_fleet` package separates mechanics into three independent modules:
+
+- `node_program`: the inline node template, rendering and report parsing, with the
+  marker, registry defaults and per-command timeout beside their consumers.
+- `transport`: SSH arguments/execution, session timeout and unreachable diagnostics.
+- `hub`: inventory seed/selection, local Git fetch/distance and atomic receipts.
+
+The facade explicitly re-exports existing public functions/constants as the same
+objects, including the intentional resolver re-exports. Signatures, defaults and
+the injected runner remain unchanged. Implementation modules never import the
+facade, command handlers or entrypoint, and have no cross-owner imports.
+
+The node template remains an inline, self-contained string with byte-identical
+rendering; no asset loading or node installation dependency is introduced. Fleet
+readers remain in standalone, stdlib-only, sibling-free `lb_resolve.py`, preserving
+hook path-loading and the existing complete-directory/symlink CLI installation.
+
 ```
             ┌────────────── GitHub · origin/main (source of truth) ──────────────┐
             │            ▲                                          │            │
@@ -65,8 +88,9 @@ nothing from the node's own agent-stuff clone is executed by the hub.
 Every command runs with `GIT_TERMINAL_PROMPT=0`, `stdin=DEVNULL`, `start_new_session=True`
 so a timeout kills the whole group (`make → quarto`); output is decoded with `replace`
 and tailed (20 lines / 2000 chars) into the report. The program prints exactly one line:
-`LB_FLEET_REPORT {json}` — `parse_report` scans for the marker, so motd or rc noise is
-harmless.
+`LB_FLEET_REPORT {json}` — `parse_report` scans backward for the marker, so motd or
+rc noise is harmless. The final matching line wins; if it is malformed or lacks a
+dictionary-valued `repos`, parsing returns no report rather than using an earlier one.
 
 ```
 mode=status   per repo: branch · HEAD · dirty files · missing `requires`          NO fetch, no writes
@@ -85,6 +109,7 @@ behind, pull{exit,tail}, apply{exit,tail}, verify{exit,tail}}` with
 `status ∈ {observed | applied | in-sync | refused | failed}`. A refused repo keeps
 `before == after` (nothing was pulled). Two-phase across repos: every eligible repo pulls
 before any apply runs, because the private repo's apply calls agent-stuff's installer.
+All applies finish before verification starts; each phase retains inventory order.
 
 ## Hub-side distance (`status`)
 
@@ -137,8 +162,8 @@ kind beside `online: false`.
 goes to stderr; the report to stdout. Human rows use the CLI's `row()` labels: `node`,
 `repo`, `checks`, `next` (status); `applied`, `in-sync`, `REFUSED`, `FAILED`, `pruned`,
 `checks`, `receipt` (sync). Refusal text is worded for the node, where the fix happens
-(`REFUSALS` in `lb_commands.py`). `lb status` shows one bounded row: inventory path,
-node count, receipt count — no ssh.
+(`REFUSALS` in `lb_commands/fleet.py`, re-exported by `lb_commands`). `lb status` shows
+one bounded row: inventory path, node count, receipt count — no ssh.
 
 ## `fleet-inject` (SessionStart, hub only, network-free)
 

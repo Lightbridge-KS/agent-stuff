@@ -53,12 +53,44 @@ sibling state dirs to `ls`. v0.2 closes that with read verbs and makes `lb` the
 The user is (a) KS bootstrapping or debugging a project's config, and (b) an agent
 executing the `lightbridge-config` skill or answering config questions mid-session.
 
-> **Implementation note (v0.5).** Everything below describes the *surface*, which is frozen
-> and unchanged. The implementation is no longer one file: v0.5 split it into eight flat
-> sibling modules under `scripts/lightbridge/`, with `lb_resolve.py` as the only module
-> hooks and sibling scripts path-load, and `lightbridge.py` reduced to a non-importable
-> entrypoint. See [ADR 0001](./adr/0001-modular-lightbridge.md) before adding a verb — it
-> says which module a new function belongs in.
+> **Current implementation.** Everything below describes the *surface*, which remains
+> unchanged. The original split ([ADR 0001](./adr/0001-modular-lightbridge.md)) isolated
+> `lb_resolve.py` as the standalone file hooks path-load. Command handlers now live in
+> the CLI-only `lb_commands` package, retaining the same import surface; `lightbridge.py`
+> remains the entrypoint and owns Typer registration. The historical ADR is retained.
+
+### Command ownership
+
+The package groups handlers by the responsibility that changes: `project` owns config,
+sections, path, the offline dashboard and project-tree audit; `repos`, `graph`, `keys`
+and `fleet` own their command families; `move` owns move confirmation and presentation.
+Graph document operations and visualization live in the CLI-only `lb_graph` package.
+Its `document` module owns vocabulary, surgical edge edits, semantics and audit;
+`visualization` owns shared rendering data, Mermaid and the unchanged inline HTML.
+The only intra-package dependency is `visualization → document.effective_mode`.
+The facade directly re-exports public functions, constants and backlink enums as
+the same objects. Graph command orchestration stays in `lb_commands/graph.py`, and
+the standalone resolver retains graph reading/projection.
+
+Fleet mechanics live in the CLI-only `lb_fleet` package: `node_program` owns the streamed program and
+report protocol, `transport` owns SSH execution/diagnostics, and `hub` owns inventory
+selection, local Git and receipts. These owners are independent; the facade directly
+re-exports the existing public objects. Fleet command orchestration stays in
+`lb_commands/fleet.py`.
+
+Shared label styling (`row`) lives in `lb_style`. Project JSON helpers stay in
+`project`. Graph linking uses `repos.open_registry` for the same registry diagnostics
+as registry commands; this is the sole command-family import edge. Internal modules
+never import the package facade. `__init__.py` explicitly re-exports the same function
+and constant objects, retaining handler signatures, default arguments and injection
+seams. Imports remain eager; this change makes ownership local, not startup lazy.
+
+The packages are appropriate because handlers, graph operations and fleet mechanics
+are ordinary CLI imports, not path-loaded library code. `lb_resolve.py` remains stdlib-only and
+sibling-free, so hook loading and the script/symlink installation protocol need no
+changes. No Python distribution, new dependency or CLI behavior is introduced.
+Verification and future slices live in
+the [shared refactoring tracker](../progress/refactor/refactor-lightbridge.md).
 
 ## 2. Surface Map
 

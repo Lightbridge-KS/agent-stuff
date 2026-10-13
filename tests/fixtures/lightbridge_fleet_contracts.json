@@ -1,0 +1,60 @@
+{
+  "baseline": "88ad30d",
+  "signatures": {
+    "repo_specs": "(fleet: 'dict', node: 'str', only: 'list[str] | None' = None) -> 'list[dict]'",
+    "render_node_script": "(mode: 'str', root: 'str', repos: 'list[dict]', *, reinstall: 'bool' = False, timeout: 'int' = 600, registries: 'tuple[str, ...]' = ('~/.claude/skills', '~/.codex/skills')) -> 'str'",
+    "ssh_argv": "(alias: 'str') -> 'list[str]'",
+    "run_node": "(alias: 'str', script: 'str', runner='subprocess.run', timeout: 'int' = 1800) -> 'tuple[int, str, str]'",
+    "classify_unreachable": "(stderr: 'str') -> 'tuple[str, str]'",
+    "parse_report": "(stdout: 'str') -> 'dict | None'",
+    "hub_repo_dir": "(hub_root: 'str', name: 'str') -> 'Path'",
+    "hub_fetch": "(repo_dir: 'Path') -> 'str | None'",
+    "distance": "(repo_dir: 'Path', node_head: 'str | None') -> 'dict'",
+    "now_iso": "() -> 'str'",
+    "short": "(sha: 'str | None') -> 'str'",
+    "receipt_path": "(fleet_path: 'Path', node: 'str') -> 'Path'",
+    "write_receipt": "(fleet_path: 'Path', node: 'str', data: 'dict') -> 'Path'",
+    "fleet_receipts_dir": "(fleet: 'Path') -> 'Path'",
+    "load_receipt": "(path: 'Path') -> 'tuple[dict | None, str | None]'"
+  },
+  "node_sha256": "e7d783061017d2495734aba9099b069f248fcfc4634d1310fe472f719ef2381b",
+  "rendered": [
+    {
+      "kwargs": {
+        "mode": "status",
+        "root": "/fixture/root",
+        "repos": []
+      },
+      "sha256": "31c765a288c62b54e0228d063fffc35b37eb3adbabf4e6bb3decca4c6ac8052d"
+    },
+    {
+      "kwargs": {
+        "mode": "sync",
+        "root": "/fixture/space and 'quote'\\root",
+        "repos": [
+          {
+            "name": "alpha",
+            "apply": "printf 'hello\\n'",
+            "verify": null,
+            "requires": [
+              ".device"
+            ]
+          },
+          {
+            "name": "\u03b2",
+            "apply": "true",
+            "verify": "true",
+            "requires": []
+          }
+        ],
+        "reinstall": true,
+        "timeout": 7,
+        "registries": [
+          "/fixture/registry with space",
+          "/fixture/\u03b2"
+        ]
+      },
+      "sha256": "0c10ff8121c80943f09e6825ad48a51feeabc827cfac857feeb7aaf7bdbce521"
+    }
+  ]
+}

@@ -166,9 +166,9 @@ unreadable) · `2` usage.
 
 ## Module layout
 
-Since v0.5 this tool is flat sibling modules rather than one file (ten since v0.7,
-when `lb_keys.py` joined). The boundary is
-**the library is the read path; the CLI owns the write path** — decision and rationale in
+The tool uses sibling modules plus the CLI-only `lb_commands`, `lb_fleet` and
+`lb_graph` packages. The boundary is
+**the library is the read path; the CLI owns the write path** — its original rationale is in
 [`docs/lightbridge/adr/0001-modular-lightbridge.md`](../../docs/lightbridge/adr/0001-modular-lightbridge.md).
 
 | file | holds |
@@ -177,21 +177,52 @@ when `lb_keys.py` joined). The boundary is
 | `lb_tomledit.py` | surgical TOML line edits (comments and layout survive) |
 | `lb_catalog.py` | `SECTIONS`, `SectionName`, config-document assembly |
 | `lb_registry.py` | `~/.lightbridge/repos.toml` |
-| `lb_graph.py` | `~/.lightbridge/graph.toml` — document model, edge surgery, audit, viz |
+| `lb_graph/` | graph vocabulary/edge editing/audit and Mermaid/HTML visualization; compatibility exports |
 | `lb_keys.py` | `~/.lightbridge/keys.toml` + `secrets.toml` — LLM key catalog, 0600 write, audit |
+| `lb_fleet/` | node program/protocol, SSH transport, hub inventory/Git/receipts; explicit compatibility exports |
 | `lb_doctor.py` | the tree audit |
 | `lb_mv.py` | `plan_mv` + `apply_mv` |
-| `lb_style.py` | `styled()` + `paint()` — TTY-gated colour and the rich-help switch |
-| `lb_commands.py` | the `cmd_*` verb handlers |
+| `lb_style.py` | `styled()`, `paint()`, `row()` — TTY-gated colour, labelled rows and the rich-help switch |
+| `lb_commands/` | `cmd_*` handlers grouped by owner, with explicit same-object exports |
 | `lightbridge.py` | Typer wiring + `main()` — **the entrypoint, not importable** |
+
+The command package owns six families: `project` (config, sections, path, offline
+dashboard and doctor), `repos`, `graph`, `keys`, `fleet`, and `move` (confirmation and
+presentation). Helpers stay with their family; graph linking shares
+`repos.open_registry` for registry diagnostics. This is the only dependency between
+command families. Implementations import their owners directly, never the package
+facade. `from lb_commands import cmd_mv` still returns the actual implementation
+function, preserving signatures and injected dependencies without forwarding wrappers.
+
+The fleet package has three independent owners: `node_program` holds the unchanged
+inline program, rendering and report parsing; `transport` owns SSH execution and
+unreachable diagnostics; `hub` owns inventory seed/selection, local Git and atomic
+receipts. `lb_fleet` directly re-exports its existing public functions/constants and
+the intentional resolver exports. Its implementation modules have no cross-owner
+dependencies and never import either facade, command handlers or the entrypoint.
+Fleet command orchestration remains in `lb_commands/fleet.py`.
+
+The graph package separates `document` (vocabulary, edge editing, semantics and
+audit) from `visualization` (shared visualization data, Mermaid and inline HTML).
+Visualization imports `document.effective_mode` directly; this is the sole
+intra-package dependency. The facade preserves all public functions, constants and
+backlink enums as the same objects. Command orchestration stays in
+`lb_commands/graph.py`; readers and projection stay in standalone `lb_resolve.py`.
+The HTML template remains inline and self-contained, with no added asset-loading or
+installation requirements.
+
+These CLI-only packages refine the historical flat layout without changing the
+standalone resolver protocol or introducing a separately installed Python distribution.
+Current rationale and evidence: [CLI design](../../docs/lightbridge/lightbridge-cli-design.md)
+and [refactoring tracker](../../docs/progress/refactor/refactor-lightbridge.md).
 
 Two rules, both enforced by `tests/test_lightbridge.py::ResolveModuleContractTest`:
 
 1. **`lb_resolve.py` is the only module a reader path-loads**, so it imports stdlib only and
    no siblings — hooks `exec_module` it inside `dependencies = []` PEP 723 envs where
    neither would resolve.
-2. **`lightbridge.py` is never imported.** It pulls in typer and its siblings at module
-   scope; path-loading it from a hook would crash.
+2. **`lightbridge.py` is never imported.** It imports CLI modules at module scope and
+   Typer inside `main()`; consumers load the standalone resolver instead.
 
 Sibling imports work because `uv run --script` puts the *symlink-resolved* script directory
 on `sys.path[0]` — so they hold through the `~/.local/bin/lb` shim too. The `lb_` filename

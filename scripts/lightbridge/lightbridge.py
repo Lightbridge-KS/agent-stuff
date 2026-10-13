@@ -13,13 +13,13 @@ loads this one. See `docs/lightbridge/adr/0001-modular-lightbridge.md`.
     lb_tomledit.py  surgical TOML line edits
     lb_catalog.py   the section catalog + config-document assembly
     lb_registry.py  ~/.lightbridge/repos.toml
-    lb_graph.py     ~/.lightbridge/graph.toml — the cross-repo graph document
+    lb_graph/       graph document operations/audit and Mermaid/HTML visualization
     lb_keys.py      ~/.lightbridge/keys.toml + secrets.toml — personal LLM API keys
-    lb_fleet.py     ~/.lightbridge/fleet.toml + fleet/<node>.json — hub-and-spoke node sync
+    lb_fleet/       node program/protocol, SSH transport, hub inventory/Git/receipts
     lb_doctor.py    tree audit
-    lb_style.py     TTY-gated colour + the rich-help switch (ADR 0005)
+    lb_style.py     TTY-gated colour, labelled rows + the rich-help switch (ADR 0005)
     lb_mv.py        plan_mv + apply_mv
-    lb_commands.py  the cmd_* verb handlers
+    lb_commands/    cmd_* handlers by owner; __init__.py preserves command imports
     lightbridge.py  this file
 
 Sibling imports resolve because `uv run --script` puts the **symlink-resolved** script

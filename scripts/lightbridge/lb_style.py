@@ -62,3 +62,12 @@ def paint(text: str, tone: Tone) -> str:
     if not styled():
         return text
     return f"\033[{_SGR[tone]}m{text}\033[0m"
+
+
+def row(label: str, value: str, tone: Tone = "label") -> str:
+    """One `label   value` line — every bootstrap label fits the same column.
+
+    The label is painted (padded first, so escapes never shift the column); `tone`
+    flags a line whose label alone carries the verdict (REFUSED, FAILED, applied).
+    """
+    return f"{paint(f'{label:<9}', tone)} {value}"
