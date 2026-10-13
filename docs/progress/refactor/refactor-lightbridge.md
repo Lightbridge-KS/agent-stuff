@@ -158,7 +158,7 @@ remain separate from this refactor.
 
 ## Slice 3 — graph document and visualization package
 
-Status: active. Baseline: `d63e945`. Scope: candidate #3 only.
+Status: complete. Baseline: `d63e945`. Scope: candidate #3 only. Implementation: `31db422`.
 
 Approved structure: `lb_graph/{document,visualization}.py` with an explicit facade
 re-exporting the 20 existing public functions, enums and constants as the same
@@ -180,7 +180,7 @@ stays in `lb_commands/graph.py`. Completed command/fleet implementations stay in
 - [x] Extend architecture negative controls and copied-tree/symlink installation tests.
 - [x] Update current documentation; preserve historical trackers and ADRs.
 - [x] Run seven affected suites, full tests, validation, recursive syntax and Ruff checks.
-- [ ] Commit locally and record evidence/reference; no push or PR.
+- [x] Commit locally and record evidence/reference; no push or PR — `31db422`.
 
 Proof requirements: temporary homes and explicit graph/registry fixtures; warm
 old/new dependency caches; stdout/stderr/exits, ordered JSON, TOML/HTML bytes and
@@ -220,6 +220,8 @@ Any discovered behavior fixes remain outside this slice.
 - Resolver, TOML substrate, command and fleet implementations and historical
   ADRs/trackers are unchanged. Existing CI entries cover the expanded tests and
   recursive compilation; hosted CI has not run.
+- Implementation commit: `31db422` (`refactor(lightbridge): split graph document and visualization`).
+  Committed locally; no push or PR.
 
 ## Deferred
 
@@ -227,6 +229,6 @@ No further refactoring candidates are approved beyond Slice 3.
 
 ## Next
 
-Complete and verify Slice 3. Slices 1 and 2 remain complete. Future approved lb
-refactors append slices to this active tracker; completing these slices does not
-retire it.
+Slices 1, 2 and 3 are complete. Future approved lb refactors append slices to this
+active tracker; completing these slices does not retire it or authorize additional
+refactoring work.
