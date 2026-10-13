@@ -28,6 +28,7 @@ sys.path.insert(0, str(TOOL))
 
 import lb_commands  # noqa: E402
 import lb_fleet  # noqa: E402
+import lb_graph  # noqa: E402
 
 OWNERS = {
     "project": (
@@ -106,6 +107,29 @@ FLEET_OWNERS = {
     ),
 }
 FLEET_MODULES = {f"lb_fleet.{name}" for name in FLEET_OWNERS}
+GRAPH_OWNERS = {
+    "document": (
+        "BACKLINK_MODES",
+        "GRAPH_HEADER",
+        "SEED_TYPES_BLOCK",
+        "SEED_TYPE_NAMES",
+        "BacklinkMode",
+        "BacklinkSetting",
+        "edge_spans",
+        "edge_fields",
+        "find_edge_spans",
+        "render_edge",
+        "append_edge",
+        "remove_span",
+        "set_edge_key",
+        "effective_mode",
+        "audit",
+        "edge_sentence",
+    ),
+    "visualization": ("node_group", "mermaid_text", "html_text", "HTML_TEMPLATE"),
+}
+GRAPH_MODULES = {f"lb_graph.{name}" for name in GRAPH_OWNERS}
+GRAPH_ALLOWED = {("lb_graph.visualization", "lb_graph.document")}
 
 
 def signature_text(function):
@@ -121,6 +145,121 @@ def signature_text(function):
         for parameter in signature.parameters.values()
     ]
     return str(signature.replace(parameters=parameters))
+
+
+class GraphCharacterizationTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.contract = json.loads(
+            (ROOT / "tests/fixtures/lightbridge_graph_contracts.json").read_text()
+        )
+
+    def test_signatures_enums_and_vocabulary_match_baseline(self):
+        for name, expected in self.contract["signatures"].items():
+            with self.subTest(name=name):
+                self.assertEqual(signature_text(getattr(lb_graph, name)), expected)
+        for name, expected in self.contract["enums"].items():
+            self.assertEqual(
+                [
+                    [key, member.value]
+                    for key, member in getattr(lb_graph, name).__members__.items()
+                ],
+                expected,
+            )
+        for name, expected in self.contract["constants"].items():
+            actual = getattr(lb_graph, name)
+            self.assertEqual(
+                list(actual) if isinstance(actual, tuple) else actual, expected
+            )
+
+    def test_document_operations_preserve_exact_baseline_bytes(self):
+        for case in self.contract["documents"]:
+            with self.subTest(text=case["text"]):
+                text, expected = case["text"], case["expected"]
+                spans = lb_graph.edge_spans(text)
+                self.assertEqual([list(span) for span in spans], expected["spans"])
+                self.assertEqual(
+                    [lb_graph.edge_fields(text, span) for span in spans],
+                    expected["fields"],
+                )
+                self.assertEqual(
+                    [list(span) for span in lb_graph.find_edge_spans(text, "a", "b")],
+                    expected["find_all"],
+                )
+                self.assertEqual(
+                    [
+                        list(span)
+                        for span in lb_graph.find_edge_spans(text, "a", "b", "full")
+                    ],
+                    expected["find_full"],
+                )
+                self.assertEqual(lb_graph.render_edge(case["edge"]), expected["render"])
+                self.assertEqual(
+                    lb_graph.append_edge(text, case["edge"]), expected["append"]
+                )
+                if case["index"] is not None:
+                    span = spans[case["index"]]
+                    for change, result in zip(case["changes"], expected["set"]):
+                        self.assertEqual(
+                            lb_graph.set_edge_key(text, span, *change), result
+                        )
+                    self.assertEqual(
+                        lb_graph.remove_span(text, span), expected["remove"]
+                    )
+
+    def test_backlink_fallback_and_direction_sentence_match_baseline(self):
+        # These APIs deliberately retain their own fallback behavior.
+        for case in self.contract["semantics"]:
+            with self.subTest(edge=case["edge"]):
+                self.assertEqual(
+                    lb_graph.effective_mode(
+                        case["edge"], self.contract["semantic_types"]
+                    ),
+                    case["mode"],
+                )
+                self.assertEqual(
+                    lb_graph.edge_sentence(
+                        case["edge"], self.contract["semantic_types"]
+                    ),
+                    case["sentence"],
+                )
+
+    def test_complete_visualization_bytes_match_baseline(self):
+        self.assertEqual(
+            hashlib.sha256(lb_graph.HTML_TEMPLATE.encode()).hexdigest(),
+            self.contract["html_template_sha256"],
+        )
+        for case in self.contract["visualizations"]:
+            with self.subTest(registry=case["registry"]):
+                self.assertEqual(
+                    lb_graph.mermaid_text(case["graph"], case["registry"]),
+                    case["mermaid"],
+                )
+                self.assertEqual(
+                    hashlib.sha256(
+                        lb_graph.html_text(case["graph"], case["registry"]).encode()
+                    ).hexdigest(),
+                    case["html_sha256"],
+                )
+
+    def test_audit_messages_and_order_match_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            (root / "good").mkdir()
+            for case in self.contract["audits"]:
+                with self.subTest(registry=case["registry"]):
+                    registry = case["registry"]
+                    if registry is not None:
+                        registry = {
+                            key: value.replace("<root>", str(root))
+                            for key, value in registry.items()
+                        }
+                    actual = lb_graph.audit(case["graph"], registry)
+                    for problem in actual:
+                        problem["detail"] = problem["detail"].replace(
+                            str(root), "<root>"
+                        )
+                    self.assertEqual(actual, case["expected"])
 
 
 class FleetCharacterizationTest(unittest.TestCase):
@@ -306,7 +445,7 @@ def dependency_errors(sources: dict[str, str]) -> list[str]:
 
     errors = []
     for name in edges:
-        if name not in FAMILIES | FLEET_MODULES:
+        if name not in FAMILIES | FLEET_MODULES | GRAPH_MODULES:
             continue
         pending = list(edges[name])
         reached = set()
@@ -315,6 +454,18 @@ def dependency_errors(sources: dict[str, str]) -> list[str]:
             if target in reached:
                 continue
             reached.add(target)
+            if name in GRAPH_MODULES:
+                if target in {"lb_graph", "lb_commands", "lb_fleet", "lightbridge"}:
+                    errors.append(
+                        f"{name} reaches forbidden facade/entrypoint {target}"
+                    )
+                elif target in FAMILIES | FLEET_MODULES or (
+                    target in GRAPH_MODULES - {name}
+                    and (name, target) not in GRAPH_ALLOWED
+                ):
+                    errors.append(f"{name} reaches forbidden owner {target}")
+                pending.extend(edges[target])
+                continue
             if name in FLEET_MODULES:
                 if target in {"lb_fleet", "lb_commands", "lightbridge"}:
                     errors.append(
@@ -435,7 +586,106 @@ class FleetCompatibilityTest(unittest.TestCase):
         )
 
 
+class GraphCompatibilityTest(unittest.TestCase):
+    def test_explicit_exports_forward_original_objects(self):
+        expected = set()
+        for owner, names in GRAPH_OWNERS.items():
+            implementation = importlib.import_module(f"lb_graph.{owner}")
+            for name in names:
+                expected.add(name)
+                with self.subTest(name=name):
+                    self.assertIs(
+                        getattr(lb_graph, name), getattr(implementation, name)
+                    )
+        self.assertEqual(set(lb_graph.__all__), expected)
+        self.assertEqual(len(lb_graph.__all__), len(expected))
+
+    def test_package_has_only_the_approved_owners(self):
+        self.assertFalse((TOOL / "lb_graph.py").exists())
+        self.assertEqual(
+            {
+                path.relative_to(TOOL / "lb_graph").as_posix()
+                for path in (TOOL / "lb_graph").rglob("*.py")
+            },
+            {f"{name}.py" for name in GRAPH_OWNERS} | {"__init__.py"},
+        )
+
+
 class DependencyCheckerTest(unittest.TestCase):
+    def graph_sources(self, **overrides):
+        return self.fleet_sources(
+            **{
+                "lb_graph": "from .document import audit\nfrom .visualization import html_text\n",
+                "lb_graph.document": "from lb_resolve import toml_str\nfrom lb_tomledit import terminate\n",
+                "lb_graph.visualization": "from .document import effective_mode\n",
+                "lb_tomledit": "",
+                **overrides,
+            }
+        )
+
+    def test_graph_visualization_can_use_document_semantics(self):
+        self.assertEqual(dependency_errors(self.graph_sources()), [])
+
+    def test_graph_reverse_dependency_is_rejected(self):
+        for statement in (
+            "from .visualization import html_text",
+            "from . import visualization",
+            "import lb_graph.visualization",
+            "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n from .visualization import html_text",
+        ):
+            with self.subTest(statement=statement):
+                errors = dependency_errors(
+                    self.graph_sources(**{"lb_graph.document": statement})
+                )
+                self.assertIn(
+                    "lb_graph.document reaches forbidden owner lb_graph.visualization",
+                    errors,
+                )
+
+    def test_graph_cannot_reach_facades_commands_fleet_or_entrypoint(self):
+        for owner in GRAPH_MODULES:
+            for target in (
+                "lb_graph",
+                "lb_commands",
+                "lb_commands.graph",
+                "lb_fleet",
+                "lb_fleet.hub",
+                "lightbridge",
+            ):
+                with self.subTest(owner=owner, target=target):
+                    errors = dependency_errors(
+                        self.graph_sources(
+                            **{owner: f"import {target}\n", "lightbridge": ""}
+                        )
+                    )
+                    self.assertTrue(
+                        any(
+                            f"{owner} reaches forbidden" in error and target in error
+                            for error in errors
+                        )
+                    )
+
+    def test_graph_transitive_dependency_is_rejected(self):
+        errors = dependency_errors(
+            self.graph_sources(
+                **{
+                    "lb_graph.document": "import lb_helper\n",
+                    "lb_helper": "from lb_graph.visualization import html_text\n",
+                }
+            )
+        )
+        self.assertIn(
+            "lb_graph.document reaches forbidden owner lb_graph.visualization", errors
+        )
+
+    def test_graph_relative_facade_and_owner_cycles_are_rejected(self):
+        for statement in ("import lb_graph", "from .visualization import html_text"):
+            with self.subTest(statement=statement):
+                errors = dependency_errors(
+                    self.graph_sources(**{"lb_graph.document": statement})
+                )
+                self.assertTrue(any("import cycle" in error for error in errors))
+
     def sources(self, **overrides):
         return {
             "lb_commands": "from .graph import cmd_graph_link\n",
@@ -644,6 +894,70 @@ class InstalledCommandTest(unittest.TestCase):
                         self.assertEqual(
                             json.loads(result.stdout)["docs-index"]["enabled"], True
                         )
+
+            graph = base / "graph.toml"
+            registry = base / "repos.toml"
+            registry.write_text(
+                f"[repos]\nalpha = {json.dumps(str(cwd))}\nbeta = {json.dumps(str(installed))}\n"
+            )
+            rendered = {}
+            graph_cases = (
+                ("init",),
+                (
+                    "link",
+                    "alpha",
+                    "beta",
+                    "--type",
+                    "upstream",
+                    "--backlink",
+                    "compact",
+                    "--registry",
+                    str(registry),
+                ),
+                (
+                    "set",
+                    "alpha",
+                    "beta",
+                    "--from-note",
+                    'quoted " β </script>',
+                    "--backlink",
+                    "default",
+                ),
+                ("show",),
+                ("mermaid", "--registry", str(registry)),
+                (
+                    "html",
+                    "--registry",
+                    str(registry),
+                    "--out",
+                    str(base / "graph.html"),
+                ),
+            )
+            for args in graph_cases:
+                with self.subTest(graph=args[0]):
+                    result = subprocess.run(
+                        [str(link), "graph", *args, "--graph", str(graph), "--json"],
+                        cwd=cwd,
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    rendered[args[0]] = json.loads(result.stdout)
+            import lb_resolve
+
+            parsed, error = lb_resolve.load_graph(graph)
+            self.assertIsNone(error)
+            self.assertEqual(parsed["edges"][0]["from_note"], 'quoted " β </script>')
+            self.assertIsNone(parsed["edges"][0]["backlink"])
+            repos, error = lb_resolve.load_registry(registry)
+            self.assertIsNone(error)
+            self.assertEqual(
+                rendered["mermaid"]["mermaid"], lb_graph.mermaid_text(parsed, repos)
+            )
+            self.assertEqual(
+                (base / "graph.html").read_text(), lb_graph.html_text(parsed, repos)
+            )
 
             from test_lb_fleet import World
 

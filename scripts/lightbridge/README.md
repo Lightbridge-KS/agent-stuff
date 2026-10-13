@@ -166,7 +166,8 @@ unreadable) · `2` usage.
 
 ## Module layout
 
-The tool uses sibling modules plus the CLI-only `lb_commands` and `lb_fleet` packages. The boundary is
+The tool uses sibling modules plus the CLI-only `lb_commands`, `lb_fleet` and
+`lb_graph` packages. The boundary is
 **the library is the read path; the CLI owns the write path** — its original rationale is in
 [`docs/lightbridge/adr/0001-modular-lightbridge.md`](../../docs/lightbridge/adr/0001-modular-lightbridge.md).
 
@@ -176,7 +177,7 @@ The tool uses sibling modules plus the CLI-only `lb_commands` and `lb_fleet` pac
 | `lb_tomledit.py` | surgical TOML line edits (comments and layout survive) |
 | `lb_catalog.py` | `SECTIONS`, `SectionName`, config-document assembly |
 | `lb_registry.py` | `~/.lightbridge/repos.toml` |
-| `lb_graph.py` | `~/.lightbridge/graph.toml` — document model, edge surgery, audit, viz |
+| `lb_graph/` | graph vocabulary/edge editing/audit and Mermaid/HTML visualization; compatibility exports |
 | `lb_keys.py` | `~/.lightbridge/keys.toml` + `secrets.toml` — LLM key catalog, 0600 write, audit |
 | `lb_fleet/` | node program/protocol, SSH transport, hub inventory/Git/receipts; explicit compatibility exports |
 | `lb_doctor.py` | the tree audit |
@@ -200,6 +201,15 @@ receipts. `lb_fleet` directly re-exports its existing public functions/constants
 the intentional resolver exports. Its implementation modules have no cross-owner
 dependencies and never import either facade, command handlers or the entrypoint.
 Fleet command orchestration remains in `lb_commands/fleet.py`.
+
+The graph package separates `document` (vocabulary, edge editing, semantics and
+audit) from `visualization` (shared visualization data, Mermaid and inline HTML).
+Visualization imports `document.effective_mode` directly; this is the sole
+intra-package dependency. The facade preserves all public functions, constants and
+backlink enums as the same objects. Command orchestration stays in
+`lb_commands/graph.py`; readers and projection stay in standalone `lb_resolve.py`.
+The HTML template remains inline and self-contained, with no added asset-loading or
+installation requirements.
 
 These CLI-only packages refine the historical flat layout without changing the
 standalone resolver protocol or introducing a separately installed Python distribution.

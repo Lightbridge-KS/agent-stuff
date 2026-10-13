@@ -13,7 +13,7 @@ loads this one. See `docs/lightbridge/adr/0001-modular-lightbridge.md`.
     lb_tomledit.py  surgical TOML line edits
     lb_catalog.py   the section catalog + config-document assembly
     lb_registry.py  ~/.lightbridge/repos.toml
-    lb_graph.py     ~/.lightbridge/graph.toml — the cross-repo graph document
+    lb_graph/       graph document operations/audit and Mermaid/HTML visualization
     lb_keys.py      ~/.lightbridge/keys.toml + secrets.toml — personal LLM API keys
     lb_fleet/       node program/protocol, SSH transport, hub inventory/Git/receipts
     lb_doctor.py    tree audit

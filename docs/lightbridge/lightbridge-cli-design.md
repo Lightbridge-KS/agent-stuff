@@ -64,8 +64,15 @@ executing the `lightbridge-config` skill or answering config questions mid-sessi
 The package groups handlers by the responsibility that changes: `project` owns config,
 sections, path, the offline dashboard and project-tree audit; `repos`, `graph`, `keys`
 and `fleet` own their command families; `move` owns move confirmation and presentation.
-Document operations remain in their existing sibling modules. Fleet mechanics live
-in the CLI-only `lb_fleet` package: `node_program` owns the streamed program and
+Graph document operations and visualization live in the CLI-only `lb_graph` package.
+Its `document` module owns vocabulary, surgical edge edits, semantics and audit;
+`visualization` owns shared rendering data, Mermaid and the unchanged inline HTML.
+The only intra-package dependency is `visualization → document.effective_mode`.
+The facade directly re-exports public functions, constants and backlink enums as
+the same objects. Graph command orchestration stays in `lb_commands/graph.py`, and
+the standalone resolver retains graph reading/projection.
+
+Fleet mechanics live in the CLI-only `lb_fleet` package: `node_program` owns the streamed program and
 report protocol, `transport` owns SSH execution/diagnostics, and `hub` owns inventory
 selection, local Git and receipts. These owners are independent; the facade directly
 re-exports the existing public objects. Fleet command orchestration stays in
@@ -78,8 +85,8 @@ never import the package facade. `__init__.py` explicitly re-exports the same fu
 and constant objects, retaining handler signatures, default arguments and injection
 seams. Imports remain eager; this change makes ownership local, not startup lazy.
 
-The packages are appropriate because handlers and fleet mechanics are ordinary CLI
-imports, not path-loaded library code. `lb_resolve.py` remains stdlib-only and
+The packages are appropriate because handlers, graph operations and fleet mechanics
+are ordinary CLI imports, not path-loaded library code. `lb_resolve.py` remains stdlib-only and
 sibling-free, so hook loading and the script/symlink installation protocol need no
 changes. No Python distribution, new dependency or CLI behavior is introduced.
 Verification and future slices live in

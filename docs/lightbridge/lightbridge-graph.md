@@ -17,6 +17,34 @@ Decision record: [`adr/0002-central-repo-graph.md`](adr/0002-central-repo-graph.
 Build tracker: [`progress/repo-graph.md`](progress/repo-graph.md). Agent-facing usage:
 the `repo-graph` skill (canonical how-to; this doc is the why-and-what).
 
+Current refactoring evidence: [shared Lightbridge tracker](../progress/refactor/refactor-lightbridge.md).
+The historical build tracker and ADR remain unchanged.
+
+## Implementation ownership
+
+The CLI-only `lb_graph` package has two owners:
+
+- `document` owns seed vocabulary, backlink modes/enums, surgical edge-block edits,
+  direction sentences, effective-mode selection and ordered audit findings.
+- `visualization` owns node grouping, shared visualization data, Mermaid rendering
+  and the inline HTML template. It imports `effective_mode` directly from `document`;
+  this is the sole intra-package dependency.
+
+The facade explicitly re-exports the existing 20 public functions, enums and
+constants as the same objects. Signatures, enum member order/values and eager imports
+remain unchanged. Implementation modules do not import the facade, commands, fleet
+package or entrypoint. Command orchestration stays in `lb_commands/graph.py`.
+
+Graph readers and ego-view projection remain in standalone, stdlib-only,
+sibling-free `lb_resolve.py`, preserving hook path-loading and the complete-directory/
+symlink CLI installation. `edge_sentence`, `effective_mode` and resolver projection
+retain their existing separate implementations and fallback behavior.
+
+The HTML template and generated Mermaid/HTML bytes remain unchanged, including
+embedded JSON ordering and closing-tag escaping. No external assets, dependencies,
+schema or UI behavior are introduced. Document edits preserve untargeted bytes;
+audits preserve finding order, messages and filesystem observations.
+
 ## Schema (`~/.lightbridge/graph.toml`)
 
 ```toml

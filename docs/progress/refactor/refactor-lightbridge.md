@@ -1,5 +1,5 @@
 ---
-summary: Shared Lightbridge refactoring tracker — command/fleet ownership, preserved contracts, verification evidence, and deferred graph decomposition.
+summary: Shared Lightbridge refactoring tracker — command, fleet and graph package ownership, preserved contracts, and verification evidence.
 read_when:
   - Planning or implementing a refactor of the lb scripts
   - Reviewing Lightbridge compatibility or refactoring evidence
@@ -156,13 +156,77 @@ remain separate from this refactor.
 - Implementation commit: `7a72ab8` (`refactor(lightbridge): split fleet mechanics by ownership`).
   Committed locally; no push or PR.
 
+## Slice 3 — graph document and visualization package
+
+Status: active. Baseline: `d63e945`. Scope: candidate #3 only.
+
+Approved structure: `lb_graph/{document,visualization}.py` with an explicit facade
+re-exporting the 20 existing public functions, enums and constants as the same
+objects. Document owns vocabulary, edge edits, semantics and audit. Visualization
+owns node grouping, shared visualization data, Mermaid and the inline HTML template.
+The sole intra-package edge is `visualization → document.effective_mode`.
+No facade, command, fleet or entrypoint imports from implementation modules.
+
+Preserve the shared contracts and all targeted TOML bytes, vocabulary/enum order,
+backlink fallback behavior, audit finding order, visualization ordering and exact
+Mermaid/HTML output. Keep `edge_sentence`, `effective_mode` and resolver projection
+separate. No new dependencies, asset loading, wrappers, schema or behavior changes.
+Graph readers/projection remain in standalone `lb_resolve.py`; command orchestration
+stays in `lb_commands/graph.py`. Completed command/fleet implementations stay intact.
+
+- [x] Capture isolated baseline and characterize document edits, semantics, audit and visualization.
+- [x] Extract document/visualization owners and preserve public identity/signatures.
+- [x] Verify AST equality, full output bytes and CLI/filesystem differential parity.
+- [x] Extend architecture negative controls and copied-tree/symlink installation tests.
+- [x] Update current documentation; preserve historical trackers and ADRs.
+- [x] Run seven affected suites, full tests, validation, recursive syntax and Ruff checks.
+- [ ] Commit locally and record evidence/reference; no push or PR.
+
+Proof requirements: temporary homes and explicit graph/registry fixtures; warm
+old/new dependency caches; stdout/stderr/exits, ordered JSON, TOML/HTML bytes and
+file modes; enum identity/member order; exact template/output hashes; dependency
+and cycle rejection. Normalize only fixture paths and nondeterministic timestamps.
+Any discovered behavior fixes remain outside this slice.
+
+### Slice 3 evidence
+
+- Baseline: all 316 tests across seven affected suites passed with isolated homes.
+  Five new characterization tests passed against the original module before
+  extraction. They cover four document layouts (including CRLF and missing final
+  newline), 25 backlink/direction cases, three complete visualization outputs and
+  three audits with exact message/finding order.
+- All 328 affected tests passed after extraction; the package-contract suite grew
+  from 26 to 38 tests. Checks pin 20 facade exports, 13 function signatures, both
+  enum identities/member orders, seed constants and complete HTML/template hashes.
+- All 15 original function ASTs, both enum class ASTs and all seven constant
+  assignment ASTs match exactly. The inline HTML template is byte-identical.
+- Differential evidence: 153 graph CLI cases (plain, JSON and forced color plus
+  enum/help checks) and 63 broader CLI cases, zero differences in stdout/stderr,
+  exit status, ordered JSON and resulting TOML/HTML/file bytes and modes. Both
+  dependency caches were warm; only fixture paths were normalized. The graph run
+  includes 84 successes, 63 refusals/problems and six usage errors.
+- Architecture checks allow only `visualization → document`, rejecting reverse,
+  facade, command/fleet/entrypoint, transitive and cyclic imports with negative
+  fixtures. Existing command/fleet rules remain in force.
+- Copied-tree invocation through an `lb` symlink outside the checkout creates,
+  links and edits a graph, exercises backlink enum choices, and compares complete
+  Mermaid/HTML output. No repository PYTHONPATH is used. Standalone resolver and
+  repo-links projection regressions remain in the affected suites.
+- Full local `just test`: 24 suites, 646 tests reported, 635 passed and 11 skipped
+  (7 optional de-identification live tests; 4 optional rich-document live tests).
+  Validation, recursive Lightbridge syntax compilation, Ruff checks/formatting for
+  the new package and expanded contract suite, and whitespace checks passed.
+  No unresolved baseline failures remain.
+- Resolver, TOML substrate, command and fleet implementations and historical
+  ADRs/trackers are unchanged. Existing CI entries cover the expanded tests and
+  recursive compilation; hosted CI has not run.
+
 ## Deferred
 
-- Candidate #3: separate graph document operations from visualization. Not approved
-  for implementation.
+No further refactoring candidates are approved beyond Slice 3.
 
 ## Next
 
-Slices 1 and 2 are complete. Graph decomposition remains deferred and unapproved.
-Future approved lb refactors append slices to this active tracker; completion of
-these slices does not retire it.
+Complete and verify Slice 3. Slices 1 and 2 remain complete. Future approved lb
+refactors append slices to this active tracker; completing these slices does not
+retire it.
