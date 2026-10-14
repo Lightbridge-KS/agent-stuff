@@ -179,8 +179,8 @@
         "render": "[[edge]]\nfrom = 'x'\nto = 'y'\ntype = 'full'\nfrom_note = 'Unicode \u03b2 and \"quote\" \\ path'\nbacklink = 'off'\n",
         "append": "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\"\n\n[[edge]]\nfrom = 'x'\nto = 'y'\ntype = 'full'\nfrom_note = 'Unicode \u03b2 and \"quote\" \\ path'\nbacklink = 'off'\n",
         "set": [
-          "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\"from_note = 'new \u03b2 \"quoted\"'\n",
-          "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\"to_note = 'inserted'\n",
+          "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\"\nfrom_note = 'new \u03b2 \"quoted\"'\n",
+          "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\"\nto_note = 'inserted'\n",
           "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\"",
           "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\"",
           "[[edge]]\nfrom = \"a\"\nto = \"b\"\ntype = \"full\""

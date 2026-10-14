@@ -207,7 +207,8 @@ def set_edge_key(text: str, span: tuple[int, int], key: str, value: str | None) 
 
     A targeted line edit: an existing `key =` line is replaced in place, a new one is
     inserted after the block's last non-blank line, and every other line survives
-    byte-identical.
+    byte-identical. An insert into a file whose last line lacks a newline terminates it
+    first, so the key never lands on the tail of the final block's last line.
     """
     lines = text.splitlines(keepends=True)
     pattern = re.compile(rf"\s*{key}\s*=")
@@ -220,6 +221,7 @@ def set_edge_key(text: str, span: tuple[int, int], key: str, value: str | None) 
             return "".join(lines)
     if not value:
         return text  # removing a key that isn't there — no-op
+    lines = terminate(text).splitlines(keepends=True)  # same line count, spans hold
     insert_at = span[1]
     while insert_at > span[0] + 1 and lines[insert_at - 1].strip() == "":
         insert_at -= 1

@@ -264,6 +264,17 @@ class GraphDocumentTest(unittest.TestCase):
         self.assertNotIn("from_note", tomllib.loads(text2)["edge"][1])
         self.assertEqual(text2, GRAPH_BODY, "insert then remove must round-trip byte-identical")
 
+    def test_set_edge_key_survives_an_unterminated_final_line(self):
+        """The last edge block in a hand-saved graph with no trailing newline: the new key
+        used to join onto the block's last line (`type = 'upstream'from_note = ...`) —
+        invalid TOML that every later `lb graph` run refuses."""
+        body = GRAPH_BODY.rstrip("\n")  # ends on `backlink = 'off'`, no "\n"
+        span = lb_graph.find_edge_spans(body, "fork", "app")[0]
+        text = lb_graph.set_edge_key(body, span, "from_note", "the fork")
+        edge = tomllib.loads(text)["edge"][-1]  # raises on the tail-join corruption
+        self.assertEqual((edge["backlink"], edge["from_note"]), ("off", "the fork"))
+        self.assertTrue(text.endswith("\n"))
+
     def test_remove_span_takes_the_separator_blank_line(self):
         span = lb_graph.find_edge_spans(GRAPH_BODY, "fork", "app")[0]
         text = lb_graph.remove_span(GRAPH_BODY, span)
@@ -538,6 +549,24 @@ class GraphWriteCliTest(unittest.TestCase):
             (edge,) = tomllib.loads(graph.read_text())["edge"]
             self.assertNotIn("from_note", edge)
             self.assertNotIn("backlink", edge)
+
+    def test_set_on_a_graph_whose_last_line_lacks_a_newline(self):
+        """`set` used to report success while writing invalid TOML when the edited edge
+        was the file's last block and the file had no trailing newline — only the *next*
+        run noticed, refusing the graph outright."""
+        with tempfile.TemporaryDirectory() as d:
+            graph, registry = self.seeded(d)
+            self.run_graph(graph, registry, "link", "app", "svc", "--type", "tooling")
+            text = graph.read_text(encoding="utf-8")
+            graph.write_text(text.rstrip("\n"), encoding="utf-8")  # no final "\n"
+            args = ("set", "app", "svc", "--from-note", "n", "--backlink", "off")
+            result = self.run_graph(graph, None, *args)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            (edge,) = tomllib.loads(graph.read_text())["edge"]
+            self.assertEqual((edge["from_note"], edge["backlink"]), ("n", "off"))
+            # The run that used to refuse the corrupted graph:
+            result = self.run_graph(graph, registry, "show")
+            self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_set_refusals(self):
         with tempfile.TemporaryDirectory() as d:
