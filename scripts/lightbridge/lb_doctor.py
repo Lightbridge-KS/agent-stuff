@@ -14,8 +14,7 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from lb_registry import registry_paths
-from lb_resolve import CONFIG_NAME, LEGACY_CONFIG_REL, project_key
+from lb_resolve import CONFIG_NAME, LEGACY_CONFIG_REL, load_registry, project_key
 
 
 def doctor(state_dir: Path, registry: Path) -> list[dict]:
@@ -61,7 +60,7 @@ def doctor(state_dir: Path, registry: Path) -> list[dict]:
                 }
             )
 
-    for repo in registry_paths(registry):
+    for repo in _registry_paths(registry):
         legacy = repo / LEGACY_CONFIG_REL
         if legacy.is_file():
             problems.append(
@@ -74,3 +73,14 @@ def doctor(state_dir: Path, registry: Path) -> list[dict]:
             )
 
     return problems
+
+
+def _registry_paths(registry: Path) -> list[Path]:
+    """Existing repo paths from the personal registry; empty when absent/unreadable."""
+    repos, _error = load_registry(registry)
+    paths = []
+    for raw in (repos or {}).values():
+        path = Path(raw).expanduser()
+        if path.is_dir():
+            paths.append(path)
+    return paths

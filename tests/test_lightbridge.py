@@ -254,6 +254,65 @@ class DoctorTest(unittest.TestCase):
             (problem,) = self.problems_of(result)
             self.assertEqual(problem["kind"], "legacy")
 
+    def test_legacy_findings_follow_config_findings_in_registry_order(self):
+        """Config findings come first; legacy findings follow the registry's file order
+        (not sorted), skipping entries whose path is dead or not a directory."""
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            repos = {}
+            for name in ("zeta", "alpha"):
+                repos[name] = base / name
+                (repos[name] / ".lightbridge").mkdir(parents=True)
+                (repos[name] / ".lightbridge" / "config.toml").write_text(
+                    "[docs-index]\n"
+                )
+            (base / "plain-file").write_text("not a repo\n")
+            state = base / "state"
+            gone = base / "gone"
+            gone.mkdir()
+            write_config(state, gone)
+            gone.rmdir()  # one stale config, so cross-kind order is pinned too
+            registry = base / "repos.toml"
+            registry.write_text(
+                "[repos]\n"
+                f"zeta = {lb.toml_str(str(repos['zeta']))}\n"
+                f"dead = {lb.toml_str(str(base / 'missing'))}\n"
+                f"file = {lb.toml_str(str(base / 'plain-file'))}\n"
+                f"alpha = {lb.toml_str(str(repos['alpha']))}\n"
+            )
+            result = self.run_doctor(state, registry)
+            self.assertEqual(result.returncode, 1)
+            problems = self.problems_of(result)
+            self.assertEqual(
+                [p["kind"] for p in problems], ["stale", "legacy", "legacy"]
+            )
+            self.assertEqual(
+                [Path(p["path"]).parent.parent.name for p in problems[1:]],
+                ["zeta", "alpha"],
+            )
+
+    def test_absent_or_unusable_registry_yields_no_legacy_findings(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d)
+            proj = base / "repo"
+            (proj / ".lightbridge").mkdir(parents=True)
+            (proj / ".lightbridge" / "config.toml").write_text("[docs-index]\n")
+            state = base / "state"
+            state.mkdir()
+            registries = {
+                "absent": None,
+                "unreadable": "[repos\n",
+                "headerless": f"repo = {lb.toml_str(str(proj))}\n",
+            }
+            for label, body in registries.items():
+                with self.subTest(registry=label):
+                    registry = base / f"{label}.toml"
+                    if body is not None:
+                        registry.write_text(body)
+                    result = self.run_doctor(state, registry)
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    self.assertEqual(self.problems_of(result), [])
+
 
 class PathCliTest(unittest.TestCase):
     def test_path_json(self):

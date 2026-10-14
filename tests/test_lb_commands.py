@@ -131,10 +131,13 @@ GRAPH_OWNERS = {
 GRAPH_MODULES = {f"lb_graph.{name}" for name in GRAPH_OWNERS}
 GRAPH_ALLOWED = {("lb_graph.visualization", "lb_graph.document")}
 # Flat-module direct-import allowlists: the TOML substrate sits on the resolver
-# alone, and a document module reaches only the substrate (Slice 4).
+# alone, a document module's write path reaches only the substrate, and the tree
+# audit stays on the read path (Slice 4).
 FLAT_ALLOWED = {
     "lb_tomledit": {"lb_resolve"},
     "lb_keys": {"lb_tomledit"},
+    "lb_registry": {"lb_tomledit"},
+    "lb_doctor": {"lb_resolve"},
 }
 
 
@@ -893,6 +896,8 @@ class DependencyCheckerTest(unittest.TestCase):
             **{
                 "lb_tomledit": "from lb_resolve import toml_str\n",
                 "lb_keys": "from lb_tomledit import append_block, section_span\n",
+                "lb_registry": "from lb_tomledit import append_section_line\n",
+                "lb_doctor": "from lb_resolve import load_registry\n",
                 **overrides,
             }
         )
@@ -908,6 +913,8 @@ class DependencyCheckerTest(unittest.TestCase):
             ("lb_keys", "from lb_resolve import toml_str\n", "lb_resolve"),
             ("lb_keys", type_only.format("lb_resolve"), "lb_resolve"),
             ("lb_tomledit", "from lb_keys import KEY_NAME\n", "lb_keys"),
+            ("lb_doctor", "from lb_registry import registry_paths\n", "lb_registry"),
+            ("lb_registry", "from lb_resolve import load_registry\n", "lb_resolve"),
         ]
         for name, statement, target in cases:
             with self.subTest(module=name, statement=statement):

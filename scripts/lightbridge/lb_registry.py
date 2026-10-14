@@ -15,7 +15,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from lb_resolve import load_registry
 from lb_tomledit import (
     append_section_line,
     remove_section_key,
@@ -37,17 +36,6 @@ _REPO_LINE = re.compile(
     r"""^(\s*(?:(?P<bare>[A-Za-z0-9][A-Za-z0-9_-]*)|"(?P<quoted>[^"]+)")\s*=\s*)"""
     r"""(?P<q>['"])(?P<val>.*?)(?P=q)"""
 )
-
-
-def registry_paths(registry: Path) -> list[Path]:
-    """Existing repo paths from the personal registry; empty when absent/unreadable."""
-    repos, _error = load_registry(registry)
-    paths = []
-    for raw in (repos or {}).values():
-        path = Path(raw).expanduser()
-        if path.is_dir():
-            paths.append(path)
-    return paths
 
 
 def append_repo(text: str, name: str, path: str) -> str:
