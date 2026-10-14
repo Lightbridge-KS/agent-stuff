@@ -130,6 +130,12 @@ GRAPH_OWNERS = {
 }
 GRAPH_MODULES = {f"lb_graph.{name}" for name in GRAPH_OWNERS}
 GRAPH_ALLOWED = {("lb_graph.visualization", "lb_graph.document")}
+# Flat-module direct-import allowlists: the TOML substrate sits on the resolver
+# alone, and a document module reaches only the substrate (Slice 4).
+FLAT_ALLOWED = {
+    "lb_tomledit": {"lb_resolve"},
+    "lb_keys": {"lb_tomledit"},
+}
 
 
 def signature_text(function):
@@ -260,6 +266,38 @@ class GraphCharacterizationTest(unittest.TestCase):
                             str(root), "<root>"
                         )
                     self.assertEqual(actual, case["expected"])
+
+
+class TomlEditCharacterizationTest(unittest.TestCase):
+    """Registry/keys line edits keep their pre-lift bytes (Slice 4, baseline a1c5766).
+
+    The matrix covers empty and headerless text, unterminated final lines, CRLF,
+    trailing blanks, quoted keys, decoy keys in other tables and array-of-tables
+    neighbours — the inputs where a shared primitive could drift from a local copy.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.contract = json.loads(
+            (ROOT / "tests/fixtures/lightbridge_tomledit_contracts.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+    def test_signatures_match_baseline(self):
+        for qualified, expected in self.contract["signatures"].items():
+            module, name = qualified.split(".")
+            with self.subTest(function=qualified):
+                function = getattr(importlib.import_module(module), name)
+                self.assertEqual(signature_text(function), expected)
+
+    def test_line_edits_preserve_exact_baseline_bytes(self):
+        for case in self.contract["cases"]:
+            function = getattr(
+                importlib.import_module(case["module"]), case["function"]
+            )
+            with self.subTest(function=case["function"], args=case["args"]):
+                self.assertEqual(function(*case["args"]), case["expected"])
 
 
 class FleetCharacterizationTest(unittest.TestCase):
@@ -484,6 +522,10 @@ def dependency_errors(sources: dict[str, str]) -> list[str]:
             ):
                 errors.append(f"{name} reaches forbidden family {target}")
             pending.extend(edges[target])
+
+    for name, allowed in FLAT_ALLOWED.items():
+        for target in sorted(edges.get(name, set()) - allowed):
+            errors.append(f"{name} imports {target} outside its allowlist")
 
     # Domain/read modules must not depend back on the command package.
     for name, targets in edges.items():
@@ -845,6 +887,32 @@ class DependencyCheckerTest(unittest.TestCase):
             )
         )
         self.assertTrue(any("import cycle" in error for error in errors))
+
+    def flat_sources(self, **overrides):
+        return self.sources(
+            **{
+                "lb_tomledit": "from lb_resolve import toml_str\n",
+                "lb_keys": "from lb_tomledit import append_block, section_span\n",
+                **overrides,
+            }
+        )
+
+    def test_flat_write_path_within_allowlist(self):
+        self.assertEqual(dependency_errors(self.flat_sources()), [])
+
+    def test_flat_import_outside_allowlist_is_rejected(self):
+        type_only = (
+            "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import {}\n"
+        )
+        cases = [
+            ("lb_keys", "from lb_resolve import toml_str\n", "lb_resolve"),
+            ("lb_keys", type_only.format("lb_resolve"), "lb_resolve"),
+            ("lb_tomledit", "from lb_keys import KEY_NAME\n", "lb_keys"),
+        ]
+        for name, statement, target in cases:
+            with self.subTest(module=name, statement=statement):
+                errors = dependency_errors(self.flat_sources(**{name: statement}))
+                self.assertIn(f"{name} imports {target} outside its allowlist", errors)
 
 
 class InstalledCommandTest(unittest.TestCase):

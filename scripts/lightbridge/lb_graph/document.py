@@ -8,7 +8,7 @@ from enum import Enum
 from pathlib import Path
 
 from lb_resolve import toml_str
-from lb_tomledit import terminate
+from lb_tomledit import append_block, insert_at_span_end
 
 
 BACKLINK_MODES = ("full", "compact", "off")
@@ -188,9 +188,7 @@ def render_edge(edge: dict) -> str:
 
 def append_edge(text: str, edge: dict) -> str:
     """`text` with the edge block appended at EOF — never inside an existing block."""
-    text = terminate(text)
-    separator = "" if text.endswith("\n\n") or not text else "\n"
-    return text + separator + render_edge(edge)
+    return append_block(text, render_edge(edge))
 
 
 def remove_span(text: str, span: tuple[int, int]) -> str:
@@ -208,7 +206,8 @@ def set_edge_key(text: str, span: tuple[int, int], key: str, value: str | None) 
     A targeted line edit: an existing `key =` line is replaced in place, a new one is
     inserted after the block's last non-blank line, and every other line survives
     byte-identical. An insert into a file whose last line lacks a newline terminates it
-    first, so the key never lands on the tail of the final block's last line.
+    first (`insert_at_span_end`), so the key never lands on the tail of the final
+    block's last line.
     """
     lines = text.splitlines(keepends=True)
     pattern = re.compile(rf"\s*{key}\s*=")
@@ -221,12 +220,7 @@ def set_edge_key(text: str, span: tuple[int, int], key: str, value: str | None) 
             return "".join(lines)
     if not value:
         return text  # removing a key that isn't there — no-op
-    lines = terminate(text).splitlines(keepends=True)  # same line count, spans hold
-    insert_at = span[1]
-    while insert_at > span[0] + 1 and lines[insert_at - 1].strip() == "":
-        insert_at -= 1
-    lines.insert(insert_at, f"{key} = {toml_str(value)}\n")
-    return "".join(lines)
+    return insert_at_span_end(text, span, f"{key} = {toml_str(value)}\n")
 
 
 def effective_mode(edge: dict, types: dict) -> str:

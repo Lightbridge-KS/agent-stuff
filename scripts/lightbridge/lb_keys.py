@@ -24,7 +24,13 @@ import re
 import tomllib
 from pathlib import Path
 
-from lb_tomledit import section_span, terminate, toml_str
+from lb_tomledit import (
+    append_block,
+    append_section_line,
+    remove_section_key,
+    section_span,
+    toml_str,
+)
 
 DEFAULT_KEYS = "~/.lightbridge/keys.toml"
 DEFAULT_SECRETS = "~/.lightbridge/secrets.toml"
@@ -171,9 +177,7 @@ def render_key(name: str, provider: str, env: str, scope: str) -> str:
 
 def append_key(text: str, name: str, provider: str, env: str, scope: str) -> str:
     """`text` with the key's block appended at EOF — never inside an existing block."""
-    text = terminate(text)
-    separator = "" if text.endswith("\n\n") or not text else "\n"
-    return text + separator + render_key(name, provider, env, scope)
+    return append_block(text, render_key(name, provider, env, scope))
 
 
 def remove_key(text: str, name: str) -> str | None:
@@ -194,32 +198,13 @@ def remove_key(text: str, name: str) -> str | None:
 def append_secret(text: str, name: str, value: str) -> str:
     """`text` with `name = 'value'` appended inside `[secrets]` — `append_repo`'s
     targeted line edit, applied to the secrets table."""
-    line = f"{name} = {toml_str(value)}\n"
-    text = terminate(text)
-    span = section_span(text, "secrets")
-    if span is None:
-        return text + "\n[secrets]\n" + line
-    lines = text.splitlines(keepends=True)
-    end = span[1]
-    while end > span[0] + 1 and lines[end - 1].strip() == "":
-        end -= 1
-    lines.insert(end, line)
-    return "".join(lines)
+    return append_section_line(text, "secrets", f"{name} = {toml_str(value)}\n")
 
 
 def remove_secret(text: str, name: str) -> str | None:
     """`text` without `name`'s line in `[secrets]`; None when the line can't be found
     (hand-written key shape this tool doesn't manage — edit the file directly)."""
-    span = section_span(text, "secrets")
-    if span is None:
-        return None
-    lines = text.splitlines(keepends=True)
-    pattern = re.compile(rf'\s*(?:{re.escape(name)}|"{re.escape(name)}")\s*=')
-    for i in range(span[0] + 1, span[1]):
-        if pattern.match(lines[i]):
-            del lines[i]
-            return "".join(lines)
-    return None
+    return remove_section_key(text, "secrets", name)
 
 
 # ── the secure write ────────────────────────────────────────────────────────
