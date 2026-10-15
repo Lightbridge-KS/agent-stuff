@@ -1,0 +1,3685 @@
+{
+  "baseline": "a1c5766",
+  "signatures": {
+    "lb_registry.append_repo": "(text: 'str', name: 'str', path: 'str') -> 'str'",
+    "lb_registry.remove_repo": "(text: 'str', name: 'str') -> 'str | None'",
+    "lb_keys.append_secret": "(text: 'str', name: 'str', value: 'str') -> 'str'",
+    "lb_keys.remove_secret": "(text: 'str', name: 'str') -> 'str | None'",
+    "lb_keys.append_key": "(text: 'str', name: 'str', provider: 'str', env: 'str', scope: 'str') -> 'str'",
+    "lb_keys.remove_key": "(text: 'str', name: 'str') -> 'str | None'"
+  },
+  "cases": [
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "",
+        "gamma",
+        "/g"
+      ],
+      "expected": "\n[repos]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "",
+        "gamma",
+        "/g"
+      ],
+      "expected": "\n[secrets]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "\n[repos]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "\n[secrets]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "\n[repos]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "\n[secrets]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "\n[repos]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "\n[secrets]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "  [repos]\n  alpha = '/a'\n\n# tail comment\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "  [repos]\n  alpha = '/a'\n\n# tail comment\n\n[secrets]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "  [repos]\n  alpha = '/a'\n\n# tail comment\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "  [repos]\n  alpha = '/a'\n\n# tail comment\n\n[secrets]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "  [repos]\n  alpha = '/a'\n\n# tail comment\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "  [repos]\n  alpha = '/a'\n\n# tail comment\n\n[secrets]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "  [repos]\n  alpha = '/a'\n\n# tail comment\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "  [repos]\n  alpha = '/a'\n\n# tail comment\n\n[secrets]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "alpha"
+      ],
+      "expected": "  [repos]\n\n# tail comment\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "  [repos]\n  alpha = '/a'\n\n# tail comment\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "  [secrets]\n  alpha = '/a'\n\n# tail comment\n\n[repos]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "  [secrets]\n  alpha = '/a'\n\n# tail comment\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "  [secrets]\n  alpha = '/a'\n\n# tail comment\n\n[repos]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "  [secrets]\n  alpha = '/a'\n\n# tail comment\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "  [secrets]\n  alpha = '/a'\n\n# tail comment\n\n[repos]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "  [secrets]\n  alpha = '/a'\n\n# tail comment\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "  [secrets]\n  alpha = '/a'\n\n# tail comment\n\n[repos]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "  [secrets]\n  alpha = '/a'\n\n# tail comment\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "alpha"
+      ],
+      "expected": "  [secrets]\n\n# tail comment\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "  [secrets]\n  alpha = '/a'\n\n# tail comment\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "# crlf\r\n[repos]\r\nalpha = '/a'\r\ngamma = '/g'\n\r\n[other]\r\nx = 1\r\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n\n[secrets]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "# crlf\r\n[repos]\r\nalpha = '/a'\r\ngamma = \"it's quoted\"\n\r\n[other]\r\nx = 1\r\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n\n[secrets]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "# crlf\r\n[repos]\r\nalpha = '/a'\r\ngamma = 'C:\\Users\\me'\n\r\n[other]\r\nx = 1\r\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n\n[secrets]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "# crlf\r\n[repos]\r\nalpha = '/a'\r\ngamma = 'β unicode'\n\r\n[other]\r\nx = 1\r\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n\n[secrets]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "alpha"
+      ],
+      "expected": "# crlf\r\n[repos]\r\n\r\n[other]\r\nx = 1\r\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# crlf\r\n[repos]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n\n[repos]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "# crlf\r\n[secrets]\r\nalpha = '/a'\r\ngamma = '/g'\n\r\n[other]\r\nx = 1\r\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n\n[repos]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "# crlf\r\n[secrets]\r\nalpha = '/a'\r\ngamma = \"it's quoted\"\n\r\n[other]\r\nx = 1\r\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n\n[repos]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "# crlf\r\n[secrets]\r\nalpha = '/a'\r\ngamma = 'C:\\Users\\me'\n\r\n[other]\r\nx = 1\r\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n\n[repos]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "# crlf\r\n[secrets]\r\nalpha = '/a'\r\ngamma = 'β unicode'\n\r\n[other]\r\nx = 1\r\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "alpha"
+      ],
+      "expected": "# crlf\r\n[secrets]\r\n\r\n[other]\r\nx = 1\r\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# crlf\r\n[secrets]\r\nalpha = '/a'\r\n\r\n[other]\r\nx = 1\r\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "# head\n[repos]\nalpha = '/a'\ngamma = '/g'\n\n\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "# head\n[repos]\nalpha = '/a'\n\n\n\n[secrets]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "# head\n[repos]\nalpha = '/a'\ngamma = \"it's quoted\"\n\n\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "# head\n[repos]\nalpha = '/a'\n\n\n\n[secrets]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "# head\n[repos]\nalpha = '/a'\ngamma = 'C:\\Users\\me'\n\n\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "# head\n[repos]\nalpha = '/a'\n\n\n\n[secrets]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "# head\n[repos]\nalpha = '/a'\ngamma = 'β unicode'\n\n\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "# head\n[repos]\nalpha = '/a'\n\n\n\n[secrets]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "alpha"
+      ],
+      "expected": "# head\n[repos]\n\n\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# head\n[repos]\nalpha = '/a'\n\n\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "# head\n[secrets]\nalpha = '/a'\n\n\n\n[repos]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "# head\n[secrets]\nalpha = '/a'\ngamma = '/g'\n\n\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "# head\n[secrets]\nalpha = '/a'\n\n\n\n[repos]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "# head\n[secrets]\nalpha = '/a'\ngamma = \"it's quoted\"\n\n\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "# head\n[secrets]\nalpha = '/a'\n\n\n\n[repos]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "# head\n[secrets]\nalpha = '/a'\ngamma = 'C:\\Users\\me'\n\n\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "# head\n[secrets]\nalpha = '/a'\n\n\n\n[repos]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "# head\n[secrets]\nalpha = '/a'\ngamma = 'β unicode'\n\n\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "alpha"
+      ],
+      "expected": "# head\n[secrets]\n\n\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# head\n[secrets]\nalpha = '/a'\n\n\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "# only a comment\nstray = 'x'\n\n[repos]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "# only a comment\nstray = 'x'\n\n[secrets]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "# only a comment\nstray = 'x'\n\n[repos]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "# only a comment\nstray = 'x'\n\n[secrets]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "# only a comment\nstray = 'x'\n\n[repos]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "# only a comment\nstray = 'x'\n\n[secrets]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "# only a comment\nstray = 'x'\n\n[repos]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "# only a comment\nstray = 'x'\n\n[secrets]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "# only a comment\nstray = 'x'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[other]\nalpha = 'x'\n\n[repos]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[other]\nalpha = 'x'\n\n[secrets]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[other]\nalpha = 'x'\n\n[repos]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[other]\nalpha = 'x'\n\n[secrets]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[other]\nalpha = 'x'\n\n[repos]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[other]\nalpha = 'x'\n\n[secrets]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[other]\nalpha = 'x'\n\n[repos]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[other]\nalpha = 'x'\n\n[secrets]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[other]\nalpha = 'x'",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[repos]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[repos]\n\n[secrets]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[repos]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[repos]\n\n[secrets]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[repos]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[repos]\n\n[secrets]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[repos]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[repos]\n\n[secrets]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n\n[secrets]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n\n[secrets]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n\n[secrets]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n\n[secrets]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "alpha"
+      ],
+      "expected": "[repos]\n\"quoted.name\" = '/q'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "quoted.name"
+      ],
+      "expected": "[repos]\nalpha = '/a'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[repos]\nalpha = '/a'\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[repos]\nalpha = '/a'\n\n[secrets]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[repos]\nalpha = '/a'\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[repos]\nalpha = '/a'\n\n[secrets]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[repos]\nalpha = '/a'\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[repos]\nalpha = '/a'\n\n[secrets]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[repos]\nalpha = '/a'\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[repos]\nalpha = '/a'\n\n[secrets]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "alpha"
+      ],
+      "expected": "[repos]\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\nalpha = '/a'",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[repos]\nalpha = '/a'\ngamma = '/g'\n[[repos.sub]]\nname = 'n'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n\n[secrets]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[repos]\nalpha = '/a'\ngamma = \"it's quoted\"\n[[repos.sub]]\nname = 'n'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n\n[secrets]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[repos]\nalpha = '/a'\ngamma = 'C:\\Users\\me'\n[[repos.sub]]\nname = 'n'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n\n[secrets]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[repos]\nalpha = '/a'\ngamma = 'β unicode'\n[[repos.sub]]\nname = 'n'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n\n[secrets]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "alpha"
+      ],
+      "expected": "[repos]\n[[repos.sub]]\nname = 'n'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\n[[repos.sub]]\nname = 'n'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n\n[secrets]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n\n[secrets]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n\n[secrets]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n\n[secrets]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "alpha"
+      ],
+      "expected": "[repos]\nbeta = \"/b\"  # note\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "beta"
+      ],
+      "expected": "[repos]\nalpha = '/a'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[repos]  # header comment\nalpha = '/a'\ngamma = '/g'\n[other]\nalpha = 'decoy'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n\n[secrets]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[repos]  # header comment\nalpha = '/a'\ngamma = \"it's quoted\"\n[other]\nalpha = 'decoy'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n\n[secrets]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[repos]  # header comment\nalpha = '/a'\ngamma = 'C:\\Users\\me'\n[other]\nalpha = 'decoy'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n\n[secrets]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[repos]  # header comment\nalpha = '/a'\ngamma = 'β unicode'\n[other]\nalpha = 'decoy'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n\n[secrets]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "alpha"
+      ],
+      "expected": "[repos]  # header comment\n[other]\nalpha = 'decoy'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[repos]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[secrets]\n\n[repos]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[secrets]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[secrets]\n\n[repos]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[secrets]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[secrets]\n\n[repos]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[secrets]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[secrets]\n\n[repos]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[secrets]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n\n[repos]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n\n[repos]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n\n[repos]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n\n[repos]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "alpha"
+      ],
+      "expected": "[secrets]\n\"quoted.name\" = '/q'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "quoted.name"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\n\"quoted.name\" = '/q'\nalpha = '/a'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\n\n[repos]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\n\n[repos]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\n\n[repos]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\n\n[repos]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "alpha"
+      ],
+      "expected": "[secrets]\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n\n[repos]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\ngamma = '/g'\n[[secrets.sub]]\nname = 'n'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n\n[repos]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\ngamma = \"it's quoted\"\n[[secrets.sub]]\nname = 'n'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n\n[repos]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\ngamma = 'C:\\Users\\me'\n[[secrets.sub]]\nname = 'n'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n\n[repos]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\ngamma = 'β unicode'\n[[secrets.sub]]\nname = 'n'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "alpha"
+      ],
+      "expected": "[secrets]\n[[secrets.sub]]\nname = 'n'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\n[[secrets.sub]]\nname = 'n'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n\n[repos]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n\n[repos]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n\n[repos]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n\n[repos]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "alpha"
+      ],
+      "expected": "[secrets]\nbeta = \"/b\"  # note\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]\nalpha = '/a'\nbeta = \"/b\"  # note\n",
+        "beta"
+      ],
+      "expected": "[secrets]\nalpha = '/a'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n\n[repos]\ngamma = '/g'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "/g"
+      ],
+      "expected": "[secrets]  # header comment\nalpha = '/a'\ngamma = '/g'\n[other]\nalpha = 'decoy'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n\n[repos]\ngamma = \"it's quoted\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "it's quoted"
+      ],
+      "expected": "[secrets]  # header comment\nalpha = '/a'\ngamma = \"it's quoted\"\n[other]\nalpha = 'decoy'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n\n[repos]\ngamma = 'C:\\Users\\me'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "C:\\Users\\me"
+      ],
+      "expected": "[secrets]  # header comment\nalpha = '/a'\ngamma = 'C:\\Users\\me'\n[other]\nalpha = 'decoy'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "append_repo",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n\n[repos]\ngamma = 'β unicode'\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_secret",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "gamma",
+        "β unicode"
+      ],
+      "expected": "[secrets]  # header comment\nalpha = '/a'\ngamma = 'β unicode'\n[other]\nalpha = 'decoy'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "alpha"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "alpha"
+      ],
+      "expected": "[secrets]  # header comment\n[other]\nalpha = 'decoy'\n"
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "quoted.name"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_registry",
+      "function": "remove_repo",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_secret",
+      "args": [
+        "[secrets]  # header comment\nalpha = '/a'\n[other]\nalpha = 'decoy'\n",
+        "beta"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_key",
+      "args": [
+        "",
+        "new-key",
+        "openai",
+        "OPENAI_API_KEY",
+        "scope β 'q'"
+      ],
+      "expected": "[keys.new-key]\nprovider = 'openai'\nenv = 'OPENAI_API_KEY'\nscope = \"scope β 'q'\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "",
+        "a"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "",
+        "b"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "",
+        "c"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_key",
+      "args": [
+        "# header only\n",
+        "new-key",
+        "openai",
+        "OPENAI_API_KEY",
+        "scope β 'q'"
+      ],
+      "expected": "# header only\n\n[keys.new-key]\nprovider = 'openai'\nenv = 'OPENAI_API_KEY'\nscope = \"scope β 'q'\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "# header only\n",
+        "a"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "# header only\n",
+        "b"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "# header only\n",
+        "c"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "# header only\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n",
+        "new-key",
+        "openai",
+        "OPENAI_API_KEY",
+        "scope β 'q'"
+      ],
+      "expected": "[keys.a]\nenv = \"A\"\n\n[keys.new-key]\nprovider = 'openai'\nenv = 'OPENAI_API_KEY'\nscope = \"scope β 'q'\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n",
+        "a"
+      ],
+      "expected": ""
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n",
+        "b"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n",
+        "c"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"",
+        "new-key",
+        "openai",
+        "OPENAI_API_KEY",
+        "scope β 'q'"
+      ],
+      "expected": "[keys.a]\nenv = \"A\"\n\n[keys.new-key]\nprovider = 'openai'\nenv = 'OPENAI_API_KEY'\nscope = \"scope β 'q'\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"",
+        "a"
+      ],
+      "expected": ""
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"",
+        "b"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"",
+        "c"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n\n",
+        "new-key",
+        "openai",
+        "OPENAI_API_KEY",
+        "scope β 'q'"
+      ],
+      "expected": "[keys.a]\nenv = \"A\"\n\n[keys.new-key]\nprovider = 'openai'\nenv = 'OPENAI_API_KEY'\nscope = \"scope β 'q'\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n\n",
+        "a"
+      ],
+      "expected": "\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n\n",
+        "b"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n\n",
+        "c"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_key",
+      "args": [
+        "[keys.a]\r\nenv = \"A\"\r\n",
+        "new-key",
+        "openai",
+        "OPENAI_API_KEY",
+        "scope β 'q'"
+      ],
+      "expected": "[keys.a]\r\nenv = \"A\"\r\n\n[keys.new-key]\nprovider = 'openai'\nenv = 'OPENAI_API_KEY'\nscope = \"scope β 'q'\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\r\nenv = \"A\"\r\n",
+        "a"
+      ],
+      "expected": ""
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\r\nenv = \"A\"\r\n",
+        "b"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\r\nenv = \"A\"\r\n",
+        "c"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\r\nenv = \"A\"\r\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n\n[keys.b]\nenv = \"B\"\n\n[keys.c]\nenv = \"C\"\n",
+        "new-key",
+        "openai",
+        "OPENAI_API_KEY",
+        "scope β 'q'"
+      ],
+      "expected": "[keys.a]\nenv = \"A\"\n\n[keys.b]\nenv = \"B\"\n\n[keys.c]\nenv = \"C\"\n\n[keys.new-key]\nprovider = 'openai'\nenv = 'OPENAI_API_KEY'\nscope = \"scope β 'q'\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n\n[keys.b]\nenv = \"B\"\n\n[keys.c]\nenv = \"C\"\n",
+        "a"
+      ],
+      "expected": "\n[keys.b]\nenv = \"B\"\n\n[keys.c]\nenv = \"C\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n\n[keys.b]\nenv = \"B\"\n\n[keys.c]\nenv = \"C\"\n",
+        "b"
+      ],
+      "expected": "[keys.a]\nenv = \"A\"\n\n[keys.c]\nenv = \"C\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n\n[keys.b]\nenv = \"B\"\n\n[keys.c]\nenv = \"C\"\n",
+        "c"
+      ],
+      "expected": "[keys.a]\nenv = \"A\"\n\n[keys.b]\nenv = \"B\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n\n[keys.b]\nenv = \"B\"\n\n[keys.c]\nenv = \"C\"\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n[keys.b]\nenv = \"B\"\n[keys.c]\nenv = \"C\"",
+        "new-key",
+        "openai",
+        "OPENAI_API_KEY",
+        "scope β 'q'"
+      ],
+      "expected": "[keys.a]\nenv = \"A\"\n[keys.b]\nenv = \"B\"\n[keys.c]\nenv = \"C\"\n\n[keys.new-key]\nprovider = 'openai'\nenv = 'OPENAI_API_KEY'\nscope = \"scope β 'q'\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n[keys.b]\nenv = \"B\"\n[keys.c]\nenv = \"C\"",
+        "a"
+      ],
+      "expected": "[keys.b]\nenv = \"B\"\n[keys.c]\nenv = \"C\""
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n[keys.b]\nenv = \"B\"\n[keys.c]\nenv = \"C\"",
+        "b"
+      ],
+      "expected": "[keys.a]\nenv = \"A\"\n[keys.c]\nenv = \"C\""
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n[keys.b]\nenv = \"B\"\n[keys.c]\nenv = \"C\"",
+        "c"
+      ],
+      "expected": "[keys.a]\nenv = \"A\"\n[keys.b]\nenv = \"B\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\nenv = \"A\"\n[keys.b]\nenv = \"B\"\n[keys.c]\nenv = \"C\"",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_key",
+      "args": [
+        "# top\n\n[keys.a] # first\nenv = \"A\"\n\n\n[keys.b]\nenv = \"B\"\n\n# trailing\n",
+        "new-key",
+        "openai",
+        "OPENAI_API_KEY",
+        "scope β 'q'"
+      ],
+      "expected": "# top\n\n[keys.a] # first\nenv = \"A\"\n\n\n[keys.b]\nenv = \"B\"\n\n# trailing\n\n[keys.new-key]\nprovider = 'openai'\nenv = 'OPENAI_API_KEY'\nscope = \"scope β 'q'\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "# top\n\n[keys.a] # first\nenv = \"A\"\n\n\n[keys.b]\nenv = \"B\"\n\n# trailing\n",
+        "a"
+      ],
+      "expected": "# top\n\n\n[keys.b]\nenv = \"B\"\n\n# trailing\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "# top\n\n[keys.a] # first\nenv = \"A\"\n\n\n[keys.b]\nenv = \"B\"\n\n# trailing\n",
+        "b"
+      ],
+      "expected": "# top\n\n[keys.a] # first\nenv = \"A\"\n\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "# top\n\n[keys.a] # first\nenv = \"A\"\n\n\n[keys.b]\nenv = \"B\"\n\n# trailing\n",
+        "c"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "# top\n\n[keys.a] # first\nenv = \"A\"\n\n\n[keys.b]\nenv = \"B\"\n\n# trailing\n",
+        "absent"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "append_key",
+      "args": [
+        "[keys.a]\r\nenv = \"A\"\r\n\r\n[keys.b]\r\nenv = \"B\"\r\n",
+        "new-key",
+        "openai",
+        "OPENAI_API_KEY",
+        "scope β 'q'"
+      ],
+      "expected": "[keys.a]\r\nenv = \"A\"\r\n\r\n[keys.b]\r\nenv = \"B\"\r\n\n[keys.new-key]\nprovider = 'openai'\nenv = 'OPENAI_API_KEY'\nscope = \"scope β 'q'\"\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\r\nenv = \"A\"\r\n\r\n[keys.b]\r\nenv = \"B\"\r\n",
+        "a"
+      ],
+      "expected": "\r\n[keys.b]\r\nenv = \"B\"\r\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\r\nenv = \"A\"\r\n\r\n[keys.b]\r\nenv = \"B\"\r\n",
+        "b"
+      ],
+      "expected": "[keys.a]\r\nenv = \"A\"\r\n"
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\r\nenv = \"A\"\r\n\r\n[keys.b]\r\nenv = \"B\"\r\n",
+        "c"
+      ],
+      "expected": null
+    },
+    {
+      "module": "lb_keys",
+      "function": "remove_key",
+      "args": [
+        "[keys.a]\r\nenv = \"A\"\r\n\r\n[keys.b]\r\nenv = \"B\"\r\n",
+        "absent"
+      ],
+      "expected": null
+    }
+  ]
+}

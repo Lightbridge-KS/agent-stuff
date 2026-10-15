@@ -15,8 +15,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from lb_resolve import load_registry
-from lb_tomledit import rewrite_path, section_span, terminate, toml_str
+from lb_tomledit import (
+    append_section_line,
+    remove_section_key,
+    rewrite_path,
+    section_span,
+    toml_str,
+)
 
 REGISTRY_HEADER = """\
 # ~/.lightbridge/repos.toml — personal name → path repo registry. PER MACHINE, never
@@ -33,17 +38,6 @@ _REPO_LINE = re.compile(
 )
 
 
-def registry_paths(registry: Path) -> list[Path]:
-    """Existing repo paths from the personal registry; empty when absent/unreadable."""
-    repos, _error = load_registry(registry)
-    paths = []
-    for raw in (repos or {}).values():
-        path = Path(raw).expanduser()
-        if path.is_dir():
-            paths.append(path)
-    return paths
-
-
 def append_repo(text: str, name: str, path: str) -> str:
     """`text` with `name = "path"` appended inside `[repos]` — a targeted line edit.
 
@@ -51,32 +45,13 @@ def append_repo(text: str, name: str, path: str) -> str:
     gains one at EOF. A file whose last line lacks a newline is terminated first, so the
     entry never lands on the tail of an existing one.
     """
-    line = f"{name} = {toml_str(path)}\n"
-    text = terminate(text)
-    span = section_span(text, "repos")
-    if span is None:
-        return text + "\n[repos]\n" + line
-    lines = text.splitlines(keepends=True)
-    end = span[1]
-    while end > span[0] + 1 and lines[end - 1].strip() == "":
-        end -= 1
-    lines.insert(end, line)
-    return "".join(lines)
+    return append_section_line(text, "repos", f"{name} = {toml_str(path)}\n")
 
 
 def remove_repo(text: str, name: str) -> str | None:
     """`text` without `name`'s line in `[repos]`; None when the line can't be found
     (hand-written key shape this tool doesn't manage — edit the file directly)."""
-    span = section_span(text, "repos")
-    if span is None:
-        return None
-    lines = text.splitlines(keepends=True)
-    pattern = re.compile(rf'\s*(?:{re.escape(name)}|"{re.escape(name)}")\s*=')
-    for i in range(span[0] + 1, span[1]):
-        if pattern.match(lines[i]):
-            del lines[i]
-            return "".join(lines)
-    return None
+    return remove_section_key(text, "repos", name)
 
 
 def rename_registry_paths(text: str, old: Path, new: Path) -> tuple[str, dict[str, str]]:

@@ -174,13 +174,13 @@ The tool uses sibling modules plus the CLI-only `lb_commands`, `lb_fleet` and
 | file | holds |
 |---|---|
 | `lb_resolve.py` | **the read path** — resolution, graph reader + projection, `toml_str`, `use_utf8_console` |
-| `lb_tomledit.py` | surgical TOML line edits (comments and layout survive) |
+| `lb_tomledit.py` | surgical TOML line edits (comments and layout survive) — the section/block primitives every document module's write path shares |
 | `lb_catalog.py` | `SECTIONS`, `SectionName`, config-document assembly |
-| `lb_registry.py` | `~/.lightbridge/repos.toml` |
+| `lb_registry.py` | `~/.lightbridge/repos.toml` write path (reading is `lb_resolve.load_registry`) |
 | `lb_graph/` | graph vocabulary/edge editing/audit and Mermaid/HTML visualization; compatibility exports |
 | `lb_keys.py` | `~/.lightbridge/keys.toml` + `secrets.toml` — LLM key catalog, 0600 write, audit |
 | `lb_fleet/` | node program/protocol, SSH transport, hub inventory/Git/receipts; explicit compatibility exports |
-| `lb_doctor.py` | the tree audit |
+| `lb_doctor.py` | the tree audit — read path only |
 | `lb_mv.py` | `plan_mv` + `apply_mv` |
 | `lb_style.py` | `styled()`, `paint()`, `row()` — TTY-gated colour, labelled rows and the rich-help switch |
 | `lb_commands/` | `cmd_*` handlers grouped by owner, with explicit same-object exports |

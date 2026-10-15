@@ -14,8 +14,10 @@ line whose first non-space character is `[`. That end condition includes `[[head
 which is exactly where TOML stops attaching keys to the section — so a line inserted inside
 a span can never land in an array-of-tables entry.
 
-Substrate only: this module knows nothing about `SECTIONS`, the repo registry, or project
-keys. Its callers (`lb_catalog`, `lb_registry`, `lb_mv`) supply the meaning.
+Substrate only: this module knows nothing about `SECTIONS`, the repo registry, keys, the
+graph, or project keys. Its callers (`lb_registry`, `lb_keys`, `lb_graph.document`,
+`lb_mv`, and the project commands) supply the meaning. Every line insert that can land at
+EOF goes through `terminate` *here*, so no document module can forget it (`733e185`).
 """
 
 from __future__ import annotations
@@ -54,6 +56,55 @@ def section_span(text: str, name: str) -> tuple[int, int] | None:
                     return i, j
             return i, len(lines)
     return None
+
+
+def insert_at_span_end(text: str, span: tuple[int, int], line: str) -> str:
+    """`text` with `line` inserted at the end of `span`, above its trailing blank lines.
+
+    `text` is terminated first, so the insert never joins the tail of an unterminated
+    final line. Terminating never changes the line count, so a span computed on the
+    unterminated text stays valid.
+    """
+    lines = terminate(text).splitlines(keepends=True)
+    end = span[1]
+    while end > span[0] + 1 and lines[end - 1].strip() == "":
+        end -= 1
+    lines.insert(end, line)
+    return "".join(lines)
+
+
+def append_section_line(text: str, name: str, line: str) -> str:
+    """`text` with `line` appended inside `[name]`, before the block's trailing blank
+    lines; text without the header gains `[name]` at EOF."""
+    text = terminate(text)
+    span = section_span(text, name)
+    if span is None:
+        return text + f"\n[{name}]\n" + line
+    return insert_at_span_end(text, span, line)
+
+
+def remove_section_key(text: str, name: str, key: str) -> str | None:
+    """`text` without `key`'s line in `[name]` (bare or double-quoted spelling); None when
+    the header or the line can't be found — a hand-written key shape this tool doesn't
+    manage."""
+    span = section_span(text, name)
+    if span is None:
+        return None
+    lines = text.splitlines(keepends=True)
+    pattern = re.compile(rf'\s*(?:{re.escape(key)}|"{re.escape(key)}")\s*=')
+    for i in range(span[0] + 1, span[1]):
+        if pattern.match(lines[i]):
+            del lines[i]
+            return "".join(lines)
+    return None
+
+
+def append_block(text: str, block: str) -> str:
+    """`text` with `block` appended at EOF behind one blank separator line — never inside
+    an existing block. Empty text, or text already ending in a blank line, gets none."""
+    text = terminate(text)
+    separator = "" if text.endswith("\n\n") or not text else "\n"
+    return text + separator + block
 
 
 def slice_section(text: str, name: str) -> str | None:

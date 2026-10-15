@@ -1,5 +1,5 @@
 ---
-summary: Shared Lightbridge refactoring tracker — command, fleet and graph package ownership, preserved contracts, and verification evidence.
+summary: Shared Lightbridge refactoring tracker — command, fleet and graph package ownership, shared TOML line-edit primitives, preserved contracts, and verification evidence.
 read_when:
   - Planning or implementing a refactor of the lb scripts
   - Reviewing Lightbridge compatibility or refactoring evidence
@@ -223,12 +223,109 @@ Any discovered behavior fixes remain outside this slice.
 - Implementation commit: `31db422` (`refactor(lightbridge): split graph document and visualization`).
   Committed locally; no push or PR.
 
+## Slice 4 — TOML line-edit primitives and registry read helper
+
+Status: complete. Baseline: `a1c5766`. Scope: candidates #1 and #2 of the 2026-10-14
+analysis of the flat modules. Implementation: `d096e84` (#1), `082c4ea` (#2).
+Prerequisite landed: the `lb graph set`
+unterminated-final-line defect (`set_edge_key` inserted at a span end without
+`lb_tomledit.terminate`, producing `type = "x"from_note = …`) was fixed separately
+in `764d983` ([#94](https://github.com/Lightbridge-KS/agent-stuff/pull/94)); its insert
+branch now terminates before inserting, and the graph contract fixture was updated.
+
+Approved structure:
+
+- **#1 — span primitives in `lb_tomledit`.** The substrate gains the edits the
+  document modules each re-implement: append a block at EOF behind one blank
+  separator (`lb_keys.append_key`, `lb_graph.document.append_edge`); insert a line
+  at a span's end, before its trailing blank lines (`set_edge_key`); append a key
+  line inside a named table, creating the header at EOF when absent
+  (`lb_registry.append_repo`, `lb_keys.append_secret`); remove a named key line
+  from a table (`remove_repo`, `remove_secret`). Document-module functions keep
+  their names and signatures and delegate. No import edge changes: all three
+  consumers already import `lb_tomledit`.
+- Excluded from #1: `lb_keys.remove_key` and `lb_graph.document.remove_span` —
+  removing a middle block keeps the blank separator in keys and drops it in graph;
+  the divergence stays an open question, not unified here. `lb_catalog.append_sections`
+  stays separate (deliberate per `733e185`; its empty-text output differs).
+- **#2 — `registry_paths` lowered into `lb_doctor`**, its only consumer. The edges
+  `lb_doctor → lb_registry` and `lb_registry → lb_resolve` disappear; `lb_registry`
+  holds only the registry write path and imports `lb_tomledit` alone.
+
+Preserve the shared contracts above, plus: byte-identical output from every
+changed function for every input — empty text (`append_repo("")` →
+`"\n[repos]\n…"`), unterminated final lines, quoted keys, trailing blank lines,
+headerless files; public names and signatures in `lb_registry`, `lb_keys` and
+`lb_graph` (the facade's 20 same-object exports untouched); doctor finding order
+and messages, with no legacy findings for an absent or unreadable registry.
+`lb_resolve.py` stays untouched.
+
+- [x] Prerequisite fix landed (`764d983`); isolated baseline captured.
+- [x] Characterize each call site: empty, unterminated, quoted-key, trailing-blank and headerless inputs.
+- [x] #1: lift the primitives into `lb_tomledit`; delegate from registry, keys and graph document — `d096e84`.
+- [x] #2: lower `registry_paths` into `lb_doctor`; remove both edges — `082c4ea`.
+- [x] Architecture checks for the removed edges, with violating fixtures.
+- [x] Differential run over `repos`, `key`, `graph` and `doctor` verbs.
+- [x] Update current documentation; historical ADRs and trackers unchanged.
+- [x] Affected suites, full tests, validation, recursive syntax and Ruff; one local `refactor:` commit per move.
+
+Proof: regression on edge identities per call site (#1); differential run over
+`repos`/`key`/`graph`/`doctor` CLI cases comparing stdout/stderr, exits, ordered
+JSON and resulting file bytes and modes (#1, #2); architecture tests proving the
+removed edges with a violating fixture (#2) and no new edge (#1).
+
+### Slice 4 evidence
+
+- Baseline at `a1c5766`: 334 tests across the seven affected suites passed with
+  isolated homes. The contract-suite baseline was rerun in a detached `a1c5766`
+  worktree after the first run overlapped production edits.
+- Characterization before any production change: a new contract fixture
+  (`tests/fixtures/lightbridge_tomledit_contracts.json`) pins six signatures and 386
+  exact outputs of `append_repo`, `remove_repo`, `append_secret`, `remove_secret`,
+  `append_key` and `remove_key` across empty, header-only, headerless, unterminated,
+  CRLF, trailing-blank, quoted-key, decoy-key and array-of-tables inputs. Negative
+  control: a pre-`733e185` `append_repo` (no terminate) fails 12 of its 84 cases.
+  Two new `DoctorTest` cases pin cross-kind finding order, registry file order,
+  skipped dead/non-directory paths, and no legacy findings for an absent,
+  unreadable or headerless registry. All passed on the untouched tree.
+- After each move, all 336 affected tests passed (contract suite 40 → 42: two
+  allowlist tests). The existing graph fixture continues to pin `append_edge` and
+  `set_edge_key`, including CRLF and the unterminated insert.
+- Differential evidence after each move, both dependency caches warm: 230 raw-byte
+  line-edit CLI cases (`repos`, `key`, `graph link/set/unlink`, `doctor` over
+  hand-authored comment, unterminated, CRLF, headerless, empty, stranded and
+  trailing-blank files; plain and JSON; 132 successes, 98 refusals/problems),
+  63 broader CLI cases and 153 graph CLI cases — zero differences in stdout/stderr,
+  exits, ordered JSON and resulting file bytes/modes. Only fixture paths were
+  normalized. A first cold-cache run differed only by uv's one-time install line.
+- Architecture: a flat-module direct-import allowlist (`lb_tomledit → lb_resolve`,
+  `lb_keys → lb_tomledit`, `lb_registry → lb_tomledit`, `lb_doctor → lb_resolve`)
+  with violating fixtures, including a type-only import. Running the real-tree check
+  against the pre-#2 `lb_doctor`/`lb_registry` reports both removed edges.
+- The copied-tree installation test resolves `typer` from PyPI for the copied script;
+  inside a network-restricted sandbox it fails before any code runs, and passes with
+  PyPI reachable.
+- Full local `just test`: 24 suites, 654 tests reported, 642 passed and 12 skipped
+  (7 optional de-identification live tests, 4 optional rich-document live tests, and
+  one ask-form pty test with no pty device available in the sandbox).
+  Validation, recursive Lightbridge syntax compilation, Ruff checks, Ruff formatting
+  of new code, and whitespace checks passed. Ruff format drift pre-exists on
+  untouched lines of the flat modules and was left alone.
+- `lb_resolve.py`, the graph facade's exports, command and fleet implementations
+  and historical ADRs/trackers are unchanged. Existing CI entries cover the affected
+  suites and recursive compilation; hosted CI has not run.
+- Implementation commits: `d096e84` (`refactor(lightbridge): lift section line edits
+  into lb_tomledit`), `082c4ea` (`refactor(lightbridge): lower registry_paths into
+  lb_doctor`). Committed locally on `refactoring/lightbridge-slice-4`; no push or PR.
+
 ## Deferred
 
-No further refactoring candidates are approved beyond Slice 3.
+No further refactoring candidates are approved beyond Slice 4. Open question: removing
+a middle block keeps the blank separator in `lb_keys.remove_key` but drops it in
+`lb_graph.document.remove_span` (TOML stays valid); unify only as a deliberate `fix:`.
 
 ## Next
 
-Slices 1, 2 and 3 are complete. Future approved lb refactors append slices to this
-active tracker; completing these slices does not retire it or authorize additional
-refactoring work.
+Slices 1, 2, 3 and 4 are complete. Future approved lb refactors
+append slices to this active tracker; completing these slices does not retire it
+or authorize additional refactoring work.
