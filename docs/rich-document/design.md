@@ -192,12 +192,12 @@ Initially follow the browser/OS color preference, then remember an explicit
 choice when browser storage is available. The preference belongs to the viewer,
 not to agent-authored document metadata. Both themes ship inside the HTML export.
 
-**Dark background direction:** use nearly black, neutral backgrounds rather than
-green-tinted surfaces: page `#080808`, panels `#151515`, code blocks `#101010`,
-and borders `#303030`. Retain teal accents and headings.
-
-**Accepted 2026-09-21 — dark palette:** retain the revised near-black preview
-and its teal accents. Both light and dark visual treatments are accepted.
+**Dark palette — revised 2026-10-16:** warm charcoal page `#222120`,
+panels and code backgrounds `#2d2b29`, borders `#413e3a`, off-white text
+`#e6e1d8`, headings `#f2eee6`, muted text `#a39d92`, and amber accents
+`#dba35f` (hover `#f0bd7e`). This supersedes the original near-black/teal
+palette; see [ADR-0002](adr/0002-warm-dark-palette.md). Typography and layout
+remain shared with the existing light theme.
 
 Mechanism: [Quarto light/dark theming](https://quarto.org/docs/output-formats/html-themes.html#dark-mode),
 checked 2026-09-21.
