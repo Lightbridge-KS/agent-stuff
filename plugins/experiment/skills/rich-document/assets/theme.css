@@ -11,13 +11,13 @@ body {
   color-scheme: light;
 }
 body.quarto-dark {
-  --document-bg: #080808;
-  --document-text: #d7e3e7;
-  --document-heading: #b5ded8;
-  --document-muted: #a6b8c0;
-  --document-surface: #151515;
-  --document-border: #303030;
-  --document-accent: #73c6b8;
+  --document-bg: #222120;
+  --document-text: #e6e1d8;
+  --document-heading: #f2eee6;
+  --document-muted: #a39d92;
+  --document-surface: #2d2b29;
+  --document-border: #413e3a;
+  --document-accent: #dba35f;
   color-scheme: dark;
 }
 #quarto-content { max-width: 1280px; margin: auto; }
