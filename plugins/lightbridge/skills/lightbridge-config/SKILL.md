@@ -10,7 +10,7 @@ description: >-
   inference with personal LLM API keys, use the llm-keys skill; for syncing the agent
   repos to node devices, use the fleet-sync skill.
 metadata:
-  version: "2026-09-30"
+  version: "2026-10-17"
 ---
 
 # .lightbridge config
@@ -36,9 +36,10 @@ assets, and rendered HTML; saved by default), `~/.lightbridge/repos.toml` (the p
 registry), `~/.lightbridge/graph.toml` (the cross-repo graph — typed edges between
 registered repos; spec: the **repo-graph** skill), `~/.lightbridge/keys.toml` +
 `secrets.toml` (personal LLM API keys: agent-readable catalog + injected-only values;
-spec: the **llm-keys** skill), and `~/.lightbridge/fleet.toml` + `fleet/<node>.json` (the
+spec: the **llm-keys** skill), `~/.lightbridge/fleet.toml` + `fleet/<node>.json` (the
 hub's node inventory and sync receipts — present only on the hub; spec: the **fleet-sync**
-skill).
+skill), and `~/.lightbridge/data/<dataset>/` (mirrored reference data a skill caches for
+offline lookup — today `dicom-standard`; spec: that skill).
 
 Full spec (conventions, sections, keys, who reads them): [`references/catalog.md`](references/catalog.md).
 

@@ -47,6 +47,7 @@ test:
     uv run tests/test_deidentify.py
     uv run tests/test_ask_form.py
     uv run tests/test_rich_document.py
+    uv run tests/test_dicom_standard.py
 
 # Real Quarto + loopback viewer acceptance (browser interaction checked separately).
 test-rich-document-live:

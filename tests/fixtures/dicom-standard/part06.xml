@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<book xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" label="PS3.6" version="5.0" xml:id="PS3.6">
+  <title>PS3.6</title>
+  <subtitle>DICOM PS3.6 2026d - Data Dictionary</subtitle>
+  <chapter label="6" status="1" xml:id="chapter_6">
+    <title>Registry of DICOM Data Elements</title>
+    <para xml:id="para_61">Fixture miniature of the data dictionary.</para>
+    <table frame="box" label="6-1" rules="all" xml:id="table_6-1">
+      <caption>Registry of DICOM Data Elements</caption>
+      <thead>
+        <tr valign="top">
+          <th align="center" colspan="1" rowspan="1"><para xml:id="para_6h1"><emphasis role="bold">Tag</emphasis></para></th>
+          <th align="center" colspan="1" rowspan="1"><para xml:id="para_6h2"><emphasis role="bold">Name</emphasis></para></th>
+          <th align="center" colspan="1" rowspan="1"><para xml:id="para_6h3"><emphasis role="bold">Keyword</emphasis></para></th>
+          <th align="center" colspan="1" rowspan="1"><para xml:id="para_6h4"><emphasis role="bold">VR</emphasis></para></th>
+          <th align="center" colspan="1" rowspan="1"><para xml:id="para_6h5"><emphasis role="bold">VM</emphasis></para></th>
+          <th align="center" colspan="1" rowspan="1"/>
+        </tr>
+      </thead>
+      <tbody>
+        <tr valign="top">
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r1a"><emphasis role="italic">(0008,0001)</emphasis></para></td>
+          <td align="left" colspan="1" rowspan="1"><para xml:id="para_6r1b"><emphasis role="italic">Length to End</emphasis></para></td>
+          <td align="left" colspan="1" rowspan="1"><para xml:id="para_6r1c"><emphasis role="italic">Length​To​End</emphasis></para></td>
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r1d"><emphasis role="italic">UL</emphasis></para></td>
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r1e"><emphasis role="italic">1</emphasis></para></td>
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r1f"><emphasis role="italic">RET (2007)</emphasis></para></td>
+        </tr>
+        <tr valign="top">
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r2a">(0008,0050)</para></td>
+          <td align="left" colspan="1" rowspan="1"><para xml:id="para_6r2b">Accession Number</para></td>
+          <td align="left" colspan="1" rowspan="1"><para xml:id="para_6r2c">Accession​Number</para></td>
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r2d">SH</para></td>
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r2e">1</para></td>
+          <td align="center" colspan="1" rowspan="1"/>
+        </tr>
+        <tr valign="top">
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r3a">(0010,0010)</para></td>
+          <td align="left" colspan="1" rowspan="1"><para xml:id="para_6r3b">Patient's Name</para></td>
+          <td align="left" colspan="1" rowspan="1"><para xml:id="para_6r3c">Patient​Name</para></td>
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r3d">PN</para></td>
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r3e">1</para></td>
+          <td align="center" colspan="1" rowspan="1"/>
+        </tr>
+        <tr valign="top">
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r4a">(0028,1201)</para></td>
+          <td align="left" colspan="1" rowspan="1"><para xml:id="para_6r4b">Red Palette Color Lookup Table Data</para></td>
+          <td align="left" colspan="1" rowspan="1"><para xml:id="para_6r4c">Red​Palette​Color​Lookup​Table​Data</para></td>
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r4d">OW</para></td>
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r4e">1</para></td>
+          <td align="center" colspan="1" rowspan="1"/>
+        </tr>
+        <tr valign="top">
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r5a">(60xx,0010)</para></td>
+          <td align="left" colspan="1" rowspan="1"><para xml:id="para_6r5b">Overlay Rows</para></td>
+          <td align="left" colspan="1" rowspan="1"><para xml:id="para_6r5c">Overlay​Rows</para></td>
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r5d">US</para></td>
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_6r5e">1</para></td>
+          <td align="center" colspan="1" rowspan="1"/>
+        </tr>
+      </tbody>
+    </table>
+  </chapter>
+  <chapter label="7" status="1" xml:id="chapter_7">
+    <title>Registry of DICOM File Meta Elements</title>
+    <table frame="box" label="7-1" rules="all" xml:id="table_7-1">
+      <caption>Registry of DICOM File Meta Elements</caption>
+      <thead>
+        <tr valign="top">
+          <th align="center" colspan="1" rowspan="1"><para xml:id="para_7h1"><emphasis role="bold">Tag</emphasis></para></th>
+          <th align="center" colspan="1" rowspan="1"><para xml:id="para_7h2"><emphasis role="bold">Name</emphasis></para></th>
+          <th align="center" colspan="1" rowspan="1"><para xml:id="para_7h3"><emphasis role="bold">Keyword</emphasis></para></th>
+          <th align="center" colspan="1" rowspan="1"><para xml:id="para_7h4"><emphasis role="bold">VR</emphasis></para></th>
+          <th align="center" colspan="1" rowspan="1"><para xml:id="para_7h5"><emphasis role="bold">VM</emphasis></para></th>
+          <th align="center" colspan="1" rowspan="1"/>
+        </tr>
+      </thead>
+      <tbody>
+        <tr valign="top">
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_7r1a">(0002,0000)</para></td>
+          <td align="left" colspan="1" rowspan="1"><para xml:id="para_7r1b">File Meta Information Group Length</para></td>
+          <td align="left" colspan="1" rowspan="1"><para xml:id="para_7r1c">File​Meta​Information​Group​Length</para></td>
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_7r1d">UL</para></td>
+          <td align="center" colspan="1" rowspan="1"><para xml:id="para_7r1e">1</para></td>
+          <td align="center" colspan="1" rowspan="1"/>
+        </tr>
+      </tbody>
+    </table>
+  </chapter>
+</book>

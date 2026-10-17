@@ -249,7 +249,7 @@ matches = S.post(f"{BASE}/tools/lookup",
 ## 9. Anonymize & modify
 
 Both are POSTs at any level; both can run async. Anonymization follows DICOM
-PS3.15 by default; you can override or keep specific tags.
+PS3.15 by default; you can override or keep specific tags. The per-attribute actions of that profile (Table E.1-1) are queryable offline with the `dicom-standard` skill: `dicom_std.py table 15:E.1-1 --where "tag=(0010,0010)"`.
 
 ```python
 # Anonymize a study → creates a NEW anonymized study, returns its IDs
