@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<book xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" label="PS3.15" version="5.0" xml:id="PS3.15">
+  <title>PS3.15</title>
+  <subtitle>DICOM PS3.15 2026d - Security and System Management Profiles</subtitle>
+  <info>
+    <author><orgname>Fixture Committee</orgname></author>
+  </info>
+  <chapter label="" status="1" xml:id="chapter_Notice">
+    <title>Notice and Disclaimer</title>
+    <para xml:id="para_n1">This fixture is a hand-made miniature of the DocBook shape; the text is not the standard.</para>
+  </chapter>
+  <chapter label="1" status="1" xml:id="chapter_1">
+    <title>Scope and Field of Application</title>
+    <para xml:id="para_11">This part specifies security profiles. See <xref linkend="sect_E.1" xrefstyle="select: label"/> and <olink targetdoc="PS3.3" targetptr="PS3.3" xrefstyle="select: labelnumber"/>.</para>
+    <section label="1.1" status="2" xml:id="sect_1.1">
+      <title>Scope</title>
+      <para xml:id="para_111">Profiles cover:</para>
+      <itemizedlist>
+        <listitem><para xml:id="para_112">Secure transport connections</para></listitem>
+        <listitem><para xml:id="para_113">Attribute confidentiality</para></listitem>
+      </itemizedlist>
+      <note>
+        <para xml:id="para_114">Nothing here is normative in the fixture.</para>
+      </note>
+    </section>
+  </chapter>
+  <chapter label="E" status="1" xml:id="chapter_E">
+    <title>Attribute Confidentiality Profiles (Normative)</title>
+    <section label="E.1" status="2" xml:id="sect_E.1">
+      <title>Application Level Confidentiality Profile</title>
+      <para xml:id="para_e1a">The profile addresses <emphasis role="bold">data confidentiality</emphasis> at the application layer, using the data elements of <olink targetdoc="PS3.6" targetptr="sect_6" xrefstyle="select: labelnumber"/>.</para>
+      <orderedlist>
+        <listitem>
+          <para xml:id="para_e1b">Remove identifying Attributes.</para>
+          <itemizedlist>
+            <listitem><para xml:id="para_e1c">Replace with a dummy value where Type 1.</para></listitem>
+          </itemizedlist>
+        </listitem>
+        <listitem><para xml:id="para_e1d">Record the profile applied.</para></listitem>
+      </orderedlist>
+      <variablelist>
+        <varlistentry>
+          <term>D</term>
+          <listitem><para xml:id="para_e1e">replace with a non-zero length dummy value</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Z</term>
+          <listitem><para xml:id="para_e1f">replace with a zero length value, or a dummy value if Type 1</para></listitem>
+        </varlistentry>
+      </variablelist>
+      <para xml:id="para_e1g">Encoded example:</para>
+      <programlisting>(0010,0010) PN [Anonymous^Patient]</programlisting>
+      <para xml:id="para_e1h">See the IHE profile at <link xl:href="https://example.org/ihe">example.org</link>.</para>
+      <para xml:id="para_e1i">
+        <figure label="E.1-1" xml:id="figure_E.1-1">
+          <title>De-identification Flow</title>
+          <mediaobject><imageobject><imagedata fileref="figures/PS3.15_E.1-1.svg"/></imageobject></mediaobject>
+        </figure>
+      </para>
+      <table frame="box" label="E.1-2" rules="all" xml:id="table_E.1-2">
+        <caption>Action Codes</caption>
+        <thead>
+          <tr valign="top">
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_h1"><emphasis role="bold">Code</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_h2"><emphasis role="bold">Meaning</emphasis></para></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr valign="top">
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_r1a">X</para></td>
+            <td align="left" colspan="1" rowspan="1"><para xml:id="para_r1b">remove</para></td>
+          </tr>
+          <tr valign="top">
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_r2a">U</para></td>
+            <td align="left" colspan="1" rowspan="1"><para xml:id="para_r2b">replace with a consistent UID</para></td>
+          </tr>
+          <tr valign="top">
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_r3a">K</para></td>
+            <td align="left" colspan="1" rowspan="1"><para xml:id="para_r3b">keep</para></td>
+          </tr>
+        </tbody>
+      </table>
+      <table frame="box" label="E.1-1" rules="all" xml:id="table_E.1-1">
+        <caption>Application Level Confidentiality Profile Attributes</caption>
+        <thead>
+          <tr valign="top">
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th01"><emphasis role="bold">Attribute Name</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th02"><emphasis role="bold">Tag</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th03"><emphasis role="bold">Retd. (from <olink targetdoc="PS3.6" targetptr="PS3.6" xrefstyle="select: labelnumber"/>)</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th04"><emphasis role="bold">In Std. Comp. IOD (from <olink targetdoc="PS3.3" targetptr="PS3.3" xrefstyle="select: labelnumber"/>)</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th05"><emphasis role="bold">Basic Prof.</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th06"><emphasis role="bold">Rtn. Safe Priv. Opt.</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th07"><emphasis role="bold">Rtn. UIDs Opt.</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th08"><emphasis role="bold">Rtn. Dev. Id. Opt.</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th09"><emphasis role="bold">Rtn. Inst. Id. Opt.</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th10"><emphasis role="bold">Rtn. Pat. Chars. Opt.</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th11"><emphasis role="bold">Rtn. Long. Full Dates Opt.</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th12"><emphasis role="bold">Rtn. Long. Modif. Dates Opt.</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th13"><emphasis role="bold">Clean Desc. Opt.</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th14"><emphasis role="bold">Clean Struct. Cont. Opt.</emphasis></para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_th15"><emphasis role="bold">Clean Graph. Opt.</emphasis></para></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr valign="top">
+            <td align="left" colspan="1" rowspan="1"><para xml:id="para_e11a">Accession Number</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e11b">(0008,0050)</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e11c">N</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e11d">Y</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e11e">Z</para></td>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+          </tr>
+          <tr valign="top">
+            <td align="left" colspan="1" rowspan="1"><para xml:id="para_e12a">Acquisition Comments</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e12b">(0018,4000)</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e12c">Y</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e12d">N</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e12e">X</para></td>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e12m">C</para></td>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+          </tr>
+          <tr valign="top">
+            <td align="left" colspan="1" rowspan="1"><para xml:id="para_e13a">Institution Name</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e13b">(0008,0080)</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e13c">N</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e13d">Y</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e13e">X/Z/D</para></td>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e13i">K</para></td>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+          </tr>
+          <tr valign="top">
+            <td align="left" colspan="1" rowspan="1"><para xml:id="para_e14a">Patient's Name</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e14b">(0010,0010)</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e14c">N</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e14d">Y</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e14e">Z</para></td>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+          </tr>
+          <tr valign="top">
+            <td align="left" colspan="1" rowspan="1"><para xml:id="para_e15a">Study Instance UID</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e15b">(0020,000D)</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e15c">N</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e15d">Y</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e15e">U</para></td>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e15g">K</para></td>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+          </tr>
+          <tr valign="top">
+            <td align="left" colspan="1" rowspan="1"><para xml:id="para_e16a">Private Attributes</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e16b">(gggg,eeee) where gggg is odd</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e16c">N</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e16d">Y</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e16e">X</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_e16f">C</para></td>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+            <td align="center" colspan="1" rowspan="1"/>
+          </tr>
+        </tbody>
+      </table>
+      <section label="E.1.1" status="3" xml:id="sect_E.1.1">
+        <title>De-identifier</title>
+        <para xml:id="para_e111">A De-identifier shall remove or replace the Attributes listed in <xref linkend="table_E.1-1" xrefstyle="select: label"/>, and may apply the options in <xref linkend="sect_E.1.2"/>.</para>
+        <para xml:id="para_e112">Values that are <emphasis>not</emphasis> listed are kept.</para>
+      </section>
+      <section label="E.1.2" status="3" xml:id="sect_E.1.2">
+        <title>Re-identifier</title>
+        <para xml:id="para_e121">A Re-identifier restores values from a secure mapping.</para>
+      </section>
+    </section>
+    <section label="E.2" status="2" xml:id="sect_E.2">
+      <title>Attribute Confidentiality Profile Options</title>
+      <para xml:id="para_e2a">Options modify the Basic Profile.</para>
+      <table frame="box" label="E.2-1" rules="all" xml:id="table_E.2-1">
+        <caption>Spanning Example</caption>
+        <thead>
+          <tr valign="top">
+            <th align="center" colspan="1" rowspan="2"><para xml:id="para_s_h1">Group</para></th>
+            <th align="center" colspan="2" rowspan="1"><para xml:id="para_s_h2">Action</para></th>
+          </tr>
+          <tr valign="top">
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_s_h3">Basic</para></th>
+            <th align="center" colspan="1" rowspan="1"><para xml:id="para_s_h4">Option</para></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr valign="top">
+            <td align="left" colspan="1" rowspan="2"><para xml:id="para_s_r1a">Dates</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_s_r1b">X</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_s_r1c">K</para></td>
+          </tr>
+          <tr valign="top">
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_s_r2b">Z</para></td>
+            <td align="center" colspan="1" rowspan="1"><para xml:id="para_s_r2c">C</para></td>
+          </tr>
+          <tr valign="top">
+            <td align="left" colspan="3" rowspan="1"><para xml:id="para_s_r3a">All UIDs</para></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </chapter>
+  <glossary xml:id="glossary">
+    <title>Glossary</title>
+    <glossdiv>
+      <title>Terms</title>
+      <glossentry xml:id="glossentry_Deidentification">
+        <glossterm>De-identification</glossterm>
+        <glossdef><para xml:id="para_g1">Removal of identifying information.</para></glossdef>
+      </glossentry>
+    </glossdiv>
+  </glossary>
+  <bibliography xml:id="bibliography">
+    <title>Bibliography</title>
+    <biblioentry xml:id="biblio_IHE_RAD_TF">
+      <abbrev>IHE RAD TF</abbrev>
+      <title>IHE Radiology Technical Framework</title>
+      <date>2024</date>
+    </biblioentry>
+  </bibliography>
+</book>

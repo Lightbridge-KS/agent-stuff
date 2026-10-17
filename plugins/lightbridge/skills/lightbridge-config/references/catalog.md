@@ -176,6 +176,13 @@ feature owns a subtree **or file** registered here.
     `[nodes.<name>]` per device (`ssh`, `root`, `repos` in apply order). `lb fleet sync
     NODE` writes a receipt per node; `hooks/fleet-inject` reads them. Managed by
     `lb fleet init|status|sync`; spec: the **fleet-sync** skill, ADR 0004.
+  - `~/.lightbridge/data/<dataset>/` — **mirrored reference data** a skill caches for offline,
+    citable lookup; one subdir per dataset, each owned by the skill that fills it. Today:
+    `data/dicom-standard/` — the DICOM standard's per-part DocBook XML
+    (`editions/<edition>/partNN.xml`, kept per edition), `manifest.json` (edition, ETag, sha256,
+    fetch time per part) and `index.sqlite` (derived; rebuilt offline on schema change).
+    Written only by the `dicom-standard` skill's bundled `dicom_std.py pull`; `DICOM_STD_HOME`
+    relocates it. Public standard text, no PHI — safe to delete and re-pull at any time.
 - **Consumers:**
   - `lightbridge` resolver (agent-stuff `scripts/lightbridge`) — the canonical
     root/key/config resolution every reader imports, plus the CLI that writes, inspects,

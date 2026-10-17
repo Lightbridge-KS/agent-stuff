@@ -19,9 +19,9 @@
       "name": "radiology",
       "displayName": "Radiology",
       "source": "./plugins/radiology",
-      "description": "Medical-imaging tooling references: DICOM via DCMTK, the Orthanc REST API, and 3D Slicer.",
+      "description": "Medical-imaging tooling references: DICOM via DCMTK, the Orthanc REST API, 3D Slicer, and the DICOM standard itself (PS3.x) cached offline for citable lookup.",
       "category": "domain-expertise",
-      "tags": ["dicom", "dcmtk", "orthanc", "slicer"]
+      "tags": ["dicom", "dcmtk", "orthanc", "slicer", "dicom-standard", "ps3"]
     },
     {
       "name": "medical-ai",

@@ -21,6 +21,9 @@ invocation on the first try, and avoid the classic DCMTK potholes.
 > newer major/minor release, spot-check flags against the tool's man page or
 > `--help` before relying on them.
 
+> **The standard's text** (what PS3.x actually says — a tag's VR, a de-identification action,
+> a status code) is the `dicom-standard` skill; this one is the tooling.
+
 ## Mental model
 
 DCMTK groups tools into modules by what they touch:
