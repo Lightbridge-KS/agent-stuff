@@ -75,6 +75,37 @@ Moves: Extract Module, Move Function, lift, lower.
   edge, not the shorter file.
 - **Compatibility re-export:** a public import path that must survive forwards the same
   object. Never a wrapper, never a duplicate definition.
+- **Extract Module behind a Facade** — the compound move for one file that has grown
+  several concerns that share no state. Its bill of materials, all in one card:
+  1. *Split by cohesion.* One file per concern, named for what it owns. The recursive
+     core (the walk and the state it carries) stays together even when it is the largest
+     piece — a class cannot be spread across files, and a core split by line count is
+     worse than the long file.
+  2. *The interface is fixed.* The old file becomes the barrel: callers' import path and
+     signatures unchanged, re-exported with `show`, never through a wrapper.
+  3. *Only boundary-crossing names lose their privacy.* The module's surface for the
+     package is not the package's public API; the barrel stays unexported.
+  4. *A fitness test.* Only the barrel imports the folder; a planted violation proves the
+     test bites. Without it the facade is a convention.
+  5. *The structure doc, amended.* The tree line and the "where a change lands" rows — a
+     routing table that can now name one file per kind of change is worth-test question 4
+     made checkable.
+
+  Lands as two commits: extract within the file (the logic diff, reviewable), then the
+  pure move (the diff is moves and renames) — the pure-move diff in
+  [verification.md](verification.md) is its proof. *Not yet* when the file is one
+  recursive walk with shared state, or when a scheduled feature is about to define the
+  seams: decompose within the file and name the trigger. In a language with per-file
+  privacy (Dart), `part`-style includes keep the underscores but draw no boundary; the
+  fitness test is the boundary.
+
+```
+before   read/parser.dart   700 lines: framing · walk · header rules · checks · ambiguity
+
+after    read/parser.dart   barrel — the three entry points, import path unchanged
+         read/parse/        walker · header · checks · ambiguity · level · source_reader
+         test               only parser.dart imports read/parse/  (fitness test + doc row)
+```
 
 ```
 before   binding → planning → {eligibility, groups, windows}
