@@ -12,10 +12,10 @@ metadata:
 
 Propose **behavior-preserving** structural changes to code that already works. Structure
 may change; the **preserve-list** may not: public interface, results (including numerical
-identity), error categories, data contracts, ordering. The output is a ranked proposal —
-nothing is edited before the user picks a card, and the card is the plan: on *apply*, the
-picks land under [references/landing.md](references/landing.md). If the ask adds
-capability, say so and split it out: feature work is not refactoring.
+identity), error categories, data contracts, ordering, cost on a hot path. The output is a
+ranked proposal — nothing is edited before the user picks a card, and the card is the plan:
+on *apply*, the picks land under [references/landing.md](references/landing.md). If the
+ask adds capability, say so and split it out: feature work is not refactoring.
 
 Vocabulary: `codebase-design` for structure (module, interface, seam, depth, locality,
 leverage, the deletion test); `CONTEXT.md` for the domain. ADRs are not re-litigated. Name
@@ -87,6 +87,18 @@ Where this skill diverges from your defaults:
   *Simplifies* is a candidate to flatten. Introducing a pattern needs the worth test plus a
   real seam — two adapters; one adapter is a hypothetical seam dressed as a pattern.
 - **Compatibility re-exports forward the same object**, never wrapper copies.
+- **A scheduled consumer counts; a hypothetical one does not.** "Lift needs two consumers"
+  admits a second consumer the tracker's Next already names — the third copy a milestone
+  is about to write. "Someone might" is not a consumer.
+- **Test oracles are exempt from DRY.** A rule restated inside a gate — the expected byte
+  size, the padding rule, a long-VR table — *is* the oracle; sharing the library's rule
+  would make the gate agree with its bugs. Keep the copy and say on the card that it is
+  deliberate.
+- **A facade over a folder is a convention until a test enforces it.** An Extract Module
+  behind a Facade ships its fitness test and its structure-doc row, or it is not proposed.
+- **Survey and peer claims are hypotheses.** A subagent's finding or another session's
+  candidate is re-read in the code before it becomes a card; one that does not survive is
+  listed under Rejected with why.
 - An ADR conflict is surfaced only when the friction is strong enough to reopen the ADR,
   and is marked on the card.
 
