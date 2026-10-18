@@ -61,6 +61,11 @@ preserve-list:
 Not evidence: file count, function length, number of records, "cleaner". A candidate that
 passes none is dropped, not downgraded.
 
+A candidate that passes but whose seams a scheduled feature is about to define is **Not
+yet**: state the trigger (the milestone, a second consumer, a size) and record it, so the
+next pass re-examines it when the trigger fires instead of re-arguing it. Do not split
+ahead of the feature that will draw the seams; decompose within the file and wait.
+
 ## Pinned judgments
 
 Where this skill diverges from your defaults:
@@ -97,12 +102,25 @@ Problem    the friction, in locality or leverage terms
 After      sketch — import edges or call tree, before → after
 Earns it   which worth-test question(s) it answers
 Preserve   what must not change — the preserve-list, specific to this move
+Behaviour  none · malformed input only · public — anything but none is a question card
 Proof      the ladder rung that would show it — references/verification.md
-Strength   Strong · Worth exploring · Speculative
+Strength   Strong · Worth exploring · Speculative · Not yet — trigger: <condition>
 ```
 
-Broad mode closes with **Top recommendation**: the one card to start with, and why. Then
-ask which cards to take forward.
+A **question card** is a move the user must rule on before it is a refactor: it changes
+what broken input does, or makes a check stricter. It is carded with the rest so the
+decision is on record, and it never lands inside a `refactor:` commit.
+
+Broad mode closes with **Top recommendation**: the one card to start with, and why — then
+two blocks every broad proposal carries:
+
+- **Rejected** — each dropped or *Not yet* candidate with its reason, so the tracker can
+  carry it and the next pass does not re-propose it.
+- **Findings outside the refactor** — bugs, invariants that claim a check they do not
+  have, doc drift. A bug goes first: its own `fix:` commit, and the owner decides who
+  makes it.
+
+Then ask which cards to take forward.
 
 ## Handoff
 
