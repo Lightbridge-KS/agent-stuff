@@ -166,11 +166,17 @@ Parent: [overview](../overview-<name>.md) · Design: <links>
 Preserve: <the preserve-list, verbatim from the cards>
 Proof: <rung per move>
 
+## Not picked
+
+- #c <move> — <rejected: why · Not yet, trigger: <condition> · behaviour question, open>
+
 ## Evidence
 
-(filled as moves land: gates run, counts, CI run)
+(filled as moves land: gates run, counts, SHAs, CI run)
 
-On completion: set `status: complete`, then ask whether to prune this tracker.
+On completion: set `status: complete`, then ask whether to prune this tracker. Pruning
+deletes the evidence, not the verdicts: before the file goes, *Not picked* moves to the
+overview tracker's Deferred — a load-bearing rejection to an ADR.
 ```
 
 A proposed module named after a concept missing from `CONTEXT.md` → note it for
