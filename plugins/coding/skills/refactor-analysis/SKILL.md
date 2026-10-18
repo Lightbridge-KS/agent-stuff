@@ -2,10 +2,10 @@
 name: refactor-analysis
 description: >-
   Analyze working code and propose behavior-preserving refactoring candidates — the output
-  is a ranked proposal, never edits. Planning and execution are the user's next step. Not a layering review — for
-  that use `clean-architecture`.
+  is a ranked proposal; nothing is edited before the user picks. On "apply", the picks land
+  under the skill's landing contract. Not a layering review — for that use `clean-architecture`.
 metadata:
-  version: "2026-10-12"
+  version: "2026-10-18"
 ---
 
 # Refactor Analysis
@@ -13,8 +13,9 @@ metadata:
 Propose **behavior-preserving** structural changes to code that already works. Structure
 may change; the **preserve-list** may not: public interface, results (including numerical
 identity), error categories, data contracts, ordering. The output is a ranked proposal —
-this skill never edits and never plans. If the ask adds capability, say so and split it
-out: feature work is not refactoring.
+nothing is edited before the user picks a card, and the card is the plan: on *apply*, the
+picks land under [references/landing.md](references/landing.md). If the ask adds
+capability, say so and split it out: feature work is not refactoring.
 
 Vocabulary: `codebase-design` for structure (module, interface, seam, depth, locality,
 leverage, the deletion test); `CONTEXT.md` for the domain. ADRs are not re-litigated. Name
@@ -44,7 +45,7 @@ friction:
 Apply the deletion test to anything suspected shallow. Rank, end with a **Top
 recommendation**, let the user pick, then run narrow mode on the pick.
 
-Either mode ends in a proposal. Nothing is edited before, during, or after.
+Either mode ends in a proposal. Nothing is edited until the user picks.
 
 ## The worth test
 
@@ -106,9 +107,10 @@ ask which cards to take forward.
 ## Handoff
 
 When the user picks, offer to persist the picked cards as a tracker seed at
-`docs/progress/refactor/refactor-<topic>.md` with `status: proposed`, so plan mode has
-something to anchor on and the reasoning survives the session. Write it only on a yes.
-Then stop — planning and execution are the user's next step.
+`docs/progress/refactor/refactor-<topic>.md` with `status: proposed`, so the reasoning
+survives the session. Write it only on a yes. Then the card is the plan: a pick that comes
+with *apply* lands under [references/landing.md](references/landing.md) — baseline, pin
+each Preserve item, move, prove, one commit per card. Without *apply*, stop.
 
 ```markdown
 ---
