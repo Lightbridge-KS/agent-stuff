@@ -24,8 +24,14 @@ a shape by its design pattern when one fits — [references/patterns.md](referen
 ## Re-entry sweep
 
 If `docs/progress/refactor/` exists, read it before anything else. Prior preserve-lists
-bind. Prior rejections are not re-proposed unless the friction has changed. Trackers marked
-`status: complete` → ask once, batched, whether to prune them.
+bind. Prior rejections — a tracker's *Not picked*, the overview's Deferred, an ADR — are
+not re-proposed unless the friction has changed. Trackers marked `status: complete` → ask
+once, batched, whether to prune them.
+
+Read the repo's main tracker too (`docs/progress/overview-*.md`: Now, Next, Deferred).
+Scheduled work is the evidence for worth-test question 4 and for a *Not yet* verdict: the
+seams a milestone is about to define are not guessed ahead of it, and the copy it will
+write is a real second consumer.
 
 ## Entry — scope decides the mode
 
