@@ -25,7 +25,6 @@ certainly skipped Phase 1.
 design fluid    ─►  c4-architect · system-architecture · data-architecture · surface-architecture
                     · extensibility-architecture · security-architecture · testability-architecture
 design settled  ─►  codebase-blueprint   ← you are here: reconcile, then compile
-code exists     ─►  refactor-analysis
 ```
 
 Design mode only — it runs *before* code exists. To document structure that already ships,

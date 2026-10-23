@@ -14,7 +14,7 @@ attribution footers) from this project:
 |-------|-------------|---------------|
 | `codebase-design` | `coding` | `skills/engineering/codebase-design` |
 | `domain-modeling` | `coding` | `skills/engineering/domain-modeling` |
-| `refactor-analysis` (broad mode; absorbed `improve-codebase-architecture`, original in `_archive/`) | `coding` | `skills/engineering/improve-codebase-architecture` |
+| `refactor-analysis` (broad mode; absorbed `improve-codebase-architecture`; both now in `_archive/`) | archived | `skills/engineering/improve-codebase-architecture` |
 | `grill-with-docs` | `coding` | `skills/engineering/grill-with-docs` |
 | `grill-me` | `productivity` | `skills/productivity/grill-me` |
 | `grilling` | `productivity` | `skills/productivity/grilling` |
