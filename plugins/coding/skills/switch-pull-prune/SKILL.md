@@ -7,7 +7,7 @@ metadata:
 
 # Switch → Pull → Prune
 
-Close the loop `commit-push-pr` opened. You know git — this skill pins which branch, and what to clean up.
+Close the loop `pr` opened. You know git — this skill pins which branch, and what to clean up.
 
 ## Policy
 
