@@ -19,7 +19,7 @@ Governing rule: context encodes **decisions, not competence** — anything a str
 ## Kinds — which deficit it compensates for
 
 - **Concept** — compresses *judgment*: names a move and **pins its expansion** so the term decompresses the same way every session (`grilling`, `blindspot-pass`). Shared vocabulary with the agent — DDD ubiquitous language applied to context engineering. Value **rises** with model intelligence (stronger decoder → one word fans out further); write only where my intended expansion diverges from the model's default. Re-test each model generation — upgrades silently re-roll unpinned terms.
-- **Contract** — a coordination protocol: deterministic artifacts, file formats, state/phase machines, exit codes (`handoff`, `commit-push-pr` state contract). **Invariant** to model growth — contracts buy predictability across parties and time, not capability; more autonomy needs *more* of them, not fewer. Version them.
+- **Contract** — a coordination protocol: deterministic artifacts, file formats, state/phase machines, exit codes (`handoff`, `pr` state contract). **Invariant** to model growth — contracts buy predictability across parties and time, not capability; more autonomy needs *more* of them, not fewer. Version them.
 - **Reference** — caches *facts* the model can't derive and might hallucinate: flag names, endpoints, version quirks. Doesn't compress — guarantees fresh ground truth. Migrates toward retrieval (docs lookup, MCP) as models grow, but never to zero — the world outruns training. Needs freshness checks.
 
 A skill can mix kinds — classify by where its *value* lives (e.g. `handoff` reads conceptual but its value is the deterministic artifact → contract).

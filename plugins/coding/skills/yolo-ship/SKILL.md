@@ -7,7 +7,7 @@ metadata:
 
 # YOLO Ship
 
-Land the working tree on the base branch autonomously: wrap `commit-push-pr` and
+Land the working tree on the base branch autonomously: wrap `pr` and
 `switch-pull-prune` around a ready → watch-CI → merge core. Every phase is observable
 from `git`/`gh` state, so re-invoking resumes where it left off — never restarts.
 
@@ -16,15 +16,15 @@ from `git`/`gh` state, so re-invoking resumes where it left off — never restar
 Human-triggered only. The explicit trigger in the current turn is the standing
 authorization to merge without further confirmation — do not re-ask at merge time.
 Absent that trigger, this skill must never run, even as a "helpful" continuation of
-`commit-push-pr`.
+`pr`.
 
 ## Phases
 
 0. **Preflight** — verify the autonomous path is safe; on any failure **downgrade**:
-   run `commit-push-pr` only and report why the YOLO path stopped.
+   run `pr` only and report why the YOLO path stopped.
    - Never against protected branches (`release/*`, or a base with required-review
      branch protection — the merge would be blocked anyway; check via `gh`).
-1. **Ship** — invoke the `commit-push-pr` skill. It owns branch policy, dry gates,
+1. **Ship** — invoke the `pr` skill. It owns branch policy, dry gates,
    and the draft-PR contract; a dry-gate failure stops the whole flow there.
 2. **Ready** — `gh pr ready` (drafts can't merge, and some CI skips them).
 3. **Watch** — `gh pr checks --watch` (re-run on command timeout; state is
