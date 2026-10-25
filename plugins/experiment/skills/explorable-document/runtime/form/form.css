@@ -1,0 +1,98 @@
+.ed-field {
+  min-width: 0;
+  margin: 20px 0;
+}
+.ed-field-label {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.ed-field-required {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+.ed-field-help {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.ed-field-error,
+.ed-field-diagnostic {
+  color: var(--red);
+  font-size: 0.85rem;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.ed-field input[aria-invalid="true"],
+.ed-field select[aria-invalid="true"] {
+  border-color: var(--red);
+}
+.ed-field input:disabled,
+.ed-field select:disabled,
+.ed-radio:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.ed-radio {
+  border: 0;
+  padding: 0;
+}
+.ed-radio legend {
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.ed-radio-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ed-radio-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+.ed-choice {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.ed-choice input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  align-self: start;
+  margin-top: 0.25em;
+}
+.ed-choice label {
+  overflow-wrap: anywhere;
+}
+.ed-select-wrap {
+  display: block;
+  position: relative;
+  min-width: 0;
+}
+.ed-select-wrap select {
+  appearance: none;
+  width: 100%;
+  padding: 10px 42px 10px 16px;
+}
+.ed-select-caret {
+  position: absolute;
+  right: 18px;
+  top: calc(50% - 5px);
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.ed-field input[type="text"] {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--raised);
+}

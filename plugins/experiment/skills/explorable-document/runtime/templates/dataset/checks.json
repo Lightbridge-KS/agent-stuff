@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "interaction": "filter",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#filter",
+          "value": "missing"
+        },
+        {
+          "action": "text",
+          "selector": "#records",
+          "value": "No matching records."
+        }
+      ]
+    },
+    {
+      "interaction": "sort",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "button",
+          "index": 0
+        },
+        {
+          "action": "text",
+          "selector": "tbody tr",
+          "index": 0,
+          "value": "Alpha12Select Alpha"
+        }
+      ]
+    },
+    {
+      "interaction": "select",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "tbody button",
+          "index": 0
+        },
+        {
+          "action": "text",
+          "selector": "#selection",
+          "value": "Beta: 5 items."
+        },
+        {
+          "action": "fill",
+          "selector": "#filter",
+          "value": "alpha"
+        },
+        {
+          "action": "text",
+          "selector": "#selection",
+          "value": "No record selected."
+        }
+      ]
+    }
+  ]
+}

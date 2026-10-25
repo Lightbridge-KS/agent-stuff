@@ -171,3 +171,7 @@ Determinism is a dial; set it deliberately.
 
 - `references/protocols.md` — the protocol landscape with a `verified:` date. Fetch current docs before quoting versions.
 - `references/sources.md` — the talks this skill distils, with one line per lesson.
+
+For source-backed MDX/TSX explanations with local reader interactions and optional
+reviewed snapshots, use `explorable-document`. Its controlled viewer hosts an
+open-ended sandboxed body; it does not provide live agent continuation.

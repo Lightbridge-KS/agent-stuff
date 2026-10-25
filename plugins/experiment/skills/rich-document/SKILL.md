@@ -80,3 +80,7 @@ JSON mode emits one object on stdout; diagnostics go to stderr. Exits: `0` succe
 
 No PHI or secrets in the personal artifact store. MCP Apps, feedback collection,
 custom widgets, remote images, and SVG inputs are not part of this version.
+
+For source-backed MDX/TSX explanations with local reader interactions and optional
+reviewed snapshots, use `explorable-document`. Its controlled viewer hosts an
+open-ended sandboxed body; it does not provide live agent continuation.

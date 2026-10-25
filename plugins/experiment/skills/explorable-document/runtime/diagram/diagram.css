@@ -1,0 +1,181 @@
+.ed-diagram-flow {
+  min-width: 0;
+}
+.ed-diagram-layout {
+  display: grid;
+  gap: 48px;
+  min-width: 0;
+  align-items: stretch;
+  position: relative;
+}
+.ed-diagram-layout[data-ed-gap="wide"] {
+  gap: 72px;
+}
+.ed-diagram-layout[data-ed-layout="row"] {
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+.ed-diagram-layout[data-ed-layout="grid"] {
+  grid-template-columns: repeat(var(--ed-columns), minmax(0, 1fr));
+}
+.ed-diagram-layout[data-ed-layout="column"] {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr);
+}
+.ed-diagram-description {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+}
+.ed-diagram-node,
+.ed-diagram-boundary {
+  --ed-accent: var(--border);
+  --ed-fill: #393939;
+  --ed-ink: #fff;
+  min-width: 0;
+  border: 1.5px solid var(--ed-accent);
+  border-radius: 18px;
+  padding: 24px 20px;
+  background: var(--panel);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+[data-ed-tone="blue"] {
+  --ed-accent: var(--blue);
+  --ed-fill: #315f85;
+}
+[data-ed-tone="teal"] {
+  --ed-accent: var(--teal);
+  --ed-fill: #256859;
+}
+[data-ed-tone="orange"] {
+  --ed-accent: var(--orange);
+  --ed-fill: #87501e;
+}
+[data-ed-tone="red"] {
+  --ed-accent: var(--red);
+  --ed-fill: #943232;
+}
+.ed-diagram-node {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+.ed-diagram-boundary {
+  background: transparent;
+}
+.ed-diagram-title {
+  display: block;
+  font-size: 1.15rem;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.ed-diagram-subtitle {
+  color: var(--muted);
+  margin-top: 8px;
+}
+.ed-diagram-content {
+  margin-top: 14px;
+}
+.ed-diagram-content > p {
+  margin: 8px 0;
+}
+.ed-diagram-icon {
+  display: block;
+  margin-bottom: 12px;
+  color: inherit;
+}
+.ed-diagram-icon > svg {
+  width: 26px;
+  height: 26px;
+}
+.ed-diagram-node[data-ed-variant="plain"],
+.ed-diagram-boundary[data-ed-variant="plain"] {
+  border-color: transparent;
+  background: transparent;
+}
+.ed-diagram-node[data-ed-variant="filled"] {
+  background: var(--ed-fill);
+  color: var(--ed-ink);
+  border-color: var(--ed-fill);
+}
+.ed-diagram-node[data-ed-variant="filled"] .ed-diagram-subtitle {
+  color: inherit;
+}
+.ed-diagram-boundary[data-ed-variant="dashed"] {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--ed-accent) 7%, var(--canvas));
+}
+.ed-diagram-diagnostic {
+  border-left: 3px solid var(--orange);
+  padding: 8px 12px;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+@media (max-width: 600px) {
+  .ed-diagram-node,
+  .ed-diagram-boundary {
+    padding: 18px 14px;
+  }
+  .ed-diagram-title {
+    font-size: 1.05rem;
+  }
+}
+.ed-diagram-root {
+  min-width: 0;
+}
+.ed-diagram-canvas {
+  position: relative;
+  padding: 36px;
+  min-width: 0;
+}
+.ed-diagram-overlay,
+.ed-diagram-labels {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+/* Clip only the paint layers during the frame before resize measurement.
+   The measured routes remain inside the canvas and its reserved gutters. */
+.ed-diagram-overlay > path {
+  --ed-accent: var(--muted);
+  stroke: var(--ed-accent);
+}
+.ed-diagram-overlay > path[data-ed-tone="blue"] {
+  --ed-accent: var(--blue);
+}
+.ed-diagram-overlay > path[data-ed-tone="teal"] {
+  --ed-accent: var(--teal);
+}
+.ed-diagram-overlay > path[data-ed-tone="orange"] {
+  --ed-accent: var(--orange);
+}
+.ed-diagram-overlay > path[data-ed-tone="red"] {
+  --ed-accent: var(--red);
+}
+.ed-diagram-edge-label {
+  position: absolute;
+  width: max-content;
+  max-width: 150px;
+  font-size: 12px;
+  line-height: 1.35;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.ed-diagram-relationships {
+  margin-top: 12px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.ed-diagram-root[data-ed-connected="false"] > .ed-diagram-canvas {
+  padding: 0;
+}

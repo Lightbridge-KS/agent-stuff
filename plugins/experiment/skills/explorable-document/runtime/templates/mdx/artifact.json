@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "title": "Queue saturation explorer",
+  "summary": "Explore arrival and service rates in an illustrative queue.",
+  "entry": "document.mdx",
+  "layout": "article",
+  "assets": [],
+  "data_sources": [
+    {
+      "id": "example",
+      "kind": "illustrative",
+      "description": "Explore arrival and service rates in an illustrative queue."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "arrival-rate",
+      "trigger": "Change arrival rate",
+      "input_schema": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 20
+      },
+      "outputs": ["queue-diagram", "scenario-summary"],
+      "expected": "Utilization and mean jobs update, including overload."
+    },
+    {
+      "id": "service-rate",
+      "trigger": "Change service rate",
+      "input_schema": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 20
+      },
+      "outputs": ["queue-diagram", "scenario-summary"],
+      "expected": "The same scenario updates from service capacity."
+    },
+    {
+      "id": "reset",
+      "trigger": "Reset scenario",
+      "input_schema": {
+        "type": "null"
+      },
+      "outputs": ["scenario-summary"],
+      "expected": "Restore rates 4 and 8."
+    }
+  ]
+}

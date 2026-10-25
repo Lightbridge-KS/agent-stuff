@@ -147,6 +147,10 @@ feature owns a subtree **or file** registered here.
       no section; `--no-save` skips one. Quarto forms also keep a companion source,
       assets, rendering, and result bundle in `asks/_bundles/<ask-id>/`; the Markdown
       file is its completion marker. Existing plain ask-form records remain unchanged.
+    - `explorable-documents/` — `explorable-document` owns immutable
+      `artifacts/<id>/` (source, exact toolchain, rendering, manifest, evidence) and
+      separate `submissions/<artifact-id>/`. Always-on persistence, no config section;
+      project identity comes from `lb path --json`. Viewer credentials stay in OS temp.
     - `artifacts/` — the `rich-document` skill's immutable artifact directories:
       source, manifest, declared image assets, and rendered HTML. Saved by default,
       no config section; explicit `--no-save` uses temporary output. The bundled

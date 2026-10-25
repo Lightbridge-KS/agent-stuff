@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "title": "Synthetic dataset explorer",
+  "summary": "Filter, sort, and select synthetic records.",
+  "entry": "document.tsx",
+  "layout": "article",
+  "assets": [],
+  "data_sources": [
+    {
+      "id": "example",
+      "kind": "synthetic",
+      "description": "Filter, sort, and select synthetic records."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "filter",
+      "trigger": "Filter",
+      "input_schema": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "outputs": ["records", "selection"],
+      "expected": "Records and selection remain consistent."
+    },
+    {
+      "id": "sort",
+      "trigger": "Sort",
+      "input_schema": {
+        "type": "boolean"
+      },
+      "outputs": ["records", "selection"],
+      "expected": "Records and selection remain consistent."
+    },
+    {
+      "id": "select",
+      "trigger": "Select",
+      "input_schema": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "outputs": ["records", "selection"],
+      "expected": "Records and selection remain consistent."
+    }
+  ]
+}

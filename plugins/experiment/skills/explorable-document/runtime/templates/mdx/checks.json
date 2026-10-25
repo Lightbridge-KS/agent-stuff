@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "interaction": "arrival-rate",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "input[type=range]",
+          "index": 0,
+          "value": "6"
+        },
+        {
+          "action": "text",
+          "selector": "#scenario-summary",
+          "value": "Mean jobs in system: 3.00."
+        },
+        {
+          "action": "fill",
+          "selector": "input[type=range]",
+          "index": 0,
+          "value": "8"
+        },
+        {
+          "action": "text",
+          "selector": "#scenario-summary",
+          "value": "Overloaded: no finite steady-state queue."
+        }
+      ]
+    },
+    {
+      "interaction": "service-rate",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "input[type=range]",
+          "index": 1,
+          "value": "16"
+        },
+        {
+          "action": "text",
+          "selector": "#scenario-summary",
+          "value": "Mean jobs in system: 0.33."
+        }
+      ]
+    },
+    {
+      "interaction": "reset",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "input[type=range]",
+          "index": 0,
+          "value": "20"
+        },
+        {
+          "action": "click",
+          "selector": "button"
+        },
+        {
+          "action": "text",
+          "selector": "#scenario-summary",
+          "value": "Mean jobs in system: 1.00."
+        }
+      ]
+    }
+  ]
+}

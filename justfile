@@ -47,6 +47,7 @@ test:
     uv run tests/test_deidentify.py
     uv run tests/test_ask_form.py
     uv run tests/test_rich_document.py
+    uv run tests/test_explorable_document.py
     uv run tests/test_dicom_standard.py
 
 # Real Quarto + loopback viewer acceptance (browser interaction checked separately).
@@ -56,6 +57,10 @@ test-rich-document-live:
 # Prepare self-checking browser fixture; open URL and require #rd-test-result PASS.
 test-rich-document-browser:
     uv run tests/test_rich_document_browser.py
+
+# Real MDX/TSX, Chromium, receiver, immutable archive, and standalone export acceptance.
+test-explorable-document-live:
+    EXPLORABLE_DOCUMENT_LIVE=1 uv run tests/test_explorable_document_live.py
 
 # Remove build artifacts
 clean:

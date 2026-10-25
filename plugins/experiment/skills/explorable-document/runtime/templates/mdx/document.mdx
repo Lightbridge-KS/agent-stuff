@@ -1,0 +1,30 @@
+import Queue from './queue'
+
+# When does a queue stop keeping up?
+
+Arrivals and service capacity share one small model. Change either rate to see
+both the diagram and the explanation update. This is an **illustrative steady-state
+M/M/1 queue**, not a forecast: arrivals are Poisson, service times exponential, and
+there is one server. All rates use jobs per minute.
+
+<Queue />
+
+## Three parts of an explorable explanation
+
+<div className="grid">
+  <div className="node"><h3>Inputs</h3><p>Make assumptions visible and adjustable.</p></div>
+  <div className="node"><h3>Relationships</h3><p>Show which quantities depend on those assumptions.</p></div>
+  <div className="node"><h3>Consequences</h3><p>Explain the result beside its visual representation.</p></div>
+</div>
+
+## Responsibilities stay separate
+
+<figure className="figure">
+  <div className="node"><strong>Reader controls</strong><p>Arrival and service rates describe the current scenario.</p></div>
+  <p aria-hidden="true" style={{textAlign:'center'}}>↓</p>
+  <div className="grid"><div className="node"><strong>Model</strong><p>Compute utilization and mean jobs in the system.</p></div><div className="node"><strong>Explanation</strong><p>Name the assumptions and the overloaded state.</p></div></div>
+  <figcaption>The reader changes inputs; calculation and explanation remain coordinated.</figcaption>
+</figure>
+
+The source and this model travel with the saved artifact. Reloading starts a fresh
+scenario. Nothing needs to be submitted to finish exploring.
