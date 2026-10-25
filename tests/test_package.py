@@ -51,6 +51,8 @@ def make_repo(base: Path) -> Path:
     (skill_dir / ".DS_Store").write_text("junk")
     (skill_dir / "__pycache__").mkdir()
     (skill_dir / "__pycache__" / "x.pyc").write_text("junk")
+    (skill_dir / "node_modules" / "fake").mkdir(parents=True)
+    (skill_dir / "node_modules" / "fake" / "index.js").write_text("must not ship")
     return repo
 
 

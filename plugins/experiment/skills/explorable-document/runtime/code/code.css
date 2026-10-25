@@ -1,0 +1,64 @@
+.ed-code-panel {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px;
+  background: var(--panel);
+}
+.ed-code-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-bottom: 16px;
+}
+.ed-code-header strong {
+  flex: 1 1 180px;
+  overflow-wrap: anywhere;
+}
+.ed-code-format,
+.ed-code-header button {
+  font-size: 0.8rem;
+}
+.ed-code-format {
+  color: var(--muted);
+}
+.ed-code-panel textarea {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font:
+    13px / 1.7 ui-monospace,
+    monospace;
+  background: var(--raised);
+  color: var(--text);
+  resize: vertical;
+}
+.ed-code-panel textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+.ed-code-help {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.ed-code-error {
+  color: var(--red);
+  overflow-wrap: anywhere;
+}
+.ed-code-status {
+  color: var(--teal);
+  font-size: 0.85rem;
+  min-height: 1.6em;
+  margin-bottom: 0;
+}
+@media (max-width: 600px) {
+  .ed-code-panel {
+    padding: 18px;
+  }
+}

@@ -49,7 +49,7 @@ PLUGINS_ROOT = REPO_ROOT / "plugins"
 DEFAULT_DIST = REPO_ROOT / "dist"
 
 # Never ship editor/OS/build junk, even if it lands inside a skill folder.
-EXCLUDE_NAMES = {".DS_Store", "__pycache__", ".git", ".ipynb_checkpoints"}
+EXCLUDE_NAMES = {".DS_Store", "__pycache__", ".git", ".ipynb_checkpoints", "node_modules"}
 
 # A fixed timestamp keeps archives byte-stable across runs (ZIP epoch = 1980).
 FIXED_DATE_TIME = (1980, 1, 1, 0, 0, 0)

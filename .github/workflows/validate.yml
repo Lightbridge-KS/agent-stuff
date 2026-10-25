@@ -48,6 +48,25 @@ jobs:
         run: uv run tests/test_ask_form.py
       - name: rich-document hermetic tests
         run: uv run tests/test_rich_document.py
+      - name: Explorable-document hermetic contracts
+        run: uv run tests/test_explorable_document.py
+      - name: Explorable-document Python dry checks
+        run: uv run plugins/experiment/skills/explorable-document/scripts/check_runtime.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.7.0'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.18.2'
+      - name: Explorable-document fixed toolchain dry checks
+        shell: bash
+        run: |
+          cp -R plugins/experiment/skills/explorable-document/runtime "$RUNNER_TEMP/explorable-runtime"
+          cd "$RUNNER_TEMP/explorable-runtime"
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm lint
+          pnpm typecheck
+          pnpm test
       - name: Run notebook-tools tests
         run: uv run tests/test_notebook_tools.py
       - name: Run Codex plugin packaging tests

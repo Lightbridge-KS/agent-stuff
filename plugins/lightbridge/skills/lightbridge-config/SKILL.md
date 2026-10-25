@@ -31,7 +31,8 @@ key = root path with separators → `-`.
 The same tree holds durable, harness-neutral **state**: `projects/<key>/handoffs/` (the
 `handoff` skill), `projects/<key>/plans/` (approved plan-mode plans, filed by
 `hooks/plan-capture`), `projects/<key>/asks/` (every form the `ask-form` / `ask-form-qmd` CLIs
-collected, always-on; Quarto companion bundles live in `asks/_bundles/`), `projects/<key>/artifacts/` (rich-document source, manifest,
+collected, always-on; Quarto companion bundles live in `asks/_bundles/`), `projects/<key>/explorable-documents/` (explorable-document immutable source/build/evidence
+and separate optional submissions), `projects/<key>/artifacts/` (rich-document source, manifest,
 assets, and rendered HTML; saved by default), `~/.lightbridge/repos.toml` (the personal name→path repo
 registry), `~/.lightbridge/graph.toml` (the cross-repo graph — typed edges between
 registered repos; spec: the **repo-graph** skill), `~/.lightbridge/keys.toml` +

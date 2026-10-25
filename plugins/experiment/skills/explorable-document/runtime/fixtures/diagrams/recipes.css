@@ -1,0 +1,65 @@
+/* Authored recipe styling, separate from the four primitive contracts. */
+.recipe-spectrum > .ed-diagram-layout {
+  gap: 12px;
+}
+.recipe-spectrum .ed-diagram-node {
+  text-align: left;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.recipe-spectrum .ed-diagram-icon {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0 0 0 16px;
+}
+.recipe-spectrum .ed-diagram-title {
+  grid-column: 1;
+  grid-row: 1;
+}
+.recipe-spectrum .ed-diagram-content {
+  grid-column: 1 / -1;
+}
+.recipe-code-node .ed-diagram-title {
+  font-family: ui-monospace, monospace;
+}
+.recipe-architecture .ed-diagram-boundary {
+  text-align: center;
+}
+.code-shell {
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  margin-bottom: 24px;
+}
+.code-shell .row {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.code-shell .pink {
+  color: var(--red);
+}
+.code-shell .orange {
+  color: var(--orange);
+}
+.code-shell .green {
+  color: var(--teal);
+}
+.code-shell .purple {
+  color: var(--blue);
+}
+.code-shell pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.recipe-architecture hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 18px 0;
+}
+.recipe-concepts .ed-diagram-node {
+  justify-content: flex-start;
+}

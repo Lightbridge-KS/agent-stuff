@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "title": "Document lifecycle walkthrough",
+  "summary": "Step through authoring, building, exploring, and optional review.",
+  "entry": "document.tsx",
+  "layout": "article",
+  "assets": [],
+  "data_sources": [
+    {
+      "id": "example",
+      "kind": "synthetic",
+      "description": "Step through authoring, building, exploring, and optional review."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "next",
+      "trigger": "Next",
+      "input_schema": {
+        "type": "null"
+      },
+      "outputs": ["step-title", "step-detail"],
+      "expected": "Active step and explanation update."
+    },
+    {
+      "id": "back",
+      "trigger": "Back",
+      "input_schema": {
+        "type": "null"
+      },
+      "outputs": ["step-title", "step-detail"],
+      "expected": "Active step and explanation update."
+    },
+    {
+      "id": "reset",
+      "trigger": "Reset",
+      "input_schema": {
+        "type": "null"
+      },
+      "outputs": ["step-title", "step-detail"],
+      "expected": "Active step and explanation update."
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "explorable-document-runtime",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.18.2",
+  "engines": {
+    "node": "26.7.x"
+  },
+  "scripts": {
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
+    "build": "node build.mjs",
+    "browser": "node browser.mjs",
+    "test:diagrams": "node tests/diagram-browser.mjs",
+    "test:charts": "node tests/chart-browser.mjs",
+    "test:forms": "node tests/form-browser.mjs"
+  },
+  "dependencies": {
+    "@mdx-js/rollup": "3.1.1",
+    "ajv": "8.20.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remark-gfm": "4.0.1",
+    "vite": "8.3.5"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@biomejs/biome": "2.6.3",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "playwright": "1.64.1",
+    "typescript": "6.0.3"
+  }
+}

@@ -162,3 +162,7 @@ on `127.0.0.1` (enum choices and bounded width integers), never answers. The pag
 loopback (except a `context.src` http(s) image you declare). A diagram that fails to parse shows
 its error and source in place. Do not put PHI in a spec
 you cannot justify showing in a browser tab.
+
+For source-backed MDX/TSX explanations with local reader interactions and optional
+reviewed snapshots, use `explorable-document`. Its controlled viewer hosts an
+open-ended sandboxed body; it does not provide live agent continuation.

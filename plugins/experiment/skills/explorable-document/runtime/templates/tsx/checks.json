@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "interaction": "next",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "button",
+          "index": 1
+        },
+        {
+          "action": "text",
+          "selector": "#step-title",
+          "value": "2. Build"
+        }
+      ]
+    },
+    {
+      "interaction": "back",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "button",
+          "index": 1
+        },
+        {
+          "action": "click",
+          "selector": "button",
+          "index": 0
+        },
+        {
+          "action": "text",
+          "selector": "#step-title",
+          "value": "1. Author"
+        }
+      ]
+    },
+    {
+      "interaction": "reset",
+      "steps": [
+        {
+          "action": "click",
+          "selector": "button",
+          "index": 1
+        },
+        {
+          "action": "click",
+          "selector": "button",
+          "index": 2
+        },
+        {
+          "action": "text",
+          "selector": "#step-title",
+          "value": "1. Author"
+        }
+      ]
+    }
+  ]
+}

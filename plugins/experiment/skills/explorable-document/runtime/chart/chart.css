@@ -1,0 +1,205 @@
+.ed-chart-frame {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ed-chart-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.ed-chart-header > strong {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+.ed-chart-controls {
+  min-width: 0;
+  max-width: 100%;
+}
+.ed-chart-summary,
+.ed-chart-note {
+  color: var(--muted);
+}
+.ed-chart-note {
+  font-size: 0.8rem;
+  margin-bottom: 0;
+}
+.ed-chart-plot {
+  min-width: 0;
+}
+.ed-chart-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding: 0;
+  font-size: 0.9rem;
+}
+.ed-chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ed-chart-frame [data-chart-tone="blue"] {
+  color: var(--blue);
+}
+.ed-chart-frame [data-chart-tone="teal"] {
+  color: var(--teal);
+}
+.ed-chart-frame [data-chart-tone="orange"] {
+  color: var(--orange);
+}
+.ed-chart-frame [data-chart-tone="red"] {
+  color: var(--red);
+}
+.ed-chart-frame [data-chart-tone="neutral"] {
+  color: var(--muted);
+}
+.ed-chart-parts-list {
+  list-style: none;
+  padding: 0;
+}
+.ed-chart-parts-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ed-chart-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background: currentColor;
+  margin-right: 8px;
+  border-radius: 2px;
+}
+.ed-chart-total {
+  font-variant-numeric: tabular-nums;
+}
+.ed-chart-inspect {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+.ed-chart-inspect label {
+  min-width: 0;
+}
+.ed-chart-inspect select {
+  margin-left: 12px;
+  max-width: 100%;
+}
+.ed-chart-navigation {
+  display: flex;
+  gap: 10px;
+}
+.ed-chart-readout {
+  background: var(--raised);
+  border-left: 3px solid var(--blue);
+  padding: 14px 18px;
+  margin: 16px 0;
+  min-height: 60px;
+  font-variant-numeric: tabular-nums;
+}
+.ed-chart-data {
+  font-size: 0.85rem;
+}
+.ed-chart-data table {
+  width: 100%;
+  table-layout: fixed;
+}
+.ed-chart-data th,
+.ed-chart-data td {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  vertical-align: top;
+}
+.ed-chart-diagnostic {
+  border-left: 3px solid var(--orange);
+  padding: 10px 14px;
+}
+.ed-chart-empty {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  color: var(--muted);
+}
+.ed-chart-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .ed-chart-parts-list li {
+    gap: 8px;
+    font-size: 0.8rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr) auto;
+  }
+  .ed-chart-inspect label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-basis: 100%;
+  }
+  .ed-chart-inspect select {
+    min-width: 0;
+    flex: 1;
+  }
+}
+
+.ed-chart-frame > .ed-chart-header {
+  color: var(--text);
+  font-size: 1rem;
+  margin: 0;
+}
+.ed-chart-line svg,
+.ed-chart-parts svg {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+}
+.ed-chart-line text {
+  fill: var(--muted);
+  font:
+    12px ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+.ed-chart-gridline {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 3 5;
+}
+.ed-chart-crosshair {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+.ed-chart-line .ed-chart-axis-label {
+  fill: var(--text);
+}
+.ed-chart-controls fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.ed-chart-controls legend {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.ed-chart-parts > svg {
+  clip-path: inset(4px 0 round 8px);
+}
+.ed-chart-parts-list {
+  font-variant-numeric: tabular-nums;
+}
