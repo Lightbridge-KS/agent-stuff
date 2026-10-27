@@ -45,7 +45,9 @@ def script_argv(*args: str) -> list[str]:
 
 
 def run_validate(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(script_argv(*args), capture_output=True, text=True, encoding="utf-8")
+    return subprocess.run(
+        script_argv(*args), capture_output=True, text=True, encoding="utf-8"
+    )
 
 
 def make_tree(base: Path, domain: str = "demo", skill: str = "sample") -> Path:
@@ -98,7 +100,9 @@ class ValidateCase(unittest.TestCase):
 
     def test_content_mode_bad_json(self) -> None:
         root = make_tree(self.base)
-        (root / "plugins" / "demo" / ".claude-plugin" / "plugin.json").write_text("{nope")
+        (root / "plugins" / "demo" / ".claude-plugin" / "plugin.json").write_text(
+            "{nope"
+        )
         proc = run_validate("--root", str(root))
         self.assert_no_traceback(proc)
         self.assertEqual(proc.returncode, 1)
@@ -136,7 +140,9 @@ class ValidateCase(unittest.TestCase):
         return proc
 
     def test_profile_green(self) -> None:
-        proc = self.profile_case('[claude]\n[codex]\nlike = "claude"\n[agents]\nexclude = ["demo/*"]\n')
+        proc = self.profile_case(
+            '[claude]\n[codex]\nlike = "claude"\n[agents]\nexclude = ["demo/*"]\n'
+        )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("profiles.toml", proc.stdout)
 
@@ -167,6 +173,64 @@ class ValidateCase(unittest.TestCase):
         self.assert_no_traceback(proc)
         self.assertEqual(proc.returncode, 1)
         self.assertIn(str(empty), proc.stderr)
+
+
+class CodexAgentValidationTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name)
+
+    def test_native_agent_contract(self):
+        root = make_tree(self.base)
+        agents = root / "plugins/demo/agents"
+        agents.mkdir()
+        agent = agents / "reviewer.toml"
+        valid = (
+            'name = "reviewer"\ndescription = "Review changes"\n'
+            'developer_instructions = "Inspect only."\n'
+            'model = "gpt-6.1-sol"\nmodel_reasoning_effort = "high"\n'
+            "[features]\nmemories = false\n"
+        )
+        agent.write_text(valid)
+        proc = run_validate("--root", str(root))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("1 subagents", proc.stdout)
+        for content, expected in (
+            ("not valid TOML", "invalid TOML"),
+            (
+                valid.replace('developer_instructions = "Inspect only."', ""),
+                "developer_instructions",
+            ),
+            (valid.replace('name = "reviewer"', 'name = "other"'), "filename stem"),
+            (
+                valid.replace(
+                    'model_reasoning_effort = "high"', 'model_reasoning_effort = "huge"'
+                ),
+                "model_reasoning_effort",
+            ),
+            ('sandbox_mode = "read-only"\n' + valid, "sandbox_mode"),
+        ):
+            with self.subTest(expected=expected):
+                agent.write_text(content)
+                proc = run_validate("--root", str(root))
+                self.assertNotIn("Traceback", proc.stderr)
+                self.assertEqual(proc.returncode, 1)
+                self.assertIn(expected, proc.stderr)
+
+    def test_cross_format_name_collision(self):
+        root = make_tree(self.base)
+        agents = root / "plugins/demo/agents"
+        agents.mkdir()
+        (agents / "reviewer.toml").write_text(
+            'name = "reviewer"\ndescription = "Review"\ndeveloper_instructions = "Inspect."\n'
+        )
+        (agents / "reviewer.md").write_text(
+            "---\nname: reviewer\ndescription: Review\n---\nInspect.\n"
+        )
+        proc = run_validate("--root", str(root))
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("defined more than once", proc.stderr)
 
 
 if __name__ == "__main__":
