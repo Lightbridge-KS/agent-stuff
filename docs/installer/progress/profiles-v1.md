@@ -39,6 +39,19 @@ non-coding agents, prune explicit.
 - **Islands**: `--target DIR` is anonymous, so profiles do not apply; `--domain <island>` is already an explicit selection.
 - **Adopted shelf** (`~/.agents/skills` real dirs): out of scope; governed by the skill-taxonomy drain obligation.
 
+## Toro target — 2026-10-25
+
+- [x] Add the agent-specific `toro` target with `like = "codex"`; retain the shared
+  `agents` coding exclusion and omit Claude subagent delivery.
+- [x] Validate installer behavior and profile selection: 23 installer tests and
+  12 validator tests pass; Toro and Codex each select 52 public skills, including
+  21 coding skills. The shared target still selects 31 non-coding skills.
+- [x] Install 52 canonical symlinks; `install.py --toro --check` passes.
+- [x] Verify the OpenClaw CLI discovers all 52 skills from the workspace after
+  runtime setup. Existing global per-skill disables remain a separate control.
+- [ ] Fresh model-visible session acceptance; CLI loader proof is not evidence
+  that a session already in progress has refreshed its captured skill catalog.
+
 ## Confirmed contracts
 
 - Absent file, or absent block, means `include = ["*"]`: a tree without a profile installs everything everywhere, as before.

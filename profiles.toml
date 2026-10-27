@@ -21,6 +21,10 @@ like = "claude"
 [pi]
 like = "claude"
 
+[toro]
+# Toro is a coding agent; match the coding harness profile.
+like = "codex"
+
 [agents]
 # ~/.agents/skills serves agents that are not coding-specific: drop the
 # coding-specific domains and the coding-flavoured experiments.

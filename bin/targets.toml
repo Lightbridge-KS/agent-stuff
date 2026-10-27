@@ -24,6 +24,10 @@ agent_mode = "copy"
 [pi]
 skills = "~/.pi/agent/skills"
 
+# Agent-specific OpenClaw workspace; not a shared OpenClaw target.
+[toro]
+skills = "~/.openclaw/workspace-toro/skills"
+
 # Shared cross-agent convention — several agents read here. Installing once can
 # serve more than one tool. Included in `--all` when ~/.agents exists.
 [agents]

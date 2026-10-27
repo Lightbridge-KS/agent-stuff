@@ -192,6 +192,7 @@ anywhere). Adding an agent is one TOML block, no Python change.
 [claude]  skills = "~/.claude/skills"   agents = "~/.claude/agents"
 [codex]   skills = "~/.codex/skills"    agents = "~/.codex/agents"  agent_format = "codex"  agent_mode = "copy"
 [pi]      skills = "~/.pi/agent/skills"
+[toro]    skills = "~/.openclaw/workspace-toro/skills"  # agent-specific workspace
 [agents]  skills = "~/.agents/skills"   # shared cross-agent convention
 ```
 
@@ -204,6 +205,19 @@ format; this does not imply runtime discovery.
 The `agents` entry is the emerging `~/.agents/skills` convention several tools read — one
 install there can serve more than one agent. A skill is a plain `SKILL.md`, so placement is
 format-agnostic: as each agent's skill support matures, the files are already where it looks.
+
+The `toro` target is an agent-specific OpenClaw workspace, not a global OpenClaw
+library. Its profile inherits `codex`, while the shared `agents` target keeps its
+non-coding selection. It has no `agents` key: Claude custom-agent definitions are
+not OpenClaw agent definitions.
+
+OpenClaw installation and runtime discovery are separate checks. Workspace links
+outside the skill root require the canonical content root in
+`skills.load.allowSymlinkTargets`; do not use global `extraDirs` to bypass a
+target's selection. An OpenClaw agent allowlist can still hide installed skills.
+Removing that allowlist inherits the configured default (unrestricted when absent),
+including other eligible shared and bundled skills. Audit both installed links and
+runtime discovery after setup.
 
 ### Profiles and reconcile (`profiles.toml`)
 

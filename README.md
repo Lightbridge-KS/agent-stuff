@@ -45,6 +45,7 @@ uv run bin/install.py --claude                 # ~/.claude/skills      (Claude C
 uv run bin/install.py --codex                  # ~/.codex/skills       (Codex)
 uv run bin/install.py --pi                      # ~/.pi/agent/skills    (Pi)
 uv run bin/install.py --agents                  # ~/.agents/skills      (shared convention)
+uv run bin/install.py --toro                    # Toro's OpenClaw workspace skills
 uv run bin/install.py --claude --codex --pi    # several at once
 uv run bin/install.py --target ~/some/dir      # a custom directory
 
@@ -64,6 +65,12 @@ skill (guarded so it can never delete the source).
 
 **Agents are configured in [`bin/targets.toml`](bin/targets.toml)** — one block per agent.
 Add a new agent there and its `--<name>` flag appears automatically; no code change.
+
+Toro inherits the Codex profile, including coding skills; the shared `agents` target
+continues to exclude `coding/*`. OpenClaw workspace symlinks also require the canonical
+content root in `skills.load.allowSymlinkTargets`. Agent skill allowlists are a separate
+runtime visibility filter; installation alone does not override them. See
+[the target architecture](docs/architecture.md#multi-agent-targets-the-registry).
 
 ### Native subagents
 
