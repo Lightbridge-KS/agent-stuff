@@ -75,7 +75,8 @@ def run_install(repo: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(repo / "bin" / "install.py"), *args],
         capture_output=True,
-        text=True, encoding="utf-8",
+        text=True,
+        encoding="utf-8",
     )
 
 
@@ -88,8 +89,10 @@ class InstallTest(unittest.TestCase):
             # Target dir IS the skills dir, so the "target" resolves to the source.
             result = run_install(
                 repo,
-                "--target", str(source_parent),
-                "--force", "sample",
+                "--target",
+                str(source_parent),
+                "--force",
+                "sample",
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -107,8 +110,12 @@ class InstallTest(unittest.TestCase):
 
             result = run_install(
                 repo,
-                "--target", str(target),
-                "--force", "--mode", "copy", "sample",
+                "--target",
+                str(target),
+                "--force",
+                "--mode",
+                "copy",
+                "sample",
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -122,10 +129,7 @@ class InstallTest(unittest.TestCase):
             base = Path(dir_)
             alpha = base / "alpha" / "skills"
             beta = base / "beta" / "skills"
-            toml = (
-                f"[alpha]\nskills = {str(alpha)!r}\n"
-                f"[beta]\nskills = {str(beta)!r}\n"
-            )
+            toml = f"[alpha]\nskills = {str(alpha)!r}\n[beta]\nskills = {str(beta)!r}\n"
             repo = make_repo(base, targets_toml=toml)
 
             result = run_install(repo, "--alpha", "--beta", "--mode", "copy")
@@ -187,25 +191,25 @@ class InstallTest(unittest.TestCase):
             claude = json.loads(
                 section(out, "~/.claude/settings.json ---\n", "\n# ---")
             )
-            codex = json.loads(
-                section(out, "~/.codex/hooks.json ---\n", "\n# ---")
-            )
+            codex = json.loads(section(out, "~/.codex/hooks.json ---\n", "\n# ---"))
             for block in (claude, codex):
                 handler = block["hooks"]["SessionStart"][0]["hooks"][0]
                 self.assertEqual(handler["type"], "command")
                 self.assertEqual(handler["command"], command)
             # Codex shows statusMessage; the Claude block omits it.
-            self.assertNotIn("statusMessage", claude["hooks"]["SessionStart"][0]["hooks"][0])
-            self.assertIn("statusMessage", codex["hooks"]["SessionStart"][0]["hooks"][0])
+            self.assertNotIn(
+                "statusMessage", claude["hooks"]["SessionStart"][0]["hooks"][0]
+            )
+            self.assertIn(
+                "statusMessage", codex["hooks"]["SessionStart"][0]["hooks"][0]
+            )
 
     def test_subagents_install_alongside_skills(self):
         with tempfile.TemporaryDirectory() as dir_:
             base = Path(dir_)
             skills = base / "alpha" / "skills"
             agents = base / "alpha" / "agents"
-            toml = (
-                f"[alpha]\nskills = {str(skills)!r}\nagents = {str(agents)!r}\n"
-            )
+            toml = f"[alpha]\nskills = {str(skills)!r}\nagents = {str(agents)!r}\n"
             repo = make_repo(base, targets_toml=toml)
             make_agent(repo)
 
@@ -220,9 +224,7 @@ class InstallTest(unittest.TestCase):
             base = Path(dir_)
             skills = base / "alpha" / "skills"
             agents = base / "alpha" / "agents"
-            toml = (
-                f"[alpha]\nskills = {str(skills)!r}\nagents = {str(agents)!r}\n"
-            )
+            toml = f"[alpha]\nskills = {str(skills)!r}\nagents = {str(agents)!r}\n"
             repo = make_repo(base, targets_toml=toml)
             source = make_agent(repo)
 
@@ -271,9 +273,17 @@ class InstallTest(unittest.TestCase):
             dest = base / "dest"
 
             result = subprocess.run(
-                [sys.executable, str(SCRIPT), "--root", str(base / "private"),
-                 "--target", str(dest)],
-                capture_output=True, text=True, encoding="utf-8",
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--root",
+                    str(base / "private"),
+                    "--target",
+                    str(dest),
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -284,9 +294,17 @@ class InstallTest(unittest.TestCase):
             base = Path(dir_)
             (base / "empty").mkdir()
             result = subprocess.run(
-                [sys.executable, str(SCRIPT), "--root", str(base / "empty"),
-                 "--target", str(base / "dest")],
-                capture_output=True, text=True, encoding="utf-8",
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--root",
+                    str(base / "empty"),
+                    "--target",
+                    str(base / "dest"),
+                ],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
             )
             self.assertEqual(result.returncode, 1)
             self.assertIn(str(base / "empty"), result.stderr)
@@ -394,7 +412,9 @@ class ProfileTest(unittest.TestCase):
             add_skill(repo, "other", "extra")
             alpha.mkdir(parents=True)
             # Owned but unwanted after the profile lands: a link into this tree.
-            os.symlink(repo / "plugins" / "demo" / "skills" / "sample", alpha / "sample")
+            os.symlink(
+                repo / "plugins" / "demo" / "skills" / "sample", alpha / "sample"
+            )
             # Owned and dangling: a link into a skill this tree renamed away.
             os.symlink(repo / "plugins" / "demo" / "skills" / "gone", alpha / "gone")
             # Foreign: a link elsewhere, and a real adopted dir.
@@ -405,7 +425,9 @@ class ProfileTest(unittest.TestCase):
             (alpha / "adopted" / "SKILL.md").write_text("---\nname: adopted\n---\n")
             (repo / "profiles.toml").write_text('[alpha]\nexclude = ["demo/*"]\n')
 
-            dry = run_install(repo, "--alpha", "--mode", "symlink", "--prune", "--dry-run")
+            dry = run_install(
+                repo, "--alpha", "--mode", "symlink", "--prune", "--dry-run"
+            )
             self.assertEqual(dry.returncode, 0, dry.stderr)
             self.assertIn("would prune", dry.stdout)
             self.assertTrue((alpha / "sample").is_symlink())  # dry-run touched nothing
@@ -452,7 +474,9 @@ class ProfileTest(unittest.TestCase):
             (repo / "profiles.toml").write_text('[beta]\nexclude = ["other/*"]\n')
             alpha.mkdir(parents=True)
             beta.mkdir(parents=True)
-            os.symlink(repo / "plugins" / "demo" / "skills" / "sample", alpha / "sample")
+            os.symlink(
+                repo / "plugins" / "demo" / "skills" / "sample", alpha / "sample"
+            )
             os.symlink(repo / "plugins" / "demo" / "skills" / "gone", alpha / "gone")
             (alpha / "extra").mkdir()  # foreign dir squatting on a wanted name
             os.symlink(repo / "plugins" / "other" / "skills" / "extra", beta / "extra")
@@ -470,7 +494,9 @@ class ProfileTest(unittest.TestCase):
             self.assertTrue((beta / "extra").is_symlink())
 
             # --force replaces the squatter (as it always did); --prune drops the strays.
-            converge = run_install(repo, "--all", "--mode", "symlink", "--force", "--prune")
+            converge = run_install(
+                repo, "--all", "--mode", "symlink", "--force", "--prune"
+            )
             self.assertEqual(converge.returncode, 0, converge.stderr)
             again = run_install(repo, "--check")
             self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
@@ -497,7 +523,7 @@ class ProfileTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             matrix = result.stdout.split("Profile matrix", 1)[1]
-            row = next(l for l in matrix.splitlines() if "demo/sample" in l)
+            row = next(line for line in matrix.splitlines() if "demo/sample" in line)
             self.assertEqual(row.split()[1:], ["x", "."])
 
     def test_root_reads_its_own_profile(self):
@@ -505,11 +531,15 @@ class ProfileTest(unittest.TestCase):
             base = Path(dir_)
             toml, alpha, beta = two_targets_toml(base)
             repo = make_repo(base, targets_toml=toml)
-            (repo / "profiles.toml").write_text('[alpha]\nexclude = ["*"]\n')  # not used
+            (repo / "profiles.toml").write_text(
+                '[alpha]\nexclude = ["*"]\n'
+            )  # not used
             private = base / "private"
             skill_dir = private / "plugins" / "secret" / "skills" / "hidden"
             skill_dir.mkdir(parents=True)
-            (skill_dir / "SKILL.md").write_text("---\nname: hidden\ndescription: h\n---\n")
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: hidden\ndescription: h\n---\n"
+            )
             (private / "profiles.toml").write_text('[beta]\nexclude = ["secret/*"]\n')
 
             result = run_install(
@@ -519,6 +549,107 @@ class ProfileTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((alpha / "hidden").exists())
             self.assertFalse((beta / "hidden").exists())
+
+
+class NativeAgentTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name)
+        self.alpha = self.base / "alpha"
+        self.beta = self.base / "beta"
+        targets = (
+            f"[alpha]\nskills = '{self.alpha / 'skills'}'\n"
+            f"agents = '{self.alpha / 'agents'}'\n"
+            f"[beta]\nskills = '{self.beta / 'skills'}'\n"
+            f"agents = '{self.beta / 'agents'}'\nagent_format = 'codex'\n"
+        )
+        self.repo = make_repo(self.base, targets)
+        self.claude = make_agent(self.repo)
+        self.codex = self.claude.with_name("reviewer.toml")
+        self.codex.write_text(
+            'name = "reviewer"\ndescription = "Review changes"\n'
+            'developer_instructions = "Inspect only."\n'
+            'model = "gpt-6.1-sol"\nmodel_reasoning_effort = "high"\n'
+        )
+
+    def test_copy_filters_formats_and_check_agrees(self):
+        result = run_install(self.repo, "--alpha", "--beta", "--mode", "copy")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            (self.beta / "agents/reviewer.toml").read_bytes(), self.codex.read_bytes()
+        )
+        self.assertTrue((self.alpha / "agents/sample-agent.md").is_file())
+        self.assertFalse((self.alpha / "agents/reviewer.toml").exists())
+        self.assertFalse((self.beta / "agents/sample-agent.md").exists())
+        checked = run_install(self.repo, "--alpha", "--beta", "--check")
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+
+    def test_explicit_codex_symlink_and_wrong_format_skip(self):
+        preview = run_install(self.repo, "--beta", "--dry-run", "reviewer")
+        self.assertEqual(preview.returncode, 0, preview.stderr)
+        self.assertFalse(self.beta.exists())
+        result = run_install(self.repo, "--beta", "--mode", "symlink", "reviewer")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        link = self.beta / "agents/reviewer.toml"
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(link.resolve(), self.codex.resolve())
+        result = run_install(self.repo, "--alpha", "reviewer")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("skipping subagent", result.stderr)
+        self.assertFalse(self.alpha.exists())
+
+    def test_prune_owned_wrong_format_preserves_foreign_toml(self):
+        result = run_install(self.repo, "--beta", "--mode", "copy")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        wrong = self.beta / "agents/sample-agent.md"
+        wrong.write_bytes(self.claude.read_bytes())
+        foreign = self.beta / "agents/personal.toml"
+        foreign.write_text('name = "personal"\n')
+        checked = run_install(self.repo, "--beta", "--check")
+        self.assertEqual(checked.returncode, 1)
+        self.assertIn("stray", checked.stdout)
+        result = run_install(self.repo, "--beta", "--mode", "copy", "--prune")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(wrong.exists())
+        self.assertTrue(foreign.exists())
+        self.assertEqual(run_install(self.repo, "--beta", "--check").returncode, 0)
+
+    def test_invalid_format_rejected_before_writes(self):
+        registry = self.repo / "bin/targets.toml"
+        registry.write_text(registry.read_text().replace("'codex'", "'unknown'"))
+        result = run_install(self.repo, "--beta")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("agent_format", result.stderr)
+        self.assertFalse(self.beta.exists())
+
+    def test_duplicate_identity_across_formats_rejected(self):
+        self.codex.rename(self.claude.with_suffix(".toml"))
+        result = run_install(self.repo, "--beta")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("duplicate subagent", result.stderr)
+        self.assertFalse(self.beta.exists())
+
+    def test_agent_copy_default_preserves_skill_mode_and_detects_stale_copy(self):
+        registry = self.repo / "bin/targets.toml"
+        registry.write_text(registry.read_text() + "agent_mode = 'copy'\n")
+        result = run_install(self.repo, "--beta")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        installed = self.beta / "agents/reviewer.toml"
+        self.assertTrue(installed.is_file())
+        self.assertFalse(installed.is_symlink())
+        if os.name != "nt":
+            self.assertTrue((self.beta / "skills/sample").is_symlink())
+        self.codex.write_text(
+            self.codex.read_text().replace("Inspect only.", "Inspect changed files.")
+        )
+        checked = run_install(self.repo, "--beta", "--check")
+        self.assertEqual(checked.returncode, 1)
+        self.assertIn("stale", checked.stdout)
+        refreshed = run_install(self.repo, "--beta", "--force")
+        self.assertEqual(refreshed.returncode, 0, refreshed.stderr)
+        self.assertEqual(installed.read_bytes(), self.codex.read_bytes())
+        self.assertEqual(run_install(self.repo, "--beta", "--check").returncode, 0)
 
 
 if __name__ == "__main__":

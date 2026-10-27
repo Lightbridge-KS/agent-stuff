@@ -53,7 +53,7 @@ A folder under `plugins/<domain>/skills/` is a skill **iff it contains `SKILL.md
 Discovery is `glob("plugins/*/skills/*/SKILL.md")` — the filesystem is the index. No
 registry, no manifest to keep in sync (beyond the marketplace listing of domains).
 The same "filesystem is the index" rule holds for the other types: a **file** under
-`plugins/<domain>/agents/` ending in `.md` is a subagent; a folder under `scripts/` is
+`plugins/<domain>/agents/` ending in `.md` or `.toml` is a subagent; a folder under `scripts/` is
 a tool; a folder under `hooks/` is a hook; each carries its contract (`README.md`,
 `hook.toml`, frontmatter), enforced by the validator.
 
@@ -76,20 +76,21 @@ a tool; a folder under `hooks/` is a hook; each carries its contract (`README.md
   registration block (Claude `settings.json`; Codex `hooks.json` / inline `config.toml`, which
   also needs a one-time `/hooks` trust) with paths resolved — it only prints, never edits.
 
-## Subagents (`plugins/<domain>/agents/<name>.md`)
+## Subagents (`plugins/<domain>/agents/<name>.md|toml`)
 
-A subagent is a Claude Code custom-agent definition: YAML frontmatter (`name`,
+A Markdown subagent is a Claude Code custom-agent definition: YAML frontmatter (`name`,
 `description`, optional `model`, `color`, …) over a Markdown body that becomes the
 agent's system prompt. Unlike a skill it is a **single file, not a folder** — mirroring
 Claude Code's own convention (`~/.claude/agents/*.md`, plugin `agents/*.md`).
 
 Three decisions shape the type:
 
-1. **Claude-only, by data.** Codex subagents are TOML with a different field set
-   (`developer_instructions`, `sandbox_mode`, vendor-specific `model`), so a copy can
-   never be correct — shipping there would need a render step, like hooks. Until that
-   exists, exclusion is expressed in `targets.toml`: only targets that declare an
-   `agents` dir receive subagents (no key → skipped, no error).
+1. **Native formats, selected by data.** Codex agents use TOML with `name`,
+   `description`, and `developer_instructions`, plus optional model and reasoning
+   settings. Files are authored natively and installed unchanged. Targets declare
+   an `agents` directory and `agent_format` (`claude` by default, or `codex`).
+   No directory means no subagents; a format mismatch is skipped. See
+   [the native-agent decision](installer/adr/0001-native-agent-formats.md).
 2. **Two channels, one asymmetry.** The plugin marketplace discovers `agents/*.md`
    automatically but namespaces the identity (`productivity:mech`, invoked as
    `@agent-productivity:mech`) and **silently ignores** `hooks`, `mcpServers`, and
@@ -111,6 +112,18 @@ flattens all subagents into one directory); no `<domain>/<name>` clash with a sk
 A subagent must earn its keep through what a skill cannot do — context isolation, tool
 restriction, model/effort override, parallelism — never through persona text. The body
 is written like a contract: input expectations, execution rules, output format.
+
+Codex names share the same uniqueness and skill-collision rules. The validator
+checks native required fields and reasoning levels, and rejects parent-owned
+settings that cannot take effect in custom agents: sandbox, approval policy,
+provider, and MCP servers. Model availability is verified at runtime. Review-only
+behavior is an instruction; the parent still owns permissions. Fresh history is
+selected at dispatch. Native definitions use a version comment.
+
+Codex's role loader rejects symlinked definitions, verified with CLI 0.163.0.
+Its target therefore sets `agent_mode = "copy"`, overriding auto mode for agents
+only. Skills retain normal auto mode. Explicit `--mode` still wins. Native copies
+need `--force` to refresh; `--check` detects content drift as `stale`.
 
 ## Domain = plugin
 
@@ -177,15 +190,16 @@ anywhere). Adding an agent is one TOML block, no Python change.
 
 ```toml
 [claude]  skills = "~/.claude/skills"   agents = "~/.claude/agents"
-[codex]   skills = "~/.codex/skills"    # no `agents` key → no subagents
+[codex]   skills = "~/.codex/skills"    agents = "~/.codex/agents"  agent_format = "codex"  agent_mode = "copy"
 [pi]      skills = "~/.pi/agent/skills"
 [agents]  skills = "~/.agents/skills"   # shared cross-agent convention
 ```
 
-The optional `agents` key is the same registry idea applied to subagents: its
-**presence** opts a target into receiving `plugins/*/agents/*.md` files (symlinked or
-copied flat, one file per subagent). Targets without the key skip subagents with a
-notice — the degrade-vs-skip decision is data, not code.
+The optional `agents` key opts a target into native agent files. `agent_format`
+selects `.md` for `claude` or `.toml` for `codex`; omitting it preserves existing
+Claude delivery. Targets without `agents` skip subagents with a notice. A custom
+`--target` directory exports the selected content flat, including either native
+format; this does not imply runtime discovery.
 
 The `agents` entry is the emerging `~/.agents/skills` convention several tools read — one
 install there can serve more than one agent. A skill is a plain `SKILL.md`, so placement is
@@ -212,7 +226,7 @@ the profile with a notice; `--domain` stays within it. Subagents are not profile
 With a profile the installer becomes a **reconciler**, bounded by *ownership*: an entry
 is this tree's iff it is a symlink whose real path is under `<root>/plugins/` (dangling
 links included — a renamed skill still resolves lexically), or, in copy mode, a real
-entry named in this tree's catalog whose frontmatter `name` matches (the one spot that
+entry named in this tree's catalog whose YAML or TOML `name` matches (the one spot that
 rests on the no-collision convention rather than a path). Everything else — vendored
 links, other trees, adopted copies, harness dirs like `.system` — is foreign and never
 touched or reported.
@@ -221,7 +235,7 @@ touched or reported.
 |---|---|---|
 | `--all` / `--<agent>` | link `wanted − present` (`--force` relinks) | yes |
 | `--prune` | remove `owned − wanted` | yes, explicit only |
-| `--check` | per target: `missing` · `stray` (owned, unwanted) · `broken` (owned, dangling) · `foreign` (wanted name taken by a non-owned entry); exit 0 clean / 1 diverged | no |
+| `--check` | per target: `missing` · `stray` (owned, unwanted) · `broken` (owned, dangling) · `foreign` (wanted name taken by a non-owned entry) · `stale` (native agent copy differs from source); exit 0 clean / 1 diverged | no |
 | `--list` | catalog plus a skill × target matrix | no |
 
 Two trees reconcile the same registry safely because each prunes only under its own

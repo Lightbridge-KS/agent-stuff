@@ -12,7 +12,7 @@ Claude Code plugin marketplace or a small `uv` installer.
 The filesystem is the index — there is no separate registry to keep in sync:
 
 - a folder under `plugins/<domain>/skills/` is a **skill** if it contains `SKILL.md`;
-- a file under `plugins/<domain>/agents/` ending in `.md` is a **subagent**;
+- a file under `plugins/<domain>/agents/` ending in `.md` (Claude) or `.toml` (Codex) is a **subagent**;
 - a folder under `scripts/` is a **tool** (carries a `README.md`);
 - a folder under `hooks/` is a **hook** (carries a `README.md` + `hook.toml`).
 
@@ -20,7 +20,7 @@ The filesystem is the index — there is no separate registry to keep in sync:
 
 ```
 plugins/<domain>/skills/<name>/SKILL.md   # SKILLS — canonical, one folder per skill
-plugins/<domain>/agents/<name>.md         # SUBAGENTS — one file per agent (Claude-only)
+plugins/<domain>/agents/<name>.md|toml    # SUBAGENTS — native Claude or Codex definitions
 plugins/<domain>/.claude-plugin/plugin.json
 .claude-plugin/marketplace.json           # lists every domain plugin
 profiles.toml                             # which skills each agent receives (per-target globs)
@@ -83,8 +83,8 @@ under scripts/ for repeatable logic.>
 ## Subagent contract (`plugins/<domain>/agents/<name>.md`)
 
 A Claude Code custom-agent definition — YAML frontmatter over a Markdown body that
-becomes the agent's system prompt. **One file per subagent, Claude-only** (Codex agents
-are TOML with different fields; targets opt in via an `agents` key in `bin/targets.toml`).
+becomes the agent's system prompt. Targets opt in via an `agents` key in
+`bin/targets.toml`; `agent_format` selects `claude` (default) or `codex`.
 
 ```yaml
 ---
@@ -107,6 +107,24 @@ rules, output format), never persona text.>
 - `hooks`, `mcpServers`, `permissionMode` are silently ignored by the plugin
   marketplace channel — the validator warns if used.
 - Not packageable (claude.ai has no subagent upload); `bin/package.py` ignores them.
+
+### Native Codex agents (`plugins/<domain>/agents/<name>.toml`)
+
+- Required non-empty strings: `name` (equals filename stem), `description`, and
+  `developer_instructions`. Pin `model` and `model_reasoning_effort` when required.
+- `agent_format = "codex"` selects TOML; Claude receives Markdown only. Targets
+  without `agents` receive neither. Files are not converted between formats.
+- Codex uses `agent_mode = "copy"` because its role loader rejects symlinked files.
+  Skills retain normal auto mode. Refresh agent copies with `--force`; `--check`
+  reports stale native copies. Explicit `--mode` still overrides the default.
+- Names remain unique across formats and domains, and cannot shadow Codex built-ins
+  (`default`, `worker`, `explorer`) or a same-domain skill.
+- Permissions are inherited. Native agents cannot override `sandbox_mode`,
+  `approval_policy`, `model_provider`, or `mcp_servers`; validation rejects them.
+  Review-only instructions do not establish a separate sandbox. Fresh context
+  is selected at dispatch, not by an invented agent-file field.
+- Version native definitions with a comment; keep YAML `metadata.version` for
+  Markdown agents. Do not add unsupported fields to the native schema.
 
 ## Scripts contract (`scripts/<tool>/`)
 
@@ -162,7 +180,8 @@ Python, executed via [`uv`](https://docs.astral.sh/uv/) (self-contained scripts 
   tree owns that the profile dropped. Ownership = symlink into `<root>/plugins/`; foreign
   links (vendored, other trees, adopted copies) are never touched.
 - `uv run bin/install.py --check` — read-only audit of every present agent against the
-  profile; exit 1 names each `missing` / `stray` / `broken` / `foreign` entry.
+  profile; exit 1 names each `missing` / `stray` / `broken` / `foreign` entry,
+  plus `stale` native agent copies.
 - `uv run bin/install.py --claude --codex --pi` — install into specific agents.
 - `uv run bin/package.py --list` — list packageable skills.
 - `uv run bin/package.py` — package every skill into `dist/` (one archive per skill).

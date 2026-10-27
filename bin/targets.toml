@@ -6,8 +6,9 @@
 #
 # `agents` (optional) is the directory the agent reads subagent definitions
 # from. Its PRESENCE is what opts a target into receiving subagents — no key,
-# no subagents, no error. Claude-only today: Codex subagents are TOML with a
-# different field set, so shipping there would need a render step, not a copy.
+# no subagents, no error. `agent_format` selects native files: "claude" (.md,
+# the backward-compatible default) or "codex" (.toml). Files are not converted.
+# `agent_mode` overrides auto mode for agent files only; explicit --mode still wins.
 
 [claude]
 skills = "~/.claude/skills"
@@ -15,6 +16,10 @@ agents = "~/.claude/agents"
 
 [codex]
 skills = "~/.codex/skills"
+agents = "~/.codex/agents"
+agent_format = "codex"
+# Codex opens role files without following symlinks. Skills retain normal auto mode.
+agent_mode = "copy"
 
 [pi]
 skills = "~/.pi/agent/skills"

@@ -13,14 +13,14 @@ On top of that, this validator checks:
   * `.claude-plugin/marketplace.json` is well-formed,
   * every `plugins[].source` resolves to a dir with `.claude-plugin/plugin.json`,
   * each `plugin.json` is valid JSON whose `name` matches its marketplace entry,
-  * every subagent (`plugins/<domain>/agents/<name>.md`) has frontmatter whose
-    `name` matches the filename stem, a non-empty `description`, a known `model`
-    value if pinned, no collision with Claude Code built-in agents or with any
+  * native subagents (`plugins/<domain>/agents/<name>.md|toml`) have a `name`
+    matching the filename stem, a non-empty `description`, format-specific model
+    settings and required instructions, no collision with harness built-ins or any
     skill's `<domain>/<name>` key, and a unique name across domains (the
     installer flattens all subagents into one directory),
   * every `scripts/<tool>/` has a `README.md`,
   * every `hooks/<hook>/` has a `README.md` and a well-formed `hook.toml`,
-  * no skill/subagent markdown contains committed tool-call artifacts (stray `</invoke>` etc.).
+  * no skill/subagent contains committed tool-call artifacts (stray `</invoke>` etc.).
 
 This is the machine-checkable half of the contract; human rules live in CLAUDE.md.
 
@@ -89,6 +89,7 @@ class Repo:
         except ValueError:
             return str(path)
 
+
 STRICT_SEMVER = re.compile(
     r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
     r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
@@ -121,6 +122,17 @@ CLAUDE_BUILTIN_AGENTS = {
 PLUGIN_IGNORED_AGENT_FIELDS = ("hooks", "mcpServers", "permissionMode")
 
 SUBAGENT_MODEL_ALIASES = {"opus", "sonnet", "haiku", "fable", "inherit"}
+CODEX_BUILTIN_AGENTS = {"default", "worker", "explorer"}
+CODEX_REASONING_EFFORTS = {
+    "none",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max",
+    "ultra",
+}
 
 
 def parse_frontmatter(text: str) -> dict:
@@ -181,6 +193,8 @@ def validate_skill(path: Path, repo: Repo) -> list[str]:
 
 def validate_subagent(path: Path, repo: Repo) -> list[str]:
     """Return error strings (empty == valid) for one subagent .md, plus stderr warnings."""
+    if path.suffix == ".toml":
+        return validate_codex_agent(path, repo)
     rel = repo.rel(path)
     stem = path.stem
     errors: list[str] = []
@@ -234,6 +248,49 @@ def validate_subagent(path: Path, repo: Repo) -> list[str]:
         if tag in body:
             errors.append(f"{rel}: contains tool-call artifact '{tag}'")
 
+    return errors
+
+
+def validate_codex_agent(path: Path, repo: Repo) -> list[str]:
+    """Validate native Codex agent identity and supported configuration boundaries."""
+    rel = repo.rel(path)
+    try:
+        body = path.read_text(encoding="utf-8")
+        data = tomllib.loads(body)
+    except (OSError, ValueError) as exc:
+        return [f"{rel}: invalid TOML: {exc}"]
+    errors: list[str] = []
+    for key in ("name", "description", "developer_instructions"):
+        if not non_empty_str(data.get(key)):
+            errors.append(f"{rel}: missing or empty {key}")
+    name = data.get("name")
+    if isinstance(name, str):
+        if name != path.stem:
+            errors.append(
+                f"{rel}: name '{name}' must match filename stem '{path.stem}'"
+            )
+        if name.lower() in CODEX_BUILTIN_AGENTS:
+            errors.append(f"{rel}: name '{name}' collides with a Codex built-in agent")
+    if "model" in data and not non_empty_str(data["model"]):
+        errors.append(f"{rel}: model must be a non-empty string")
+    effort = data.get("model_reasoning_effort")
+    if effort is not None and (
+        not isinstance(effort, str) or effort not in CODEX_REASONING_EFFORTS
+    ):
+        errors.append(f"{rel}: invalid model_reasoning_effort '{effort}'")
+    for key in ("sandbox_mode", "approval_policy", "model_provider", "mcp_servers"):
+        if key in data:
+            errors.append(
+                f"{rel}: {key} is inherited from the parent; custom agents cannot override it"
+            )
+    if "features" in data and (
+        not isinstance(data["features"], dict)
+        or any(not isinstance(value, bool) for value in data["features"].values())
+    ):
+        errors.append(f"{rel}: features must be a table of booleans")
+    for tag in TOOL_CALL_ARTIFACTS:
+        if tag in body:
+            errors.append(f"{rel}: contains tool-call artifact '{tag}'")
     return errors
 
 
@@ -386,7 +443,9 @@ def validate_codex_manifests(repo: Repo) -> list[str]:
     return errors
 
 
-def validate_codex_plugin(plugin_dir: Path, expected_name: str, repo: Repo) -> list[str]:
+def validate_codex_plugin(
+    plugin_dir: Path, expected_name: str, repo: Repo
+) -> list[str]:
     """Validate one Codex manifest plus its declared companion paths."""
 
     manifest = plugin_dir / ".codex-plugin" / "plugin.json"
@@ -605,10 +664,17 @@ def main(argv: list[str] | None = None) -> int:
 
     skill_files = sorted(repo.plugins.glob("*/skills/*/SKILL.md"))
     if not skill_files:
-        print(f"No plugins/*/skills/*/SKILL.md files found under {repo.root}.", file=sys.stderr)
+        print(
+            f"No plugins/*/skills/*/SKILL.md files found under {repo.root}.",
+            file=sys.stderr,
+        )
         return 1
 
-    agent_files = sorted(repo.plugins.glob("*/agents/*.md"))
+    agent_files = sorted(
+        path
+        for path in repo.plugins.glob("*/agents/*")
+        if path.is_file() and path.suffix in {".md", ".toml"}
+    )
     # Content mode: no marketplace at this root — the tree publishes nothing, so the
     # marketplace-driven checks are replaced by a direct walk of the domain manifests.
     content_mode = not repo.marketplace.is_file()

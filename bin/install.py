@@ -6,7 +6,7 @@
 """Project shared skills and subagents into one or more agents' directories.
 
 The canonical sources of truth are `plugins/<domain>/skills/<name>/SKILL.md`
-(skills — folders) and `plugins/<domain>/agents/<name>.md` (subagents — single
+(skills — folders) and `plugins/<domain>/agents/<name>.md|toml` (native subagent
 files). This installer discovers both and either symlinks or copies them into
 the directories each agent reads from (flat, keyed by bare name). Subagents
 only ship to targets whose `targets.toml` entry declares an `agents` dir —
@@ -42,7 +42,7 @@ the canonical source if a target happens to resolve to it.
 
 Ownership: `--prune` and `--check` only ever touch or report entries this content
 tree owns — a symlink whose real path is under `<root>/plugins/`, or (copy mode) a
-real entry named in this tree's catalog whose frontmatter `name` matches. Vendored
+real entry named in this tree's catalog whose YAML or TOML `name` matches. Vendored
 links, other trees, adopted copies, and harness-owned dirs are foreign and ignored.
 """
 
@@ -58,6 +58,7 @@ import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypedDict
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PLUGINS_ROOT = REPO_ROOT / "plugins"
@@ -67,17 +68,25 @@ PROFILES_FILE = "profiles.toml"
 
 PROFILE_KEYS = {"include", "exclude", "like"}
 FRONTMATTER_NAME = re.compile(r"^name:\s*(.+?)\s*$", re.MULTILINE)
+AGENT_SUFFIXES = {"claude": ".md", "codex": ".toml"}
 
 
-def load_targets() -> dict[str, dict[str, Path | None]]:
-    """Read bin/targets.toml -> {agent name: {"skills": dir, "agents": dir | None}}.
+class Target(TypedDict):
+    skills: Path
+    agents: Path | None
+    agent_format: str
+    agent_mode: str
+
+
+def load_targets() -> dict[str, Target]:
+    """Read target paths and native agent format/mode from bin/targets.toml.
 
     `skills` is required. `agents` is optional — its presence is what opts a
     target into receiving subagent files (no key, no subagents, no error).
     """
     with TARGETS_FILE.open("rb") as fh:
         data = tomllib.load(fh)
-    targets: dict[str, dict[str, Path | None]] = {}
+    targets: dict[str, Target] = {}
     for name, entry in data.items():
         if name == "root":
             sys.exit("error: targets.toml: 'root' is reserved (collides with --root)")
@@ -87,9 +96,33 @@ def load_targets() -> dict[str, dict[str, Path | None]]:
         agents = entry.get("agents") if isinstance(entry, dict) else None
         if agents is not None and (not isinstance(agents, str) or not agents.strip()):
             sys.exit(f"error: targets.toml: '{name}' has a non-string `agents` path")
+        agent_format = entry.get("agent_format", "claude")
+        if not isinstance(agent_format, str) or agent_format not in AGENT_SUFFIXES:
+            sys.exit(
+                f"error: targets.toml: '{name}' agent_format must be 'claude' or 'codex'"
+            )
+        if "agent_format" in entry and agents is None:
+            sys.exit(
+                f"error: targets.toml: '{name}' agent_format requires an agents path"
+            )
+        agent_mode = entry.get("agent_mode", "auto")
+        if not isinstance(agent_mode, str) or agent_mode not in {
+            "auto",
+            "symlink",
+            "copy",
+        }:
+            sys.exit(
+                f"error: targets.toml: '{name}' agent_mode must be auto, symlink, or copy"
+            )
+        if "agent_mode" in entry and agents is None:
+            sys.exit(
+                f"error: targets.toml: '{name}' agent_mode requires an agents path"
+            )
         targets[name] = {
             "skills": Path(skills).expanduser(),
             "agents": Path(agents).expanduser() if agents else None,
+            "agent_format": agent_format,
+            "agent_mode": agent_mode,
         }
     if not targets:
         sys.exit("error: targets.toml defines no agents")
@@ -140,9 +173,7 @@ def load_profiles(
     blocks: dict[str, dict] = {}
     for name, block in data.items():
         if name not in target_names:
-            errors.append(
-                f"{PROFILES_FILE}: unknown target '{name}' (known: {known})"
-            )
+            errors.append(f"{PROFILES_FILE}: unknown target '{name}' (known: {known})")
             continue
         if not isinstance(block, dict):
             errors.append(f"{PROFILES_FILE}: [{name}] must be a table")
@@ -258,8 +289,8 @@ def owned_entries(
     """Entries in `target_dir` that this content tree may prune or report.
 
     A symlink is owned when its real path is under `plugins_root`. A real dir or
-    `.md` file (copy mode) is owned when its name is in `catalog_names` and its
-    frontmatter `name` matches — the one place ownership rests on the
+    native agent file (copy mode) is owned when its name is in `catalog_names`
+    and its YAML or TOML `name` matches — the one place ownership rests on the
     no-name-collision convention rather than on a path. Everything else is
     foreign and never touched.
     """
@@ -277,6 +308,13 @@ def owned_entries(
                 owned[entry.name] = entry
         elif entry.is_file() and entry.suffix == ".md":
             if frontmatter_name(entry) == entry.stem:
+                owned[entry.name] = entry
+        elif entry.is_file() and entry.suffix == ".toml":
+            try:
+                data = tomllib.loads(entry.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if data.get("name") == entry.stem:
                 owned[entry.name] = entry
     return owned
 
@@ -311,11 +349,13 @@ def check_dir(
     plugins_root: Path,
     wanted: dict[str, str],
     catalog_names: set[str],
+    sources: dict[str, Path] | None = None,
 ) -> list[tuple[str, str]]:
     """Compare a registry dir with what the profile wants. Returns (kind, display).
 
     kinds: missing (wanted, absent) · foreign (wanted, but the name is taken by an
-    entry this tree does not own) · broken (owned symlink, dangling) · stray
+    entry this tree does not own) · broken (owned symlink, dangling) · stale
+    (native copy differs from source) · stray
     (owned, not wanted). `wanted` maps entry name -> display key.
     """
     owned = owned_entries(target_dir, plugins_root, catalog_names)
@@ -325,6 +365,9 @@ def check_dir(
         if name in owned:
             if not entry.exists():
                 findings.append(("broken", key))
+            elif sources and entry.suffix == ".toml" and not entry.is_symlink():
+                if entry.read_bytes() != sources[name].read_bytes():
+                    findings.append(("stale", key))
         elif entry.exists() or entry.is_symlink():
             findings.append(("foreign", key))
         else:
@@ -449,11 +492,17 @@ def available_skills(plugins_root: Path = PLUGINS_ROOT) -> dict[str, Path]:
 
 
 def available_subagents(plugins_root: Path = PLUGINS_ROOT) -> dict[str, Path]:
-    """Map `<domain>/<name>` -> source .md file for every discovered subagent."""
+    """Discover native agent files; never silently overwrite a duplicate identity."""
     found: dict[str, Path] = {}
-    for agent_md in sorted(plugins_root.glob("*/agents/*.md")):
-        domain = agent_md.parent.parent.name
-        found[f"{domain}/{agent_md.stem}"] = agent_md
+    for path in sorted(plugins_root.glob("*/agents/*")):
+        if not path.is_file() or path.suffix not in AGENT_SUFFIXES.values():
+            continue
+        key = f"{path.parent.parent.name}/{path.stem}"
+        if key in found:
+            sys.exit(
+                f"error: duplicate subagent: {key} ({found[key].name}, {path.name})"
+            )
+        found[key] = path
     return found
 
 
@@ -530,7 +579,8 @@ def parse_args(argv: list[str], registry: dict[str, dict]) -> argparse.Namespace
             f"--{name}", action="store_true", help=f"Target {dirs['skills']}"
         )
     parser.add_argument(
-        "--all", action="store_true",
+        "--all",
+        action="store_true",
         help="Install into every agent present on this machine.",
     )
     parser.add_argument(
@@ -546,20 +596,24 @@ def parse_args(argv: list[str], registry: dict[str, dict]) -> argparse.Namespace
         "--force", action="store_true", help="Replace an existing skill at the target."
     )
     parser.add_argument(
-        "--prune", action="store_true",
+        "--prune",
+        action="store_true",
         help="Remove entries this tree owns that the profile no longer selects.",
     )
     parser.add_argument(
-        "--check", action="store_true",
+        "--check",
+        action="store_true",
         help="Read-only: report missing/stray/broken entries per target; exit 1 if any. "
         "Without agent flags, checks every agent present.",
     )
     parser.add_argument(
-        "--list", action="store_true",
+        "--list",
+        action="store_true",
         help="List available skills, agents, and the profile matrix, then exit.",
     )
     parser.add_argument(
-        "--hooks", action="store_true",
+        "--hooks",
+        action="store_true",
         help="Print hook registration blocks for Claude & Codex (paths resolved), then exit.",
     )
     return parser.parse_args(argv)
@@ -576,11 +630,22 @@ def resolve_targets(
     if args.target:
         # A custom dir receives everything flat — skills and subagents alike.
         custom = Path(args.target).expanduser()
-        return [("target", {"skills": custom, "agents": custom})]
+        return [
+            (
+                "target",
+                {
+                    "skills": custom,
+                    "agents": custom,
+                    "agent_format": "all",
+                    "agent_mode": "auto",
+                },
+            )
+        ]
 
     if args.all or (args.check and not chosen):
         present = [
-            (name, dirs) for name, dirs in registry.items()
+            (name, dirs)
+            for name, dirs in registry.items()
             if is_present(dirs["skills"])
         ]
         if not present:
@@ -648,7 +713,9 @@ def print_matrix(
             mark = "x" if profiles.get(name, DEFAULT_PROFILE).selects(key) else "."
             cells.append(mark.center(len(name)))
         print("  " + key.ljust(width) + "  " + "  ".join(cells))
-    undetected = [name for name, dirs in registry.items() if not is_present(dirs["skills"])]
+    undetected = [
+        name for name, dirs in registry.items() if not is_present(dirs["skills"])
+    ]
     if undetected:
         print(f"  (not detected on this machine: {', '.join(undetected)})")
 
@@ -699,7 +766,11 @@ def main(argv: list[str]) -> int:
         print("\nAgents (from bin/targets.toml):")
         for name, dirs in registry.items():
             mark = "present" if is_present(dirs["skills"]) else "not detected"
-            agents_note = f", agents: {dirs['agents']}" if dirs["agents"] else ""
+            agents_note = (
+                f", agents: {dirs['agents']} ({dirs['agent_format']}, {dirs['agent_mode']})"
+                if dirs["agents"]
+                else ""
+            )
             print(f"  --{name:<8} {dirs['skills']}{agents_note}  [{mark}]")
         if skills:
             print_matrix(skills, registry, profiles)
@@ -707,14 +778,16 @@ def main(argv: list[str]) -> int:
 
     if not available:
         print(
-            f"No plugins/*/skills/*/SKILL.md or plugins/*/agents/*.md files found "
+            f"No plugins/*/skills/*/SKILL.md or plugins/*/agents/*.md|toml files found "
             f"under {plugins_root.parent}.",
             file=sys.stderr,
         )
         return 1
 
     if args.check and (args.prune or args.force or args.skills or args.domain):
-        sys.exit("error: --check is read-only; it cannot combine with --prune, --force, or skill names")
+        sys.exit(
+            "error: --check is read-only; it cannot combine with --prune, --force, or skill names"
+        )
 
     mode = resolve_mode(args.mode)
     targets = resolve_targets(args, registry)
@@ -731,7 +804,7 @@ def main(argv: list[str]) -> int:
 
     # Entry names this tree could ever place in a registry (copy-mode ownership).
     catalog_names = {key.split("/", 1)[1] for key in skills} | {
-        f"{key.split('/', 1)[1]}.md" for key in subagents
+        source.name for source in subagents.values()
     }
 
     diverged = False
@@ -741,18 +814,41 @@ def main(argv: list[str]) -> int:
         if explicit:
             # Explicit names bypass the profile; --domain alone stays within it.
             selected = [
-                key for key in explicit
+                key
+                for key in explicit
                 if key in subagents or key in profile_keys or key in token_keys
             ]
             for key in explicit:
                 if key in subagents or key in profile_keys:
                     continue
                 if key in token_keys:
-                    print(f"note: {key} is outside the {label} profile", file=sys.stderr)
+                    print(
+                        f"note: {key} is outside the {label} profile", file=sys.stderr
+                    )
                 else:
-                    print(f"note: {key} excluded by the {label} profile", file=sys.stderr)
+                    print(
+                        f"note: {key} excluded by the {label} profile", file=sys.stderr
+                    )
         else:
             selected = sorted(profile_keys) + sorted(subagents)
+
+        # Filter once so installation, audit, and pruning agree on each harness.
+        compatible: list[str] = []
+        for key in selected:
+            if (
+                key in subagents
+                and dirs["agents"] is not None
+                and dirs["agent_format"] != "all"
+                and subagents[key].suffix != AGENT_SUFFIXES[dirs["agent_format"]]
+            ):
+                if not args.check:
+                    print(
+                        f"unsupported agent format for {label}, skipping subagent: {key}",
+                        file=sys.stderr,
+                    )
+                continue
+            compatible.append(key)
+        selected = compatible
 
         # What each destination dir should hold: entry name -> display key.
         wanted: dict[Path, dict[str, str]] = {}
@@ -768,13 +864,22 @@ def main(argv: list[str]) -> int:
                 continue
             wanted.setdefault(dest, {})[source.name] = key
 
-        dests = list(dict.fromkeys(
-            d for d in (dirs["skills"], dirs["agents"]) if d is not None
-        ))
+        dests = list(
+            dict.fromkeys(d for d in (dirs["skills"], dirs["agents"]) if d is not None)
+        )
 
         if args.check:
             for dest in dests:
-                findings = check_dir(dest, plugins_root, wanted.get(dest, {}), catalog_names)
+                findings = check_dir(
+                    dest,
+                    plugins_root,
+                    wanted.get(dest, {}),
+                    catalog_names,
+                    {
+                        name: available[key]
+                        for name, key in wanted.get(dest, {}).items()
+                    },
+                )
                 for kind, display in findings:
                     diverged = True
                     print(f"{label:<8} {kind:<8} {display}")
@@ -787,12 +892,20 @@ def main(argv: list[str]) -> int:
                 continue
             if not args.dry_run:
                 dest.mkdir(parents=True, exist_ok=True)
-            install_one(source, dest, mode, force=args.force, dry_run=args.dry_run)
+            item_mode = (
+                resolve_mode(dirs["agent_mode"])
+                if key in subagents and args.mode == "auto"
+                else mode
+            )
+            install_one(source, dest, item_mode, force=args.force, dry_run=args.dry_run)
 
         if args.prune:
             for dest in dests:
                 prune_dir(
-                    dest, plugins_root, set(wanted.get(dest, {})), catalog_names,
+                    dest,
+                    plugins_root,
+                    set(wanted.get(dest, {})),
+                    catalog_names,
                     dry_run=args.dry_run,
                 )
 
