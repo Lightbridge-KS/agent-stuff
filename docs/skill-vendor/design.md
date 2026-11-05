@@ -103,6 +103,12 @@ verified-on      = 2026-07-25    # written by `skill-vendor attest`
 skill-paths      = ["skills/sometool"]
 ```
 
+All-entry `doctor` and `list` additionally scan an existing `~/.dsh/skills` for
+registry-invariant violations. This audit-only path does not expand vendored
+delivery. If the manifest's default registry list includes DSH, its normal managed-entry checks apply
+instead. Named-entry checks still skip registry scans. See
+[the DSH audit decision](adr/0001-dsh-audit-only-registry.md).
+
 Per-entry `registries` overrides `[defaults]`. `version-cmd` defaults to
 `<binary> --version`, parsed as first semver in output; overridable for awkward CLIs.
 

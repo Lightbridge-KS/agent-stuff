@@ -21,6 +21,9 @@ like = "claude"
 [pi]
 like = "claude"
 
+[dsh]
+like = "codex"
+
 [toro]
 # Toro is a coding agent; match the coding harness profile.
 like = "codex"

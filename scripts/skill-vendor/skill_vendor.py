@@ -66,6 +66,8 @@ HOME_ENV = "SKILL_VENDOR_HOME"  # override; exists so the tool is testable in is
 DEFAULT_HOME = "~/.lightbridge"
 MANIFEST_NAME = "skill-vendors.toml"
 DEFAULT_REGISTRIES = ["~/.claude/skills", "~/.codex/skills"]
+# Audit present DSH proxies without opting manifest entries into delivery there.
+AUDIT_ONLY_REGISTRIES = ["~/.dsh/skills"]
 SEMVER = re.compile(r"\d+\.\d+\.\d+")
 
 OK, SKEW, BROKEN = 0, 1, 2
@@ -489,7 +491,9 @@ def emit(reports: list[Report], registry_findings: list[tuple[int, str]], as_jso
     return worst
 
 
-def cmd_status(names: list[str], home: Path, as_json: bool, exit_semantics: bool) -> int:
+def cmd_status(
+    names: list[str], home: Path, as_json: bool, exit_semantics: bool
+) -> int:
     """`doctor` (exit_semantics=True) and `list` (always 0) share one assessment pass."""
     entries, registries, problems = load_manifest(home)
     if problems:
@@ -500,7 +504,17 @@ def cmd_status(names: list[str], home: Path, as_json: bool, exit_semantics: bool
         print("\n".join(unknown), file=sys.stderr)
         return BROKEN
     reports = [assess(e, home) for e in selected]
-    findings = scan_registries(registries, {e.name for e in entries}) if not names else []
+    findings = []
+    if not names:
+        findings = scan_registries(registries, {e.name for e in entries})
+        audit_only = [
+            path
+            for raw in AUDIT_ONLY_REGISTRIES
+            if (path := Path(raw).expanduser()) not in registries
+            and (path.exists() or path.is_symlink())
+        ]
+        # Manifest-managed names are only exempt in their delivery registries.
+        findings += scan_registries(audit_only, set())
     code = emit(reports, findings, as_json)
     return code if exit_semantics else OK
 

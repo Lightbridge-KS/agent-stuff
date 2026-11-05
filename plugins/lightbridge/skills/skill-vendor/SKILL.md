@@ -5,7 +5,7 @@ description: >-
   CLI. Use after upgrading a skill-shipping CLI (brew/npm), when a registry skill drifts
   from its binary, or when asked to add, pin, attest, or audit a vendored skill.
 metadata:
-  version: "2026-08-15"
+  version: "2026-11-05"
 ---
 
 # skill-vendor
@@ -50,6 +50,8 @@ next move.
   them; they are detached checkouts owned by the engine.
 - Authored skills (this repo's `plugins/`) are **not** the engine's business: they are
   co-shipped by co-location and served by plain symlinks.
+- All-entry checks also audit `~/.dsh/skills/` when present. Vendored delivery there
+  still requires an explicit manifest registry; named-entry checks skip this scan.
 
 Deep docs: `scripts/skill-vendor/README.md` (usage) and `docs/skill-vendor/design.md`
 (the settled design) in the agent-stuff repo.

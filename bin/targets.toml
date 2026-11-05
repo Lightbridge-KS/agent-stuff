@@ -24,6 +24,9 @@ agent_mode = "copy"
 [pi]
 skills = "~/.pi/agent/skills"
 
+[dsh]
+skills = "~/.dsh/skills"
+
 # Agent-specific OpenClaw workspace; not a shared OpenClaw target.
 [toro]
 skills = "~/.openclaw/workspace-toro/skills"

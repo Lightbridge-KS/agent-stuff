@@ -40,6 +40,11 @@ skill-path = "/opt/homebrew/lib/node_modules/openclaw/skills/gog"
 Optional per entry: `registries` (overrides defaults), `version-cmd` (default
 `<binary> --version`; first `x.y.z` in its output wins).
 
+The all-entry `doctor` and `list` also audit `~/.dsh/skills` when that path exists.
+This checks the symlink-only registry invariant without installing vendored skills
+there. Add DSH to the manifest's `registries` only when vendored delivery is wanted.
+Named-entry checks retain their existing behavior and skip the registry scan.
+
 ## Usage
 
 ```bash
