@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import os
 import re
+import stat
 import tomllib
 from pathlib import Path
 
@@ -127,9 +128,12 @@ def _load_secrets_table(secrets: Path) -> tuple[dict[str, str] | None, str | Non
     Error strings never embed file content — tomllib errors carry line/col, not values.
     """
     try:
-        if not secrets.is_file():
+        # Python 3.14+ is_file() suppresses access errors; stat keeps denial distinct.
+        if not stat.S_ISREG(secrets.stat().st_mode):
             return None, None
         data = tomllib.loads(secrets.read_text(encoding="utf-8"))
+    except (FileNotFoundError, NotADirectoryError):
+        return None, None
     except PermissionError:
         # A sandbox deny blocks even stat(); that state is expected, not rot.
         return None, SECRETS_DENIED
