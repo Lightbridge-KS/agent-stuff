@@ -182,7 +182,7 @@ Python, executed via [`uv`](https://docs.astral.sh/uv/) (self-contained scripts 
 - `uv run bin/install.py --check` — read-only audit of every present agent against the
   profile; exit 1 names each `missing` / `stray` / `broken` / `foreign` entry,
   plus `stale` native agent copies.
-- `uv run bin/install.py --claude --codex --pi` — install into specific agents.
+- `uv run bin/install.py --claude --codex --pi --dsh` — install into specific agents.
 - `uv run bin/package.py --list` — list packageable skills.
 - `uv run bin/package.py` — package every skill into `dist/` (one archive per skill).
 - `uv run bin/package.py <skill>` / `--domain <domain>` — package one skill or one domain.

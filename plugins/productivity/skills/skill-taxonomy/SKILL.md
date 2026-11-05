@@ -7,7 +7,7 @@ description: >-
   instruction text lives or how it ages; or whenever "castle gate", "context castle",
   "drain obligation", or "registry invariant" come up.
 metadata:
-  version: "2026-09-11"
+  version: "2026-11-05"
 ---
 
 # Skill taxonomy
@@ -33,7 +33,7 @@ Orthogonal to kinds (kinds = what deficit a skill fills; vendors = who keeps it 
 - **Harness-provided** — ships with the harness itself (Claude Code plugins, Codex `.system`), out of the box. Zero maintenance, zero adaptability. Acceptable only for Reference-kind; the moment I need to bend one, that's a fork → Adopted → castle gate.
 - **Adopted** — a third-party copy with **no guarantor**: a snapshot aging silently from copy day. A **staging state, not a home** — the shelf is `~/.agents/skills/`, and everything on it carries a drain obligation: pass the castle gate into Authored (public or private), or re-wire to upstream as Vendored (= a `skill-vendor` manifest entry). Never symlink new adoptions anywhere else.
 
-**Registry invariant:** `~/.claude/skills/` and `~/.codex/skills/` are pure proxies — **symlinks only**, every skill resolving to a governed home above. A real directory in a registry is unvendored drift by definition (checkable: `skill-vendor doctor` — violations report as skew, exit 1).
+**Registry invariant:** `~/.claude/skills/`, `~/.codex/skills/`, and `~/.dsh/skills/` are pure proxies — **symlinks only**, every skill resolving to a governed home above. A real directory in a registry is unvendored drift by definition (checkable: `skill-vendor doctor` — violations report as skew, exit 1).
 
 ## Related skills
 

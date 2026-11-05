@@ -35,7 +35,9 @@ non-coding agents, prune explicit.
 
 - **Skill-side veto** (`metadata.targets` in SKILL.md frontmatter) for skills that are intrinsically harness-bound. Rejected for v1: the common decision is consumer-side and domain-wide, which is one line in `profiles.toml`.
 - **Per-machine overrides** in `~/.lightbridge`. The variance observed is per harness, not per machine; `--all` presence detection already covers "which harnesses exist here".
-- **Private tree profile** (`agent-stuff-private/profiles.toml`): its own repo, own PR. Known drift there: the artifact template is Codex-only today.
+- **Broader private-tree selections**: `agent-stuff-private/profiles.toml` now
+  excludes the OpenAI-dependent template for DSH. Other harnesses retain their
+  existing defaults; a complete private selection matrix remains separate work.
 - **Islands**: `--target DIR` is anonymous, so profiles do not apply; `--domain <island>` is already an explicit selection.
 - **Adopted shelf** (`~/.agents/skills` real dirs): out of scope; governed by the skill-taxonomy drain obligation.
 
@@ -51,6 +53,18 @@ non-coding agents, prune explicit.
   runtime setup. Existing global per-skill disables remain a separate control.
 - [ ] Fresh model-visible session acceptance; CLI loader proof is not evidence
   that a session already in progress has refreshed its captured skill catalog.
+
+## DSH target — 2026-11-05
+
+- [x] Add the `dsh` target at `~/.dsh/skills` with `like = "codex"` for public skills.
+- Native subagents remain absent from this target; runtime adapters require
+  independent support.
+- The private content tree owns its own DSH exclusions through its `profiles.toml`.
+- [x] Verify 54 public and 2 private skill links with both trees' `--dsh --check`;
+  installer (29), validator (14), skill-vendor (21), and skill-health (23) tests pass.
+  Instruction render checks and symlink/copy install safeguards also pass.
+- [ ] Fresh DSH session verifies linked prompt and skill loading. Filesystem
+  delivery is verified; runtime discovery is not yet verified.
 
 ## Confirmed contracts
 

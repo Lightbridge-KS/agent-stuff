@@ -192,6 +192,7 @@ anywhere). Adding an agent is one TOML block, no Python change.
 [claude]  skills = "~/.claude/skills"   agents = "~/.claude/agents"
 [codex]   skills = "~/.codex/skills"    agents = "~/.codex/agents"  agent_format = "codex"  agent_mode = "copy"
 [pi]      skills = "~/.pi/agent/skills"
+[dsh]     skills = "~/.dsh/skills"
 [toro]    skills = "~/.openclaw/workspace-toro/skills"  # agent-specific workspace
 [agents]  skills = "~/.agents/skills"   # shared cross-agent convention
 ```
@@ -201,6 +202,12 @@ selects `.md` for `claude` or `.toml` for `codex`; omitting it preserves existin
 Claude delivery. Targets without `agents` skip subagents with a notice. A custom
 `--target` directory exports the selected content flat, including either native
 format; this does not imply runtime discovery.
+
+DSH receives the Codex skill selection through `like = "codex"`. It has no
+`agents` key: native subagent formats and hooks need their own supported adapter.
+Its user prompt is separately rendered by `agent-instruction` to `dist/dsh.md`
+and installed as `~/.dsh/AGENTS.md`. A fresh DSH session must verify linked prompt
+and skill discovery; the installer checks delivery only.
 
 The `agents` entry is the emerging `~/.agents/skills` convention several tools read — one
 install there can serve more than one agent. A skill is a plain `SKILL.md`, so placement is

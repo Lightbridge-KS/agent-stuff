@@ -144,6 +144,16 @@ class LoadSecretsTest(unittest.TestCase):
         self.assertIsNone(names)
         self.assertIsNone(error)
 
+    def test_non_file_paths_are_not_opted_in(self):
+        with tempfile.TemporaryDirectory() as d:
+            directory = Path(d)
+            file = directory / "regular-file"
+            file.write_text("fixture", encoding="utf-8")
+            for path in (directory, file / "secrets.toml"):
+                with self.subTest(path=path):
+                    self.assertEqual(lb_keys.load_secret_names(path), (None, None))
+                    self.assertEqual(lb_keys.load_secrets(path), (None, None))
+
     def test_bad_toml_is_an_error(self):
         with tempfile.TemporaryDirectory() as d:
             secrets = Path(d) / "secrets.toml"
@@ -431,7 +441,11 @@ class KeyCatalogCliTest(KeyCliBase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("openai-personal", result.stdout)
             self.assertIn("OPENAI_API_KEY", result.stdout)
-            marked = [l for l in result.stdout.splitlines() if "← NO VALUE" in l]
+            marked = [
+                output_line
+                for output_line in result.stdout.splitlines()
+                if "← NO VALUE" in output_line
+            ]
             self.assertEqual(len(marked), 1)
             self.assertIn("gemini-personal", marked[0])
 
@@ -782,7 +796,11 @@ class StatusKeysLineTest(KeyCliBase):
         with tempfile.TemporaryDirectory() as d:
             result = self.run_status(Path(d))
             self.assertEqual(result.returncode, 0, result.stderr)
-            line = [l for l in result.stdout.splitlines() if l.startswith("keys")]
+            line = [
+                output_line
+                for output_line in result.stdout.splitlines()
+                if output_line.startswith("keys")
+            ]
             self.assertEqual(len(line), 1)
             self.assertIn("absent", line[0])
             self.assertIn("key add", line[0])
@@ -792,7 +810,11 @@ class StatusKeysLineTest(KeyCliBase):
             base = Path(d)
             write_pair(base)
             result = self.run_status(base)
-            line = [l for l in result.stdout.splitlines() if l.startswith("keys")][0]
+            line = [
+                output_line
+                for output_line in result.stdout.splitlines()
+                if output_line.startswith("keys")
+            ][0]
             self.assertIn("2 key(s)", line)
 
     def test_unreadable_catalog_is_flagged_not_fatal(self):
@@ -801,7 +823,11 @@ class StatusKeysLineTest(KeyCliBase):
             (base / "keys.toml").write_text("not = toml = at all", encoding="utf-8")
             result = self.run_status(base)
             self.assertEqual(result.returncode, 0, result.stderr)  # config, not keys, gates exit
-            line = [l for l in result.stdout.splitlines() if l.startswith("keys")][0]
+            line = [
+                output_line
+                for output_line in result.stdout.splitlines()
+                if output_line.startswith("keys")
+            ][0]
             self.assertIn("UNREADABLE", line)
 
     def test_json_sub_object(self):

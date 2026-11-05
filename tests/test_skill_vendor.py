@@ -32,6 +32,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TOOL = REPO_ROOT / "scripts" / "skill-vendor" / "skill_vendor.py"
@@ -85,6 +86,8 @@ class SkillVendorCase(unittest.TestCase):
         self.reg_b = base / "codex-skills"
         self.reg_a.mkdir()
         self.reg_b.mkdir()
+        self.reg_dsh = base / ".dsh" / "skills"
+        self.enterContext(patch.object(sv, "AUDIT_ONLY_REGISTRIES", [str(self.reg_dsh)]))
 
         # Upstream repo: v1.0.0 keeps the skill at .agents/skills/x (old layout),
         # v2.0.0 moves it to skills/x — mirrors crabbox's real history.
@@ -303,6 +306,48 @@ class SkillVendorCase(unittest.TestCase):
         (self.reg_a / "squatter").mkdir()
         self.assertEqual(sv.cmd_status(["x"], self.home, as_json=False, exit_semantics=True), 0)
 
+    def test_present_dsh_is_audited_without_vendor_delivery(self) -> None:
+        self.first_party()
+        self.reg_dsh.mkdir(parents=True)
+        self.assertEqual(sv.cmd_sync([], self.home, as_json=False), 0)
+        self.assertEqual(list(self.reg_dsh.iterdir()), [])
+        self.assertEqual(
+            sv.cmd_status([], self.home, as_json=False, exit_semantics=True), 0
+        )
+        # A manifest-managed name is not exempt in a registry outside its delivery set.
+        (self.reg_dsh / "x").mkdir()
+        self.assertEqual(
+            sv.cmd_status([], self.home, as_json=False, exit_semantics=True), 1
+        )
+        self.assertTrue((self.reg_dsh / "x").is_dir())
+        self.assertEqual(
+            sv.cmd_status(["x"], self.home, as_json=False, exit_semantics=True), 0
+        )
+
+    def test_absent_dsh_does_not_require_installation(self) -> None:
+        self.first_party()
+        sv.cmd_sync([], self.home, as_json=False)
+        self.assertFalse(self.reg_dsh.exists())
+        self.assertEqual(
+            sv.cmd_status([], self.home, as_json=False, exit_semantics=True), 0
+        )
+        self.assertFalse(self.reg_dsh.exists())
+
+    def test_manifest_managed_dsh_retains_broken_link_status(self) -> None:
+        self.first_party()
+        manifest = self.home / "skill-vendors.toml"
+        manifest.write_text(
+            manifest.read_text().replace(
+                sv.toml_str(str(self.reg_b)), sv.toml_str(str(self.reg_dsh))
+            )
+        )
+        self.reg_dsh.mkdir(parents=True)
+        sv.cmd_sync([], self.home, as_json=False)
+        (self.reg_dsh / "x").unlink()
+        self.assertEqual(
+            sv.cmd_status([], self.home, as_json=False, exit_semantics=True), 2
+        )
+
     # ── the tool's own skill must not drift from its CLI ────────────────────
 
     def test_skill_doc_mentions_only_real_verbs(self) -> None:
@@ -320,7 +365,15 @@ class SkillVendorCase(unittest.TestCase):
     def test_subprocess_doctor_json(self) -> None:
         self.first_party()
         sv.cmd_sync([], self.home, as_json=False)
-        env = os.environ | {"SKILL_VENDOR_HOME": str(self.home)}
+        env = os.environ | {
+            "SKILL_VENDOR_HOME": str(self.home),
+            "HOME": self.tmp.name,
+            "USERPROFILE": self.tmp.name,
+            # Keep the runner cache independent of the fixture's isolated user home.
+            "UV_CACHE_DIR": subprocess.check_output(
+                ["uv", "cache", "dir"], text=True
+            ).strip(),
+        }
         proc = subprocess.run(
             script_argv(TOOL, "doctor", "--json"), capture_output=True, text=True, env=env
         )

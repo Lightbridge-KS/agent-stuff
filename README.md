@@ -6,7 +6,7 @@ Reusable building blocks for AI coding agents — **skills**, standalone **scrip
 **hooks** — written once and shared everywhere.
 
 Works with [Claude Code](https://docs.claude.com/en/docs/claude-code),
-[Codex](https://developers.openai.com/codex/), [Pi](https://github.com/), and any agent
+[Codex](https://developers.openai.com/codex/), [Pi](https://github.com/), DeepSeek Harness, and any agent
 that reads skills from a directory. A skill is a plain `SKILL.md`; the installer projects
 the same source files into whichever agents you use.
 
@@ -44,6 +44,7 @@ Target specific agents (combine freely), or any directory:
 uv run bin/install.py --claude                 # ~/.claude/skills      (Claude Code)
 uv run bin/install.py --codex                  # ~/.codex/skills       (Codex)
 uv run bin/install.py --pi                      # ~/.pi/agent/skills    (Pi)
+uv run bin/install.py --dsh                     # ~/.dsh/skills         (DeepSeek Harness)
 uv run bin/install.py --agents                  # ~/.agents/skills      (shared convention)
 uv run bin/install.py --toro                    # Toro's OpenClaw workspace skills
 uv run bin/install.py --claude --codex --pi    # several at once
@@ -65,6 +66,12 @@ skill (guarded so it can never delete the source).
 
 **Agents are configured in [`bin/targets.toml`](bin/targets.toml)** — one block per agent.
 Add a new agent there and its `--<name>` flag appears automatically; no code change.
+
+DSH inherits the Codex skill selection. Its target supplies skills only; native
+subagents and hook registration require separate harness support. The instruction
+repository renders its prompt independently as `dist/dsh.md`. Installation and
+`--check` verify filesystem delivery; confirm prompt and skill loading in a fresh
+DSH session before claiming runtime acceptance.
 
 Toro inherits the Codex profile, including coding skills; the shared `agents` target
 continues to exclude `coding/*`. OpenClaw workspace symlinks also require the canonical
