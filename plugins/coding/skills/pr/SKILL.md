@@ -2,7 +2,7 @@
 name: pr
 description: "Git workflow: commit, push, and create/update a draft PR. If a PR exists for the current branch, update its body. Trigger: 'pr' or /pr."
 metadata:
-  version: "2026-10-27"
+  version: "2026-11-15"
 ---
 
 # Commit → Push → PR
@@ -13,7 +13,7 @@ Ship the working tree as a draft PR. You already know git and `gh` — this skil
 
 - **On `main`/`master`:** create a conventionally named branch (`feat/*`, `fix/*`, `chore/*`, `refactoring/*`) and continue there — never commit to the default branch, never hard-stop.
 - **Dry gates before push:** if the project defines a check entrypoint (`justfile`, `package.json` scripts, `Makefile`, CI workflow), run the fast hermetic checks (lint / typecheck / unit tests). **Failure stops the flow** with the output — never push broken. No entrypoint → skip without asking.
-- **Reproducibility review before commit (Codex only):** for maintained code or durable repository documentation, delegate to `reproducibility-reviewer` using [the commit review protocol](references/reproducibility-review.md). The main agent evaluates findings and owns fixes. Reuse a complete review only for the same base and candidate. If the reviewer is unavailable or review remains partial, report the gap and pause before committing. Other harnesses retain their existing workflow.
+- **Change review before commit:** for maintained code or durable repository documentation, run the `change-review` skill on the staged candidate once the dry gates pass. It dispatches fresh-context reviewers; the main agent evaluates findings and owns fixes. Before committing, check that the parent and the index still match the reviewed candidate. After committing, compare the commit's tree with that candidate; if hooks changed it, review the committed tree before pushing. A partial review, a reviewer that fails to dispatch, or a finding that needs a human decision pauses the flow before the commit with the gap reported. A harness with no fresh-context subagent skips the review and reports `not reviewed`.
 - **Protected branches** (`release/*`, branch-protected remotes): confirm before pushing.
 - Commit style: the project's conventions win; default to Conventional Commits. Stage files by name. Co-author trailer is runtime-appropriate — never hardcode one agent's identity. Commit messages follow *Voice* below — and, unlike a PR body, cannot be edited after push.
 
@@ -75,4 +75,4 @@ The reader is a collaborator arriving cold, months later — never the operator 
 
 End with: commit hash + message, whether gates ran and passed, the clickable PR URL (created vs updated), and which structure source was used (repo / owner / built-in — a template whose file is not in the checkout came from the owner). Then, **for the operator**: anything withheld from the body.
 
-For Codex commits containing durable work, include the reproducibility review status and any unresolved findings or accepted deferrals.
+For commits containing durable work, include the change-review status (complete, partial, or not reviewed), the reviewer count, and any unresolved findings or accepted deferrals. Keep tests and review distinct.

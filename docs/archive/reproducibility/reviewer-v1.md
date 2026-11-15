@@ -1,13 +1,16 @@
 ---
-summary: Codex reproducibility reviewer v1 — native agent delivery, commit review protocol, and verification status.
+summary: Archived 2026-11-15 — Codex reproducibility reviewer v1 (native agent delivery, commit review protocol, verification evidence); superseded by change-review.
 read_when:
-  - changing reproducibility-reviewer or its commit workflow
-  - checking native Codex agent delivery and reviewer validation
+  - reading the evidence behind native Codex agent delivery or the first commit reviewer
 ---
 
 # Reproducibility reviewer v1
 
-Parent: [Reproducibility skills v1](v1.md).
+> Superseded 2026-11-15 by [change-review v1](../../change-review/progress/v1.md)
+> ([decision](../../change-review/adr/0001-lens-based-reviewer.md)). The record below is
+> unchanged except for links.
+
+Parent: [Reproducibility skills v1](../../reproducibility/progress/v1.md).
 Classification: Contract × Authored, using the two accepted Concept skills.
 
 ## Accepted scope
@@ -54,9 +57,10 @@ validator while preserving Claude Markdown delivery and unrelated work.
 - `agent-instruction` build and render checks passed. The commit-review trigger is
   confined to the Codex render; the shared reproducibility guidance remains shared.
 
-Canonical implementation: [agent](../../../plugins/coding/agents/reproducibility-reviewer.toml),
-[commit protocol](../../../plugins/coding/skills/pr/references/reproducibility-review.md),
-and [delivery decision](../../installer/adr/0001-native-agent-formats.md).
+Implementation at commit `5f7ad00`, since removed:
+`plugins/coding/agents/reproducibility-reviewer.toml` and
+`plugins/coding/skills/pr/references/reproducibility-review.md`. The
+[delivery decision](../../installer/adr/0001-native-agent-formats.md) still stands.
 
 ## Verification boundary
 

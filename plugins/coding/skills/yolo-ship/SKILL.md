@@ -2,7 +2,7 @@
 name: yolo-ship
 description: "Autonomous git workflow for low-risk work: commit → push → PR → watch CI → fix if red → merge when green → switch-pull-prune. OPT-IN ONLY: invoke only when the user explicitly says 'yolo ship' or /yolo-ship in the current turn — never self-select, never chain from another task."
 metadata:
-  version: "2026-07-19"
+  version: "2026-11-15"
 ---
 
 # YOLO Ship
@@ -24,8 +24,9 @@ Absent that trigger, this skill must never run, even as a "helpful" continuation
    run `pr` only and report why the YOLO path stopped.
    - Never against protected branches (`release/*`, or a base with required-review
      branch protection — the merge would be blocked anyway; check via `gh`).
-1. **Ship** — invoke the `pr` skill. It owns branch policy, dry gates,
-   and the draft-PR contract; a dry-gate failure stops the whole flow there.
+1. **Ship** — invoke the `pr` skill. It owns branch policy, dry gates, the change
+   review, and the draft-PR contract. A dry-gate failure, a partial review, or a
+   finding that needs a human decision stops the whole flow there.
 2. **Ready** — `gh pr ready` (drafts can't merge, and some CI skips them).
 3. **Watch** — `gh pr checks --watch` (re-run on command timeout; state is
    re-entrant).
@@ -36,7 +37,8 @@ Absent that trigger, this skill must never run, even as a "helpful" continuation
    - Fix only what is **low-risk**: lint/format, type errors, missing imports, small
      test or fixture updates, manifest/config sync. Anything touching logic or design
      intent → stop and report instead — that needs the human.
-   - Each attempt: fix → commit → push → re-watch. **Max 3 attempts.**
+   - Each attempt: fix → commit and push under the `pr` policy, the change review of
+     the new candidate included → re-watch. **Max 3 attempts.**
    - The same check failing with the same error twice → treat as flaky or
      environmental: stop, don't spin.
 5. **Merge** — `gh pr merge --merge` (merge commit). No `--delete-branch` — pruning

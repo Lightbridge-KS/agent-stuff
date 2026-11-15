@@ -48,6 +48,6 @@ and repaired by reinstalling with `--force`.
 Tests cover native required fields, identity, reasoning levels, copy and symlink
 delivery, target filtering, audit, pruning, foreign-file preservation, duplicate
 identities, copy defaults, and stale copies. Native dispatch and model availability
-have separate runtime evidence in the [reviewer tracker](../../reproducibility/progress/reviewer-v1.md).
+have separate runtime evidence in the [reviewer tracker](../../archive/reproducibility/reviewer-v1.md).
 
 Reference: [Codex custom agents](https://learn.chatgpt.com/docs/agent-configuration/subagents).
