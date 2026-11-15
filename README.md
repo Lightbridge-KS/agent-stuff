@@ -87,7 +87,8 @@ target. Definitions are installed unchanged, and targets without an `agents`
 directory receive no subagents.
 
 ```sh
-uv run bin/install.py --codex coding/reproducibility-reviewer \
+uv run bin/install.py --claude --codex coding/change-review \
+  coding/change-reviewer coding/change-reviewer-codex coding/change-reviewer-codex-docs \
   coding/reproducible-codebase coding/write-for-the-clone
 ```
 
@@ -95,9 +96,13 @@ Codex agent definitions are copied because its role loader rejects symlinks.
 Skills retain their normal mode. Reinstall agent definitions with `--force` after
 changes; `--check` reports stale native copies.
 
-The reviewer inspects a proposed commit and reports findings to the main agent,
-which owns fixes and delivery. See the
-[commit review protocol](plugins/coding/skills/pr/references/reproducibility-review.md).
+The reviewer (`change-reviewer`, or `change-reviewer-codex` on Codex) inspects a
+candidate change with fresh context and reports findings to the main agent, which
+owns fixes and delivery. The
+[`change-review`](plugins/coding/skills/change-review/SKILL.md) skill holds the
+protocol; the `pr` skill runs it before each commit of durable work. Codex uses
+`change-reviewer-codex-docs` for documentation-only changes because native role
+model and effort pins take precedence over spawn overrides.
 
 ### Claude Code plugin marketplace (Claude Code only)
 
