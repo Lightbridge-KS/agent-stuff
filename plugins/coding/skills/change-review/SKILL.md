@@ -102,6 +102,8 @@ The packet, and nothing else:
 - Spec lens: the spec text, or its path.
 - On a re-review: the previous candidate ID, and the prior findings with their
   dispositions.
+- On a full review after a partial one: the prior findings with their dispositions,
+  and no previous candidate ID.
 
 Never supply your conclusions about why the change is correct. Never substitute a
 full-history fork, a different agent, or your own review.
@@ -137,17 +139,30 @@ nothing unless asked.
 ## 6. Re-review
 
 A fix or a modifying check changes the candidate, and a result never covers a
-different base or tree. Capture the new candidate and dispatch again with every
-assigned lens, planned as in step 2 from the difference between the two candidates.
-Add the previous candidate ID and the prior findings with their dispositions to the
-packet. The reviewer confirms the fixes and applies every lens to what changed;
-together with the earlier complete review, that covers the new candidate in full.
-If the earlier review was partial, review the new candidate against the base in
-full instead. The model tier follows the whole candidate, not the difference.
+different base or tree. Capture the new candidate, then take the first case that
+fits:
+
+- **The last pass was partial.** Run a full review of the new candidate against the
+  base, steps 2 to 5. Send no previous candidate ID; the prior findings and their
+  dispositions go in the packet as context.
+- **Close without a dispatch.** The last pass was complete, every finding was low,
+  and every fix changes only wording: how something is said, not what a reader, an
+  agent, or a machine is told to do. Close; the captured candidate is the closing tree.
+- **Otherwise, re-review.** Dispatch again with every assigned lens, planned as in
+  step 2 from the difference between the two candidates. Add the previous candidate
+  ID and the prior findings with their dispositions to the packet. The reviewer
+  confirms the fixes and applies every lens to what changed; together with the
+  earlier complete review, that covers the new candidate in full.
+
+The model tier follows the whole candidate, not the difference.
+
+A review closes on a tree: the last reviewed candidate, or that candidate with the
+wording fixes of the second case applied. Callers commit the closing tree.
 
 ## Report
 
-State: base and candidate IDs; coverage (complete, partial, or not reviewed);
+State: base and candidate IDs; when the closing tree is not the last reviewed tree,
+both IDs and that they differ by wording fixes only; coverage (complete, partial, or not reviewed);
 reviewer count with the reason; lenses run and skipped; each finding with its
 disposition; what remains unresolved. Keep tests and review apart. Complete describes
 coverage, not the absence of defects.
