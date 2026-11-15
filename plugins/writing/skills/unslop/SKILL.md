@@ -1,7 +1,6 @@
 ---
 name: unslop
-description: Cut AI tells from any writing.
-disable-model-invocation: true
+description: "Remove AI writing patterns from human-facing prose: README files, guides, design documents, decision records, requirements, reference documentation, changelogs, release notes. Use when writing or editing such text, or when asked to unslop or de-AI a text. Not for agent-facing files (AGENTS.md, CLAUDE.md, skills, agent definitions, prompts) or working records (trackers, plans, notes)."
 metadata:
   version: "2026-11-15"
 ---
@@ -9,6 +8,23 @@ metadata:
 # Unslop
 
 Edit text to remove AI patterns. Scan for the patterns below, then rewrite. Preserve meaning and match the intended tone.
+
+## Scope
+
+Apply the rules to prose whose first reader is a person:
+
+- README files, guides, and tutorials.
+- Design documents, decision records, requirements, and reference documentation.
+- Changelogs and release notes.
+- Any text the user hands over and asks to clean up. An explicit request overrides the exclusions below.
+
+Do not apply them to:
+
+- Text an agent loads as instructions or context: `AGENTS.md`, `CLAUDE.md`, skill files and their references, agent definitions, prompts.
+- Working records: progress trackers, plans, notes, handoffs. Their compression is deliberate.
+- Code, code blocks, command output, quoted text, and generated files.
+
+A style the repository documents overrides a rule here.
 
 ## Patterns to detect and fix
 

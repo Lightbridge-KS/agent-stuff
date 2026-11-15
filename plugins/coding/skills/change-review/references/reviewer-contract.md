@@ -11,14 +11,16 @@ The main agent owns decisions, fixes, verification, and delivery.
 - Base object ID and candidate tree ID.
 - Intended outcome, approved constraints, relevant design references.
 - Assigned lenses, with the path to each lens file.
-- Lens inputs: both reproducibility skill files; the spec text or path.
+- Lens inputs: both reproducibility skill files; the spec text or path; the `unslop`
+  skill file for the prose lens.
 - On a re-review: the previous candidate ID, and the prior findings with their
   dispositions. Prior findings without a previous candidate ID are context for a
   full review against the base.
 
 Read every assigned lens file first. A missing input, an unreadable path, or an
 object that does not resolve makes the review partial: say what is missing and
-review what remains.
+review what remains. One exception: an unreadable `unslop` skill file skips the prose
+lens and leaves the review complete.
 
 ## Review the candidate
 

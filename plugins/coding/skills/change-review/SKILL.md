@@ -1,6 +1,6 @@
 ---
 name: change-review
-description: "Review a candidate change — staged work, a branch, or a pull request — with fresh-context reviewer subagents across four lenses (correctness, reproducibility, spec, standards). Findings return to the main agent, which owns every decision. Use before committing durable work (the `pr` skill calls this) or when asked for a change review of a branch, a PR, or 'since X'. Claude Code and Codex."
+description: "Review a candidate change — staged work, a branch, or a pull request — with fresh-context reviewer subagents across five lenses (correctness, reproducibility, spec, standards, prose). Findings return to the main agent, which owns every decision. Use before committing durable work (the `pr` skill calls this) or when asked for a change review of a branch, a PR, or 'since X'. Claude Code and Codex."
 metadata:
   version: "2026-11-15"
 ---
@@ -43,10 +43,16 @@ working tree or the index.
 | reproducibility | always, within the scope above | [reproducibility](references/lenses/reproducibility.md) |
 | spec | a spec source resolves | [spec](references/lenses/spec.md) |
 | standards | the repository documents how code or docs are written | [standards](references/lenses/standards.md) |
+| prose | the change adds or edits human-facing prose, and the `unslop` skill is installed | [prose](references/lenses/prose.md) |
 
 **Documentation-only** means no changed file is executed, parsed by a machine, or
 loaded as agent instructions. Skill files, agent definitions, `AGENTS.md`,
 configuration, and CI files are not documentation-only.
+
+**Human-facing prose** is what the *Scope* section of the `unslop` skill says it is:
+documents whose first reader is a person. Agent instructions and working records are
+out. `unslop` ships in another plugin; when it is not installed, skip the lens as
+`unslop skill not available`.
 
 **Spec source**, first match: issue or ticket references in the branch name or commit
 messages; a path or text the caller passes; a requirements document or tracker
@@ -61,7 +67,7 @@ of a diff misses defects that cross files.
 |---|---|
 | 1 — default | all assigned lenses |
 | 2 | correctness / the rest |
-| one per lens | at most four, never more than the assigned lenses |
+| one per lens | at most four: `prose` shares a reviewer with `standards`, or with another lens when `standards` is not assigned; never more reviewers than assigned lenses |
 
 You choose the count. Anchors, from `git diff --shortstat <base> <candidate>`: up to
 about 400 changed lines → 1; up to about 1500 → 2; above → one per lens. A one-way-door
@@ -99,6 +105,7 @@ The packet, and nothing else:
   this skill's installed directory.
 - Reproducibility lens: the absolute paths to the `reproducible-codebase` and
   `write-for-the-clone` skill files.
+- Prose lens: the absolute path to the `unslop` skill file.
 - Spec lens: the spec text, or its path.
 - On a re-review: the previous candidate ID, and the prior findings with their
   dispositions.
