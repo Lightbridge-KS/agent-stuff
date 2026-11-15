@@ -94,6 +94,14 @@
       ]
     },
     {
+      "name": "writing",
+      "displayName": "Writing",
+      "source": "./plugins/writing",
+      "description": "Writing craft — draft, edit, and review prose for a named audience and register.",
+      "category": "productivity",
+      "tags": ["writing", "prose", "editing"]
+    },
+    {
       "name": "experiment",
       "displayName": "Experiment",
       "source": "./plugins/experiment",
