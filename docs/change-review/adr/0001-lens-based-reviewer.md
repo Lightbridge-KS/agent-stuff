@@ -27,11 +27,15 @@ After:
   `change-reviewer-codex-docs` (TOML, Codex). The names differ because the validator
   and the installer reject one name defined in two formats
   ([native-agent decision](../../installer/adr/0001-native-agent-formats.md)).
-- The reviewer contract (packet, finding schema, return format) and four lenses —
-  correctness, reproducibility, spec, standards — are files in the skill. The
-  reviewer reads them from paths in the packet.
+- The reviewer contract (packet, finding schema, return format) and five lenses are files
+  in the skill: correctness, reproducibility, spec, standards, and prose. The reviewer
+  reads them from paths in the packet.
+- The prose lens applies the rules of the `unslop` skill to human-facing prose. That
+  skill defines the scope and ships in another plugin, so the main agent
+  skips the lens when `unslop` is not installed.
 - One reviewer covers all applicable lenses by default. The main agent scales to at
-  most one reviewer per lens for a large or one-way-door change.
+  most four reviewers for a large or one-way-door change; the prose lens
+  shares a reviewer with another lens.
 - The model tier follows the change: the stronger family by default, the cheaper
   family when the change is documentation only.
 
@@ -41,8 +45,8 @@ review pauses the commit.
 
 ## Why
 
-- A lens-specific agent does not scale: four lenses on two harnesses would need
-  eight near-identical files, each repeating the authority and the finding schema.
+- A lens-specific agent does not scale: five lenses on two harnesses would need
+  ten near-identical files, each repeating the authority and the finding schema.
 - Native agent files are not converted between formats
   ([native-agent decision](../../installer/adr/0001-native-agent-formats.md)). Text
   that both harnesses need must therefore live outside the agent files, or it drifts.
