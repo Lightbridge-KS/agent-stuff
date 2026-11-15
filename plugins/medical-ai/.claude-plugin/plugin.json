@@ -9,5 +9,5 @@
   "homepage": "https://github.com/Lightbridge-KS/agent-stuff",
   "repository": "https://github.com/Lightbridge-KS/agent-stuff",
   "license": "MIT",
-  "keywords": ["medical-ai", "clinical-ai", "medlog", "logging", "governance"]
+  "keywords": ["medical-ai", "clinical-ai", "medlog", "logging", "governance", "samd", "log-retention", "audit-trail"]
 }

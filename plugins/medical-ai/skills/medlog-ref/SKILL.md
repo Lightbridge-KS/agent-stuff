@@ -2,11 +2,12 @@
 name: medlog-ref
 description: >-
   Reference for the MedLog protocol — event-level logging of clinical AI: record fields,
-  write-once event endpoints, enums, instrumentation and audit. Use whenever MedLog is
-  mentioned, when designing or reviewing logging/audit trails for a deployed clinical AI
-  model, or when asked to emit, parse, or assess a MedLog record.
+  write-once event endpoints, enums, instrumentation and conformance. Use whenever MedLog
+  is mentioned, or when asked to emit, parse, validate, or assess a MedLog record. For the
+  whole logging system of an AI medical-device app (ops logs, audit trail, retention), use
+  `aisamd-logging-guide`.
 metadata:
-  version: "2026-08-15"
+  version: "2026-11-15"
 ---
 
 # MedLog Protocol Reference
