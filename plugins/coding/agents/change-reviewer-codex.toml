@@ -8,7 +8,7 @@ files. Returns findings to the main agent and makes no changes. Spawn with no
 inherited conversation history.
 """
 # Default tier. Use a catalog model ID; no rolling family alias is verified.
-model = "gpt-6.1-sol"
+model = "gpt-6.2-sol"
 model_reasoning_effort = "xhigh"
 
 developer_instructions = """
